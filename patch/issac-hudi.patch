@@ -1,0 +1,373 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml	(revision 5976a5193030ee3d280dcbd3378e29fe8f3d85cd)
++++ b/pom.xml	(date 1676127186759)
+@@ -115,9 +115,9 @@
+     <log4j2.version>2.17.2</log4j2.version>
+     <slf4j.version>1.7.36</slf4j.version>
+     <joda.version>2.9.9</joda.version>
+-    <hadoop.version>2.10.1</hadoop.version>
++    <hadoop.version>3.2.4</hadoop.version>
+     <hive.groupid>org.apache.hive</hive.groupid>
+-    <hive.version>2.3.1</hive.version>
++    <hive.version>3.1.3</hive.version>
+     <hive.parquet.version>1.10.1</hive.parquet.version>
+     <hive.avro.version>1.8.2</hive.avro.version>
+     <presto.version>0.273</presto.version>
+@@ -130,12 +130,12 @@
+     <prometheus.version>0.8.0</prometheus.version>
+     <http.version>4.4.1</http.version>
+     <spark.version>${spark2.version}</spark.version>
+-    <spark2.version>2.4.4</spark2.version>
+-    <spark3.version>3.3.1</spark3.version>
++    <spark2.version>2.4.6</spark2.version>
++    <spark3.version>3.2.3</spark3.version>
+     <sparkbundle.version></sparkbundle.version>
+-    <flink1.16.version>1.16.0</flink1.16.version>
+-    <flink1.15.version>1.15.1</flink1.15.version>
+-    <flink1.14.version>1.14.5</flink1.14.version>
++    <flink1.16.version>1.16.1</flink1.16.version>
++    <flink1.15.version>1.15.3</flink1.15.version>
++    <flink1.14.version>1.14.6</flink1.14.version>
+     <flink1.13.version>1.13.6</flink1.13.version>
+     <flink.version>${flink1.16.version}</flink.version>
+     <hudi.flink.module>hudi-flink1.16.x</hudi.flink.module>
+@@ -1675,6 +1675,17 @@
+     </dependencies>
+   </dependencyManagement>
+   <repositories>
++    <repository>
++        <id>nexus-aliyun</id>
++        <name>Nexus aliyun</name>
++        <url>http://maven.aliyun.com/nexus/content/groups/public</url>
++        <releases>
++          <enabled>true</enabled>
++        </releases>
++        <snapshots>
++          <enabled>false</enabled>
++        </snapshots>
++    </repository>
+     <repository>
+       <id>Maven Central</id>
+       <name>Maven Repository</name>
+Index: style/checkstyle.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/style/checkstyle.xml b/style/checkstyle.xml
+--- a/style/checkstyle.xml	(revision 5976a5193030ee3d280dcbd3378e29fe8f3d85cd)
++++ b/style/checkstyle.xml	(date 1676131527247)
+@@ -264,7 +264,7 @@
+         <module name="EmptyCatchBlock">
+             <property name="exceptionVariableName" value="expected"/>
+         </module>
+-        <module name="CommentsIndentation"/>
++        <!--<module name="CommentsIndentation"/>-->
+         <module name="IllegalImport">
+             <property name="regexp" value="true"/>
+             <property name="illegalPkgs" value="org\.apache\.commons, com\.google\.common"/>
+Index: packaging/hudi-utilities-bundle/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packaging/hudi-utilities-bundle/pom.xml b/packaging/hudi-utilities-bundle/pom.xml
+--- a/packaging/hudi-utilities-bundle/pom.xml	(revision 5976a5193030ee3d280dcbd3378e29fe8f3d85cd)
++++ b/packaging/hudi-utilities-bundle/pom.xml	(date 1676126980177)
+@@ -296,6 +296,22 @@
+           <groupId>org.apache.hbase</groupId>
+           <artifactId>*</artifactId>
+         </exclusion>
++        <exclusion>
++          <groupId>com.google.guava</groupId>
++          <artifactId>guava</artifactId>
++        </exclusion>
++        <exclusion>
++          <artifactId>servlet-api</artifactId>
++          <groupId>javax.servlet</groupId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.pentaho</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
+       </exclusions>
+     </dependency>
+ 
+@@ -311,6 +327,20 @@
+       <artifactId>hive-jdbc</artifactId>
+       <version>${hive.version}</version>
+       <scope>${utilities.bundle.hive.scope}</scope>
++      <exclusions>
++        <exclusion>
++          <groupId>javax.servlet</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet.jsp</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++      </exclusions>
+     </dependency>
+ 
+     <dependency>
+@@ -322,6 +352,22 @@
+         <exclusion>
+           <groupId>org.apache.hbase</groupId>
+           <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>com.google.guava</groupId>
++          <artifactId>guava</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet.jsp</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.datanucleus</groupId>
++          <artifactId>datanucleus-core</artifactId>
+         </exclusion>
+       </exclusions>
+     </dependency>
+@@ -331,8 +377,40 @@
+       <artifactId>hive-common</artifactId>
+       <version>${hive.version}</version>
+       <scope>${utilities.bundle.hive.scope}</scope>
++      <exclusions>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty.orbit</groupId>
++          <artifactId>javax.servlet</artifactId>
++        </exclusion>
++      </exclusions>
++    </dependency>
++  
++    <!-- 增加 Hudi 配置的 jetty 版本 -->
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-server</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-util</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-webapp</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-http</artifactId>
++      <version>${jetty.version}</version>
+     </dependency>
+-
++    
+     <dependency>
+       <groupId>org.apache.htrace</groupId>
+       <artifactId>htrace-core</artifactId>
+Index: hudi-hadoop-mr/src/main/java/org/apache/hudi/hadoop/utils/HiveAvroSerializer.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/hudi-hadoop-mr/src/main/java/org/apache/hudi/hadoop/utils/HiveAvroSerializer.java b/hudi-hadoop-mr/src/main/java/org/apache/hudi/hadoop/utils/HiveAvroSerializer.java
+--- a/hudi-hadoop-mr/src/main/java/org/apache/hudi/hadoop/utils/HiveAvroSerializer.java	(revision 5976a5193030ee3d280dcbd3378e29fe8f3d85cd)
++++ b/hudi-hadoop-mr/src/main/java/org/apache/hudi/hadoop/utils/HiveAvroSerializer.java	(date 1676131543215)
+@@ -39,9 +39,6 @@
+ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
+ import org.apache.hadoop.hive.serde2.objectinspector.UnionObjectInspector;
+-import org.apache.hadoop.hive.serde2.objectinspector.primitive.DateObjectInspector;
+-import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
+-import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableDateObjectInspector;
+ import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+ import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+@@ -54,6 +51,7 @@
+ import org.apache.log4j.Logger;
+ 
+ import java.math.BigDecimal;
++import java.sql.Date;
+ import java.sql.Timestamp;
+ import java.util.ArrayList;
+ import java.util.LinkedHashMap;
+@@ -279,8 +277,7 @@
+         if (schema.getType() == Schema.Type.BYTES) {
+           return AvroSerdeUtils.getBufferFromBytes((byte[])fieldOI.getPrimitiveJavaObject(structFieldData));
+         } else if (schema.getType() == Schema.Type.FIXED) {
+-          GenericData.Fixed fixed = new GenericData.Fixed(schema, (byte[])fieldOI.getPrimitiveJavaObject(structFieldData));
+-          return fixed;
++          return new GenericData.Fixed(schema, (byte[])fieldOI.getPrimitiveJavaObject(structFieldData));
+         } else {
+           throw new HoodieException("Unexpected Avro schema for Binary TypeInfo: " + schema.getType());
+         }
+@@ -299,16 +296,22 @@
+         String string = (String)fieldOI.getPrimitiveJavaObject(structFieldData);
+         return new Utf8(string);
+       case DATE:
+-        return DateWritable.dateToDays(((DateObjectInspector)fieldOI).getPrimitiveJavaObject(structFieldData));
++        // return DateWritable.dateToDays(((DateObjectInspector)fieldOI).getPrimitiveJavaObject(structFieldData));
++        Date primitiveJavaObject = (Date) fieldOI.getPrimitiveJavaObject(structFieldData);
++        return DateWritable.dateToDays(primitiveJavaObject);
+       case TIMESTAMP:
+-        Timestamp timestamp =
+-            ((TimestampObjectInspector) fieldOI).getPrimitiveJavaObject(structFieldData);
++        // Timestamp timestamp = ((TimestampObjectInspector) fieldOI).getPrimitiveJavaObject(structFieldData);
++        Timestamp timestamp = (Timestamp) fieldOI.getPrimitiveJavaObject(structFieldData);
+         return timestamp.getTime();
+       case INT:
+-        if (schema.getLogicalType() != null && schema.getLogicalType().getName().equals("date")) {
+-          return DateWritable.dateToDays(new WritableDateObjectInspector().getPrimitiveJavaObject(structFieldData));
+-        }
+-        return fieldOI.getPrimitiveJavaObject(structFieldData);
++        // if (schema.getLogicalType() != null && schema.getLogicalType().getName().equals("date")) {
++          // org.apache.hadoop.hive.common.type.Date po = new WritableDateObjectInspector().getPrimitiveJavaObject(structFieldData);
++          // return DateWritable.dateToDays(po);
++          
++          // return DateWritable.dateToDays(new WritableDateObjectInspector().getPrimitiveJavaObject(structFieldData));
++        // }
++        
++        return (Date) fieldOI.getPrimitiveJavaObject(structFieldData);
+       case UNKNOWN:
+         throw new HoodieException("Received UNKNOWN primitive category.");
+       case VOID:
+Index: packaging/hudi-spark-bundle/pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/packaging/hudi-spark-bundle/pom.xml b/packaging/hudi-spark-bundle/pom.xml
+--- a/packaging/hudi-spark-bundle/pom.xml	(revision 5976a5193030ee3d280dcbd3378e29fe8f3d85cd)
++++ b/packaging/hudi-spark-bundle/pom.xml	(date 1676126975025)
+@@ -274,8 +274,20 @@
+       <scope>${spark.bundle.hive.scope}</scope>
+       <exclusions>
+         <exclusion>
++          <groupId>com.google.guava</groupId>
++          <artifactId>guava</artifactId>
++        </exclusion>
++        <exclusion>
+           <artifactId>servlet-api</artifactId>
+           <groupId>javax.servlet</groupId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.pentaho</groupId>
++          <artifactId>*</artifactId>
+         </exclusion>
+       </exclusions>
+     </dependency>
+@@ -292,6 +304,20 @@
+       <artifactId>hive-jdbc</artifactId>
+       <version>${hive.version}</version>
+       <scope>${spark.bundle.hive.scope}</scope>
++      <exclusions>
++        <exclusion>
++          <groupId>javax.servlet</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet.jsp</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++      </exclusions>
+     </dependency>
+ 
+     <dependency>
+@@ -299,6 +325,24 @@
+       <artifactId>hive-metastore</artifactId>
+       <version>${hive.version}</version>
+       <scope>${spark.bundle.hive.scope}</scope>
++      <exclusions>
++        <exclusion>
++          <groupId>com.google.guava</groupId>
++          <artifactId>guava</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>javax.servlet.jsp</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.datanucleus</groupId>
++          <artifactId>datanucleus-core</artifactId>
++        </exclusion>
++      </exclusions>
+     </dependency>
+ 
+     <dependency>
+@@ -306,8 +350,40 @@
+       <artifactId>hive-common</artifactId>
+       <version>${hive.version}</version>
+       <scope>${spark.bundle.hive.scope}</scope>
++      <exclusions>
++        <exclusion>
++          <groupId>org.eclipse.jetty</groupId>
++          <artifactId>*</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.eclipse.jetty.orbit</groupId>
++          <artifactId>javax.servlet</artifactId>
++        </exclusion>
++      </exclusions>
++    </dependency>
++
++    <!-- 增加 Hudi 配置的 jetty 版本 -->
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-server</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-util</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-webapp</artifactId>
++      <version>${jetty.version}</version>
++    </dependency>
++      <dependency>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-http</artifactId>
++      <version>${jetty.version}</version>
+     </dependency>
+-
++    
+     <!-- zookeeper -->
+     <dependency>
+       <groupId>org.apache.curator</groupId>

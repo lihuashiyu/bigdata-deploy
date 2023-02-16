@@ -1,0 +1,4028 @@
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DoubleColumnStatsAggregator.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DoubleColumnStatsAggregator.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DoubleColumnStatsAggregator.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DoubleColumnStatsAggregator.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DoubleColumnStatsAggregator.java	(date 1666966498503)
+@@ -37,6 +37,8 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.doubleInspectorFromStats;
++
+ public class DoubleColumnStatsAggregator extends ColumnStatsAggregator implements
+     IExtrapolatePartStatus {
+ 
+@@ -63,7 +65,7 @@
+             doAllPartitionContainStats);
+       }
+       DoubleColumnStatsDataInspector doubleColumnStatsData =
+-          (DoubleColumnStatsDataInspector) cso.getStatsData().getDoubleStats();
++          doubleInspectorFromStats(cso);
+       if (doubleColumnStatsData.getNdvEstimator() == null) {
+         ndvEstimator = null;
+         break;
+@@ -95,8 +97,7 @@
+       double densityAvgSum = 0.0;
+       for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+         ColumnStatisticsObj cso = csp.getColStatsObj();
+-        DoubleColumnStatsDataInspector newData =
+-            (DoubleColumnStatsDataInspector) cso.getStatsData().getDoubleStats();
++        DoubleColumnStatsDataInspector newData = doubleInspectorFromStats(cso);
+         lowerBound = Math.max(lowerBound, newData.getNumDVs());
+         higherBound += newData.getNumDVs();
+         densityAvgSum += (newData.getHighValue() - newData.getLowValue()) / newData.getNumDVs();
+@@ -173,7 +174,7 @@
+           ColumnStatisticsObj cso = csp.getColStatsObj();
+           String partName = csp.getPartName();
+           DoubleColumnStatsDataInspector newData =
+-              (DoubleColumnStatsDataInspector) cso.getStatsData().getDoubleStats();
++              doubleInspectorFromStats(cso);
+           // newData.isSetBitVectors() should be true for sure because we
+           // already checked it before.
+           if (indexMap.get(partName) != curIndex) {
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/pom.xml	(date 1674057235771)
+@@ -12,1533 +12,1545 @@
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ -->
+-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+-  <modelVersion>4.0.0</modelVersion>
+-  <parent>
+-    <groupId>org.apache</groupId>
+-    <artifactId>apache</artifactId>
+-    <version>18</version>
+-  </parent>
+-  <groupId>org.apache.hive</groupId>
+-  <artifactId>hive</artifactId>
+-  <version>3.1.3</version>
+-  <packaging>pom</packaging>
+-
+-  <name>Hive</name>
+-  <url>https://hive.apache.org</url>
+-  <prerequisites>
+-    <maven>2.2.1</maven>
+-  </prerequisites>
+-
+-  <modules>
+-    <module>accumulo-handler</module>
+-    <module>vector-code-gen</module>
+-    <module>beeline</module>
+-    <module>classification</module>
+-    <module>cli</module>
+-    <module>common</module>
+-    <module>contrib</module>
+-    <module>druid-handler</module>
+-    <module>hbase-handler</module>
+-    <module>jdbc-handler</module>
+-    <module>hcatalog</module>
+-    <module>hplsql</module>
+-    <module>jdbc</module>
+-    <module>metastore</module>
+-    <module>ql</module>
+-    <module>serde</module>
+-    <module>service-rpc</module>
+-    <module>service</module>
+-    <module>streaming</module>
+-    <module>llap-common</module>
+-    <module>llap-client</module>
+-    <module>llap-ext-client</module>
+-    <module>llap-tez</module>
+-    <module>llap-server</module>
+-    <module>shims</module>
+-    <module>spark-client</module>
+-    <module>kryo-registrator</module>
+-    <module>testutils</module>
+-    <module>packaging</module>
+-    <module>standalone-metastore</module>
+-    <module>upgrade-acid</module>
+-  </modules>
+-
+-  <properties>
+-    <hive.version.shortname>3.1.0</hive.version.shortname>
+-
+-    <!-- Build Properties -->
+-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+-    <maven.compiler.source>1.8</maven.compiler.source>
+-    <maven.compiler.target>1.8</maven.compiler.target>
+-    <maven.compiler.useIncrementalCompilation>false</maven.compiler.useIncrementalCompilation>
+-    <maven.repo.local>${settings.localRepository}</maven.repo.local>
+-    <hive.path.to.root>.</hive.path.to.root>
+-    <hive.jdbc.driver.classifier>standalone</hive.jdbc.driver.classifier>
+-    <checkstyle.conf.dir>${basedir}/${hive.path.to.root}/checkstyle</checkstyle.conf.dir>
+-
+-    <!-- Test Properties -->
+-    <test.extra.path></test.extra.path>
+-    <test.hive.hadoop.classpath>${maven.test.classpath}</test.hive.hadoop.classpath>
+-    <test.log4j.scheme>file://</test.log4j.scheme>
+-    <test.tmp.dir>${project.build.directory}/tmp</test.tmp.dir>
+-    <test.conf.dir>${project.build.directory}/testconf</test.conf.dir>
+-    <test.tmp.dir.uri>file://${test.tmp.dir}</test.tmp.dir.uri>
+-    <!-- Determines the log level of the console logger, hive.log is independent of this-->
+-    <test.console.log.level>INFO</test.console.log.level>
+-    <test.warehouse.dir>${project.build.directory}/warehouse</test.warehouse.dir>
+-    <test.warehouse.scheme>pfile://</test.warehouse.scheme>
+-
+-    <!-- To add additional exclude patterns set this property -->
+-    <test.excludes.additional></test.excludes.additional>
+-    <skip.spark.files></skip.spark.files>
+-
+-    <!-- Plugin and Plugin Dependency Versions -->
+-    <ant.contrib.version>1.0b3</ant.contrib.version>
+-    <datanucleus.maven.plugin.version>3.3.0-release</datanucleus.maven.plugin.version>
+-    <maven.test.jvm.args>-Xmx2048m</maven.test.jvm.args>
+-    <maven.antrun.plugin.version>1.7</maven.antrun.plugin.version>
+-    <maven.assembly.plugin.version>2.3</maven.assembly.plugin.version>
+-    <maven.checkstyle.plugin.version>2.17</maven.checkstyle.plugin.version>
+-    <maven.compiler.plugin.version>3.6.1</maven.compiler.plugin.version>
+-    <maven.enforcer.plugin.version>1.3.1</maven.enforcer.plugin.version>
+-    <maven.install.plugin.version>2.4</maven.install.plugin.version>
+-    <maven.jar.plugin.version>2.4</maven.jar.plugin.version>
+-    <maven.javadoc.plugin.version>2.4</maven.javadoc.plugin.version>
+-    <maven.shade.plugin.version>3.1.0</maven.shade.plugin.version>
+-    <maven.surefire.plugin.version>2.21.0</maven.surefire.plugin.version>
+-    <maven.war.plugin.version>2.4</maven.war.plugin.version>
+-    <maven.dependency.plugin.version>2.8</maven.dependency.plugin.version>
+-    <maven.eclipse.plugin.version>2.9</maven.eclipse.plugin.version>
+-    <maven.build-helper.plugin.version>1.8</maven.build-helper.plugin.version>
+-
+-    <!-- Library Dependency Versions -->
+-    <accumulo.version>1.7.3</accumulo.version>
+-    <activemq.version>5.5.0</activemq.version>
+-    <ant.version>1.9.1</ant.version>
+-    <antlr.version>3.5.2</antlr.version>
+-    <apache-directory-server.version>1.5.6</apache-directory-server.version>
+-    <apache-directory-clientapi.version>0.1</apache-directory-clientapi.version>
+-    <!-- Include arrow for LlapOutputFormatService -->
+-    <arrow.version>0.8.0</arrow.version>
+-    <avatica.version>1.11.0</avatica.version>
+-    <avro.version>1.8.2</avro.version>
+-    <bonecp.version>0.8.0.RELEASE</bonecp.version>
+-    <calcite.version>1.16.0</calcite.version>
+-    <datanucleus-api-jdo.version>4.2.4</datanucleus-api-jdo.version>
+-    <datanucleus-core.version>4.1.17</datanucleus-core.version>
+-    <datanucleus-rdbms.version>4.1.19</datanucleus-rdbms.version>
+-    <datanucleus-jdo.version>3.2.0-m3</datanucleus-jdo.version>
+-    <commons-cli.version>1.2</commons-cli.version>
+-    <commons-codec.version>1.15</commons-codec.version>
+-    <commons-collections.version>3.2.2</commons-collections.version>
+-    <commons-compress.version>1.19</commons-compress.version>
+-    <commons-exec.version>1.1</commons-exec.version>
+-    <commons-io.version>2.6</commons-io.version>
+-    <commons-lang.version>2.6</commons-lang.version>
+-    <commons-lang3.version>3.9</commons-lang3.version>
+-    <commons-pool.version>1.5.4</commons-pool.version>
+-    <commons-dbcp.version>1.4</commons-dbcp.version>
+-    <derby.version>10.14.1.0</derby.version>
+-    <dropwizard.version>3.1.0</dropwizard.version>
+-    <dropwizard-metrics-hadoop-metrics2-reporter.version>0.1.2</dropwizard-metrics-hadoop-metrics2-reporter.version>
+-    <druid.version>0.12.0</druid.version>
+-    <flatbuffers.version>1.2.0-3f79e055</flatbuffers.version>
+-    <guava.version>19.0</guava.version>
+-    <groovy.version>2.4.11</groovy.version>
+-    <h2database.version>1.3.166</h2database.version>
+-    <hadoop.version>3.1.0</hadoop.version>
+-    <hadoop.bin.path>${basedir}/${hive.path.to.root}/testutils/hadoop</hadoop.bin.path>
+-    <hamcrest.version>1.3</hamcrest.version>
+-    <hbase.version>2.0.0-alpha4</hbase.version>
+-    <hppc.version>0.7.2</hppc.version>
+-    <!-- required for logging test to avoid including hbase which pulls disruptor transitively -->
+-    <disruptor.version>3.3.7</disruptor.version>
+-    <hikaricp.version>2.6.1</hikaricp.version>
+-    <!-- httpcomponents are not always in version sync -->
+-    <httpcomponents.client.version>4.5.13</httpcomponents.client.version>
+-    <httpcomponents.core.version>4.4.13</httpcomponents.core.version>
+-    <ivy.version>2.4.0</ivy.version>
+-    <jackson.version>2.12.0</jackson.version>
+-    <jamon.plugin.version>2.3.4</jamon.plugin.version>
+-    <jamon-runtime.version>2.3.1</jamon-runtime.version>
+-    <javaewah.version>0.3.2</javaewah.version>
+-    <javax-servlet.version>3.1.0</javax-servlet.version>
+-    <javax-servlet-jsp.version>2.3.1</javax-servlet-jsp.version>
+-    <javolution.version>5.5.1</javolution.version>
+-    <jdo-api.version>3.0.1</jdo-api.version>
+-    <jettison.version>1.1</jettison.version>
+-    <jetty.version>9.3.20.v20170531</jetty.version>
+-    <jersey.version>1.19</jersey.version>
+-    <!-- Glassfish jersey is included for Spark client test only -->
+-    <glassfish.jersey.version>2.22.2</glassfish.jersey.version>
+-    <jline.version>2.12</jline.version>
+-    <jms.version>2.0.2</jms.version>
+-    <joda.version>2.9.9</joda.version>
+-    <jodd.version>3.5.2</jodd.version>
+-    <json.version>1.8</json.version>
+-    <junit.version>4.11</junit.version>
+-    <kryo.version>3.0.3</kryo.version>
+-    <libfb303.version>0.9.3</libfb303.version>
+-    <libthrift.version>0.9.3</libthrift.version>
+-    <log4j2.version>2.17.1</log4j2.version>
+-    <opencsv.version>2.3</opencsv.version>
+-    <orc.version>1.5.8</orc.version>
+-    <mockito-all.version>1.10.19</mockito-all.version>
+-    <mina.version>2.0.0-M5</mina.version>
+-    <netty.version>4.1.17.Final</netty.version>
+-    <netty3.version>3.10.5.Final</netty3.version>
+-    <parquet.version>1.10.0</parquet.version>
+-    <pig.version>0.16.0</pig.version>
+-    <plexus.version>1.5.6</plexus.version>
+-    <protobuf.version>2.5.0</protobuf.version>
+-    <stax.version>1.0.1</stax.version>
+-    <slf4j.version>1.7.10</slf4j.version>
+-    <ST4.version>4.0.4</ST4.version>
+-    <storage-api.version>2.7.0</storage-api.version>
+-    <tez.version>0.9.1</tez.version>
+-    <super-csv.version>2.2.0</super-csv.version>
+-    <spark.version>2.3.0</spark.version>
+-    <scala.binary.version>2.11</scala.binary.version>
+-    <scala.version>2.11.8</scala.version>
+-    <tempus-fugit.version>1.1</tempus-fugit.version>
+-    <snappy.version>1.1.4</snappy.version>
+-    <wadl-resourcedoc-doclet.version>1.4</wadl-resourcedoc-doclet.version>
+-    <velocity.version>2.3</velocity.version>
+-    <xerces.version>2.9.1</xerces.version>
+-    <zookeeper.version>3.4.6</zookeeper.version>
+-    <jpam.version>1.1</jpam.version>
+-    <felix.version>2.4.0</felix.version>
+-    <curator.version>2.12.0</curator.version>
+-    <jsr305.version>3.0.0</jsr305.version>
+-    <tephra.version>0.6.0</tephra.version>
+-    <gson.version>2.2.4</gson.version>
+-  </properties>
+-
+-  <repositories>
+-    <repository>
+-      <id>central</id>
+-      <name>central</name>
+-      <url>https://repo.maven.apache.org/maven2</url>
+-      <layout>default</layout>
+-      <releases>
+-        <enabled>true</enabled>
+-        <checksumPolicy>warn</checksumPolicy>
+-      </releases>
+-    </repository>
+-  </repositories>
+-
+-  <dependencyManagement>
+-    <dependencies>
+-      <!-- dependencies are always listed in sorted order by groupId, artifectId -->
+-      <dependency>
+-        <groupId>com.esotericsoftware</groupId>
+-        <artifactId>kryo-shaded</artifactId>
+-        <version>${kryo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.google.guava</groupId>
+-        <artifactId>guava</artifactId>
+-        <version>${guava.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.google.protobuf</groupId>
+-        <artifactId>protobuf-java</artifactId>
+-        <version>${protobuf.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.google.code.tempus-fugit</groupId>
+-        <artifactId>tempus-fugit</artifactId>
+-        <version>${tempus-fugit.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.hamcrest</groupId>
+-            <artifactId>hamcrest-core</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.googlecode.javaewah</groupId>
+-        <artifactId>JavaEWAH</artifactId>
+-        <version>${javaewah.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.jolbox</groupId>
+-        <artifactId>bonecp</artifactId>
+-        <version>${bonecp.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.zaxxer</groupId>
+-        <artifactId>HikariCP</artifactId>
+-        <version>${hikaricp.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.parquet</groupId>
+-        <artifactId>parquet</artifactId>
+-        <version>${parquet.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.parquet</groupId>
+-        <artifactId>parquet-column</artifactId>
+-        <version>${parquet.version}</version>
+-        <classifier>tests</classifier>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.sun.jersey</groupId>
+-        <artifactId>jersey-core</artifactId>
+-        <version>${jersey.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.sun.jersey</groupId>
+-        <artifactId>jersey-json</artifactId>
+-        <version>${jersey.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.sun.jersey</groupId>
+-        <artifactId>jersey-server</artifactId>
+-        <version>${jersey.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.sun.jersey.contribs</groupId>
+-        <artifactId>wadl-resourcedoc-doclet</artifactId>
+-        <version>${wadl-resourcedoc-doclet.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.sun.jersey</groupId>
+-        <artifactId>jersey-servlet</artifactId>
+-        <version>${jersey.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>commons-cli</groupId>
+-        <artifactId>commons-cli</artifactId>
+-        <version>${commons-cli.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>commons-codec</groupId>
+-        <artifactId>commons-codec</artifactId>
+-        <version>${commons-codec.version}</version>
+-      </dependency>
+-       <dependency>
+-        <groupId>commons-collections</groupId>
+-        <artifactId>commons-collections</artifactId>
+-        <version>${commons-collections.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>commons-io</groupId>
+-        <artifactId>commons-io</artifactId>
+-        <version>${commons-io.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>commons-lang</groupId>
+-        <artifactId>commons-lang</artifactId>
+-        <version>${commons-lang.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>io.netty</groupId>
+-        <artifactId>netty-all</artifactId>
+-        <version>${netty.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>javax.jdo</groupId>
+-        <artifactId>jdo-api</artifactId>
+-        <version>${jdo-api.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>javax.jms</groupId>
+-        <artifactId>jms</artifactId>
+-        <version>${jms.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>javolution</groupId>
+-        <artifactId>javolution</artifactId>
+-        <version>${javolution.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>jline</groupId>
+-        <artifactId>jline</artifactId>
+-        <version>${jline.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>junit</groupId>
+-        <artifactId>junit</artifactId>
+-        <version>${junit.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.logging.log4j</groupId>
+-        <artifactId>log4j-1.2-api</artifactId>
+-        <version>${log4j2.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.logging.log4j</groupId>
+-        <artifactId>log4j-web</artifactId>
+-        <version>${log4j2.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.logging.log4j</groupId>
+-        <artifactId>log4j-slf4j-impl</artifactId>
+-        <version>${log4j2.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.antlr</groupId>
+-        <artifactId>antlr-runtime</artifactId>
+-        <version>${antlr.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.antlr</groupId>
+-        <artifactId>ST4</artifactId>
+-        <version>${ST4.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.commons</groupId>
+-        <artifactId>commons-compress</artifactId>
+-        <version>${commons-compress.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.commons</groupId>
+-        <artifactId>commons-exec</artifactId>
+-        <version>${commons-exec.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.accumulo</groupId>
+-        <artifactId>accumulo-core</artifactId>
+-        <version>${accumulo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.accumulo</groupId>
+-        <artifactId>accumulo-fate</artifactId>
+-        <version>${accumulo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.accumulo</groupId>
+-        <artifactId>accumulo-minicluster</artifactId>
+-        <version>${accumulo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.accumulo</groupId>
+-        <artifactId>accumulo-start</artifactId>
+-        <version>${accumulo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.accumulo</groupId>
+-        <artifactId>accumulo-trace</artifactId>
+-        <version>${accumulo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.activemq</groupId>
+-        <artifactId>activemq-core</artifactId>
+-        <version>${activemq.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.springframework</groupId>
+-            <artifactId>spring-context</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.activemq</groupId>
+-        <artifactId>kahadb</artifactId>
+-        <version>${activemq.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.avro</groupId>
+-        <artifactId>avro</artifactId>
+-        <version>${avro.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.avro</groupId>
+-        <artifactId>avro-mapred</artifactId>
+-        <classifier>hadoop2</classifier>
+-        <version>${avro.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jetty-util</artifactId>
+-          </exclusion>
+-        <exclusion>
+-          <groupId>org.mortbay.jetty</groupId>
+-          <artifactId>jetty</artifactId>
+-        </exclusion>
+-        </exclusions>
+-     </dependency>
+-      <dependency>
+-        <groupId>org.apache.derby</groupId>
+-        <artifactId>derby</artifactId>
+-        <version>${derby.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.httpcomponents</groupId>
+-        <artifactId>httpclient</artifactId>
+-        <version>${httpcomponents.client.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.httpcomponents</groupId>
+-        <artifactId>httpcore</artifactId>
+-        <version>${httpcomponents.core.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.velocity</groupId>
+-        <artifactId>velocity-engine-core</artifactId>
+-        <version>${velocity.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>stax</groupId>
+-        <artifactId>stax-api</artifactId>
+-        <version>${stax.version}</version>
+-      </dependency>
+-       <dependency>
+-        <groupId>org.apache.orc</groupId>
+-        <artifactId>orc-core</artifactId>
+-        <version>${orc.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.apache.hadoop</groupId>
+-            <artifactId>hadoop-common</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.apache.hive</groupId>
+-            <artifactId>hive-storage-api</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hive</groupId>
+-        <artifactId>hive-storage-api</artifactId>
+-        <version>${storage-api.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.pig</groupId>
+-        <artifactId>pig</artifactId>
+-        <version>${pig.version}</version>
+-         <exclusions>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jetty-util</artifactId>
+-          </exclusion>
+-        <exclusion>
+-          <groupId>org.mortbay.jetty</groupId>
+-          <artifactId>jetty</artifactId>
+-        </exclusion>
+-        </exclusions>
+-     </dependency>
+-      <dependency>
+-        <groupId>org.apache.thrift</groupId>
+-        <artifactId>libfb303</artifactId>
+-        <version>${libfb303.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.thrift</groupId>
+-        <artifactId>libthrift</artifactId>
+-        <version>${libthrift.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.zookeeper</groupId>
+-        <artifactId>zookeeper</artifactId>
+-        <version>${zookeeper.version}</version>
+-        <exclusions>
+-            <exclusion>
+-            <groupId>org.slf4j</groupId>
+-            <artifactId>slf4j-log4j12</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.apache.httpcomponents</groupId>
+-            <artifactId>httpcore</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.apache.httpcomponents</groupId>
+-            <artifactId>httpclient</artifactId>
+-          </exclusion>
+-         <exclusion>
+-            <groupId>org.jboss.netty</groupId>
+-            <artifactId>netty</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.curator</groupId>
+-        <artifactId>curator-client</artifactId>
+-        <version>${curator.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.curator</groupId>
+-        <artifactId>curator-framework</artifactId>
+-        <version>${curator.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.curator</groupId>
+-        <artifactId>curator-recipes</artifactId>
+-        <version>${curator.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.codehaus.groovy</groupId>
+-        <artifactId>groovy-all</artifactId>
+-        <version>${groovy.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.core</groupId>
+-        <artifactId>jackson-annotations</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.core</groupId>
+-        <artifactId>jackson-core</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.core</groupId>
+-        <artifactId>jackson-databind</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.module</groupId>
+-        <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.dataformat</groupId>
+-        <artifactId>jackson-dataformat-smile</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.jaxrs</groupId>
+-        <artifactId>jackson-jaxrs-json-provider</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.fasterxml.jackson.module</groupId>
+-        <artifactId>jackson-module-jaxb-annotations</artifactId>
+-        <version>${jackson.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.codehaus.jettison</groupId>
+-        <artifactId>jettison</artifactId>
+-        <version>${jettison.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>stax</groupId>
+-            <artifactId>stax-api</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.eclipse.jetty</groupId>
+-        <artifactId>jetty-rewrite</artifactId>
+-        <version>${jetty.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.eclipse.jetty</groupId>
+-        <artifactId>jetty-server</artifactId>
+-        <version>${jetty.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.eclipse.jetty</groupId>
+-        <artifactId>jetty-servlet</artifactId>
+-        <version>${jetty.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.eclipse.jetty</groupId>
+-        <artifactId>jetty-webapp</artifactId>
+-        <version>${jetty.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>javax.servlet</groupId>
+-        <artifactId>javax.servlet-api</artifactId>
+-        <version>${javax-servlet.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.datanucleus</groupId>
+-        <artifactId>datanucleus-api-jdo</artifactId>
+-        <version>${datanucleus-api-jdo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.datanucleus</groupId>
+-        <artifactId>datanucleus-core</artifactId>
+-        <version>${datanucleus-core.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.datanucleus</groupId>
+-        <artifactId>datanucleus-rdbms</artifactId>
+-        <version>${datanucleus-rdbms.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.datanucleus</groupId>
+-        <artifactId>javax.jdo</artifactId>
+-        <version>${datanucleus-jdo.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>com.tdunning</groupId>
+-        <artifactId>json</artifactId>
+-        <version>${json.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.mockito</groupId>
+-        <artifactId>mockito-all</artifactId>
+-        <version>${mockito-all.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.slf4j</groupId>
+-        <artifactId>slf4j-api</artifactId>
+-        <version>${slf4j.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>xerces</groupId>
+-        <artifactId>xercesImpl</artifactId>
+-        <version>${xerces.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-client</artifactId>
+-        <version>${hadoop.version}</version>
+-         <exclusions>
+-           <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-         </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-auth</artifactId>
+-        <version>${hadoop.version}</version>
+-         <exclusions>
+-           <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-         </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-common</artifactId>
+-        <version>${hadoop.version}</version>
+-        <exclusions>
+-           <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jetty-sslengine</artifactId>
+-          </exclusion>
+-         <exclusion>
+-            <groupId>org.slf4j</groupId>
+-            <artifactId>slf4j-log4j12</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.apache.httpcomponents</groupId>
+-            <artifactId>httpcore</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.apache.httpcomponents</groupId>
+-            <artifactId>httpclient</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-hdfs</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
+-        <version>${hadoop.version}</version>
+-          <exclusions>
+-            <exclusion>
+-            <groupId>org.slf4j</groupId>
+-            <artifactId>slf4j-log4j12</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>com.codahale.metrics</groupId>
+-            <artifactId>metrics-core</artifactId>
+-          </exclusion>
+-        </exclusions>
+-     </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-mapreduce-client-common</artifactId>
+-        <version>${hadoop.version}</version>
+-         <exclusions>
+-            <exclusion>
+-            <groupId>org.slf4j</groupId>
+-            <artifactId>slf4j-log4j12</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-        </exclusions>
+-     </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-mapreduce-client-core</artifactId>
+-        <version>${hadoop.version}</version>
+-         <exclusions>
+-            <exclusion>
+-            <groupId>org.slf4j</groupId>
+-            <artifactId>slf4j-log4j12</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>commmons-logging</groupId>
+-            <artifactId>commons-logging</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-minikdc</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-api</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-client</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-common</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-registry</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-server-web-common</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-yarn-server-web-proxy</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hbase</groupId>
+-        <artifactId>hbase-common</artifactId>
+-        <version>${hbase.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hbase</groupId>
+-        <artifactId>hbase-hadoop-compat</artifactId>
+-        <version>${hbase.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hbase</groupId>
+-        <artifactId>hbase-hadoop2-compat</artifactId>
+-        <version>${hbase.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>javax.servlet</groupId>
+-            <artifactId>servlet-api</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>javax.servlet.jsp</groupId>
+-            <artifactId>jsp-api</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.jruby</groupId>
+-            <artifactId>jruby-complete</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.jboss.netty</groupId>
+-            <artifactId>netty</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>io.netty</groupId>
+-            <artifactId>netty</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jsp-2.1</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jsp-api-2.1</artifactId>
+-         </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>servlet-api-2.5</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>servlet-api-2.5</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>com.sun.jersey</groupId>
+-            <artifactId>jersey-core</artifactId>
+-         </exclusion>
+-          <exclusion>
+-            <groupId>com.sun.jersey</groupId>
+-            <artifactId>jersey-json</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>com.sun.jersey</groupId>
+-            <artifactId>jersey-server</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jetty</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>jetty-util</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>com.codahale.metrics</groupId>
+-            <artifactId>metrics-core</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hbase</groupId>
+-        <artifactId>hbase-server</artifactId>
+-        <version>${hbase.version}</version>
+-	<exclusions>
+-            <exclusion>
+-        	<groupId>org.glassfish</groupId>
+-		<artifactId>javax.el</artifactId>
+-            </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hbase</groupId>
+-        <artifactId>hbase-mapreduce</artifactId>
+-        <version>${hbase.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.hadoop</groupId>
+-        <artifactId>hadoop-minicluster</artifactId>
+-        <version>${hadoop.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.scala-lang</groupId>
+-        <artifactId>scala-library</artifactId>
+-        <version>${scala.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.apache.spark</groupId>
+-        <artifactId>spark-core_${scala.binary.version}</artifactId>
+-        <version>${spark.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.apache.hadoop</groupId>
+-            <artifactId>hadoop-core</artifactId>
+-          </exclusion>
+-        </exclusions>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.jamon</groupId>
+-        <artifactId>jamon-runtime</artifactId>
+-        <version>${jamon-runtime.version}</version>
+-      </dependency>
+-      <dependency>
+-        <groupId>org.xerial.snappy</groupId>
+-        <artifactId>snappy-java</artifactId>
+-        <version>${snappy.version}</version>
+-      </dependency>
+-    </dependencies>
+-  </dependencyManagement>
+-
+-  <dependencies>
+-    <!-- dependencies are always listed in sorted order by groupId, artifectId -->
+-    <!-- global dependencies -->
+-    <dependency>
+-      <groupId>org.slf4j</groupId>
+-      <artifactId>slf4j-api</artifactId>
+-      <version>${slf4j.version}</version>
+-    </dependency>
+-    <dependency>
+-      <groupId>org.apache.hive</groupId>
+-      <artifactId>hive-upgrade-acid</artifactId>
+-      <version>${project.version}</version>
+-    </dependency>
+-    <dependency>
+-      <groupId>org.mockito</groupId>
+-      <artifactId>mockito-all</artifactId>
+-      <scope>test</scope>
+-    </dependency>
+-  </dependencies>
+-
+-  <build>
+-    <pluginManagement>
+-      <plugins>
+-        <!-- plugins are always listed in sorted order by groupId, artifectId -->
+-        <plugin>
+-          <groupId>org.antlr</groupId>
+-          <artifactId>antlr3-maven-plugin</artifactId>
+-          <version>${antlr.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-compiler-plugin</artifactId>
+-          <version>${maven.compiler.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-antrun-plugin</artifactId>
+-          <version>${maven.antrun.plugin.version}</version>
+-          <dependencies>
+-            <dependency>
+-              <groupId>ant-contrib</groupId>
+-              <artifactId>ant-contrib</artifactId>
+-              <version>${ant.contrib.version}</version>
+-              <exclusions>
+-                <exclusion>
+-                  <groupId>ant</groupId>
+-                  <artifactId>ant</artifactId>
+-                </exclusion>
+-              </exclusions>
+-            </dependency>
+-          </dependencies>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-assembly-plugin</artifactId>
+-          <version>${maven.assembly.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-eclipse-plugin</artifactId>
+-          <version>${maven.eclipse.plugin.version}</version>
+-          <configuration>
+-            <downloadJavadocs>true</downloadJavadocs>
+-            <downloadSources>true</downloadSources>
+-            <buildOutputDirectory>target/eclipse/classes</buildOutputDirectory>
+-            <workspaceActiveCodeStyleProfileName>Hive</workspaceActiveCodeStyleProfileName>
+-            <workspaceCodeStylesURL>${basedir}/dev-support/eclipse-styles.xml</workspaceCodeStylesURL>
+-          </configuration>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-checkstyle-plugin</artifactId>
+-          <version>${maven.checkstyle.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-enforcer-plugin</artifactId>
+-          <version>${maven.enforcer.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-install-plugin</artifactId>
+-          <version>${maven.install.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-shade-plugin</artifactId>
+-          <version>${maven.shade.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-surefire-plugin</artifactId>
+-          <version>${maven.surefire.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-jar-plugin</artifactId>
+-          <version>${maven.jar.plugin.version}</version>
+-          <configuration>
+-            <archive>
+-              <manifest>
+-                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+-              </manifest>
+-            </archive>
+-          </configuration>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-war-plugin</artifactId>
+-          <version>${maven.war.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.datanucleus</groupId>
+-          <artifactId>datanucleus-maven-plugin</artifactId>
+-          <version>${datanucleus.maven.plugin.version}</version>
+-          <dependencies>
+-            <dependency>
+-              <groupId>org.datanucleus</groupId>
+-              <artifactId>datanucleus-core</artifactId>
+-              <version>${datanucleus-core.version}</version>
+-            </dependency>
+-          </dependencies>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.felix</groupId>
+-          <artifactId>maven-bundle-plugin</artifactId>
+-          <version>${felix.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.apache.maven.plugins</groupId>
+-          <artifactId>maven-dependency-plugin</artifactId>
+-          <version>${maven.dependency.plugin.version}</version>
+-        </plugin>
+-        <plugin>
+-          <groupId>org.codehaus.mojo</groupId>
+-          <artifactId>build-helper-maven-plugin</artifactId>
+-          <version>${maven.build-helper.plugin.version}</version>
+-        </plugin>
+-      </plugins>
+-    </pluginManagement>
+-
+-    <plugins>
+-      <!-- plugins are always listed in sorted order by groupId, artifectId -->
+-      <plugin>
+-        <groupId>org.apache.maven.plugins</groupId>
+-        <artifactId>maven-antrun-plugin</artifactId>
+-        <executions>
+-          <execution>
+-            <id>define-classpath</id>
+-            <phase>process-resources</phase>
+-            <goals>
+-              <goal>run</goal>
+-            </goals>
+-            <configuration>
+-              <exportAntProperties>true</exportAntProperties>
+-              <target>
+-                <property name="maven.test.classpath" refid="maven.test.classpath"/>
+-              </target>
+-            </configuration>
+-          </execution>
+-          <execution>
+-            <id>setup-test-dirs</id>
+-            <phase>process-test-resources</phase>
+-            <goals>
+-              <goal>run</goal>
+-            </goals>
+-            <configuration>
+-              <target>
+-                <delete dir="${test.tmp.dir}" />
+-                <delete dir="${test.conf.dir}" />
+-                <delete dir="${test.warehouse.dir}" />
+-                <mkdir dir="${test.tmp.dir}" />
+-                <mkdir dir="${test.warehouse.dir}" />
+-                <mkdir dir="${test.conf.dir}" />
+-                <!-- copies hive-site.xml so it can be modified -->
+-                <copy todir="${test.conf.dir}">
+-                  <fileset dir="${basedir}/${hive.path.to.root}/data/conf/"/>
+-                </copy>
+-              </target>
+-            </configuration>
+-          </execution>
+-        </executions>
+-      </plugin>
+-      <plugin>
+-        <groupId>org.apache.maven.plugins</groupId>
+-        <artifactId>maven-clean-plugin</artifactId>
+-        <version>2.5</version>
+-        <configuration>
+-          <filesets>
+-            <fileset>
+-              <directory>./</directory>
+-              <includes>
+-                <include>datanucleus.log</include>
+-                <include>derby.log</include>
+-              </includes>
+-              <followSymlinks>false</followSymlinks>
+-            </fileset>
+-            <fileset>
+-              <directory>build</directory>
+-              <followSymlinks>false</followSymlinks>
+-            </fileset>
+-          </filesets>
+-        </configuration>
+-      </plugin>
+-      <plugin>
+-        <groupId>org.apache.maven.plugins</groupId>
+-        <artifactId>maven-checkstyle-plugin</artifactId>
+-        <configuration>
+-          <configLocation>${checkstyle.conf.dir}/checkstyle.xml</configLocation>
+-          <propertyExpansion>config_loc=${checkstyle.conf.dir}</propertyExpansion>
+-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+-        </configuration>
+-      </plugin>
+-      <plugin>
+-        <groupId>org.apache.maven.plugins</groupId>
+-        <artifactId>maven-enforcer-plugin</artifactId>
+-        <executions>
+-          <execution>
+-            <id>enforce-no-snapshots</id>
+-            <goals>
+-              <goal>enforce</goal>
+-            </goals>
+-            <configuration>
+-              <rules>
+-                <requireReleaseDeps>
+-                  <message>Release builds are not allowed to have SNAPSHOT depenendencies</message>
+-                  <searchTransitive>true</searchTransitive>
+-                  <onlyWhenRelease>true</onlyWhenRelease>
+-                </requireReleaseDeps>
+-              </rules>
+-              <fail>true</fail>
+-            </configuration>
+-          </execution>
+-          <execution>
+-            <id>enforce-banned-dependencies</id>
+-            <goals>
+-              <goal>enforce</goal>
+-            </goals>
+-            <configuration>
+-              <rules>
+-                <bannedDependencies>
+-                  <excludes>
+-                    <!--LGPL licenced library-->
+-                    <exclude>com.google.code.findbugs:annotations</exclude>
+-                  </excludes>
+-                </bannedDependencies>
+-              </rules>
+-              <fail>true</fail>
+-            </configuration>
+-          </execution>
+-        </executions>
+-      </plugin>
+-      <plugin>
+-        <groupId>org.apache.maven.plugins</groupId>
+-        <artifactId>maven-surefire-plugin</artifactId>
+-        <configuration>
+-          <excludes>
+-            <exclude>**/TestSerDe.java</exclude>
+-            <exclude>**/TestHiveMetaStore.java</exclude>
+-            <exclude>**/ql/exec/vector/util/*.java</exclude>
+-            <exclude>**/ql/exec/vector/udf/legacy/*.java</exclude>
+-            <exclude>**/ql/exec/vector/udf/generic/*.java</exclude>
+-            <exclude>**/TestHiveServer2Concurrency.java</exclude>
+-            <exclude>${test.excludes.additional}</exclude>
+-            <exclude>${skip.spark.files}</exclude>
+-          </excludes>
+-          <redirectTestOutputToFile>true</redirectTestOutputToFile>
+-          <reuseForks>false</reuseForks>
+-          <failIfNoTests>false</failIfNoTests>
+-          <argLine>${maven.test.jvm.args}</argLine>
+-          <trimStackTrace>false</trimStackTrace>
+-          <additionalClasspathElements>
+-            <additionalClasspathElement>${test.conf.dir}</additionalClasspathElement>
+-            <additionalClasspathElement>${basedir}/${hive.path.to.root}/conf</additionalClasspathElement>
+-          </additionalClasspathElements>
+-          <environmentVariables>
+-            <TZ>US/Pacific</TZ>
+-            <LANG>en_US.UTF-8</LANG>
+-            <HADOOP_CLASSPATH>${test.conf.dir}:${basedir}/${hive.path.to.root}/conf</HADOOP_CLASSPATH>
+-            <HIVE_HADOOP_TEST_CLASSPATH>${test.hive.hadoop.classpath}</HIVE_HADOOP_TEST_CLASSPATH>
+-            <SPARK_SUBMIT_CLASSPATH>${spark.home}/lib/spark-assembly-${spark.version}-hadoop2.4.0.jar:${test.hive.hadoop.classpath}</SPARK_SUBMIT_CLASSPATH>
+-            <SPARK_OSX_TEST_OPTS>-Dorg.xerial.snappy.tempdir=/tmp -Dorg.xerial.snappy.lib.name=libsnappyjava.jnilib</SPARK_OSX_TEST_OPTS>
+-            <SPARK_SCALA_VERSION>2.11</SPARK_SCALA_VERSION>
+-            <SPARK_HOME>${spark.home}</SPARK_HOME>
+-            <PATH>${env.PATH}${test.extra.path}</PATH>
+-          </environmentVariables>
+-          <systemPropertyVariables>
+-            <build.dir>${project.build.directory}</build.dir>
+-            <!-- required by zk test ClientBase -->
+-            <build.test.dir>${test.tmp.dir}</build.test.dir>
+-            <!-- required by a few tests to find the derby jar -->
+-            <derby.version>${derby.version}</derby.version>
+-            <derby.stream.error.file>${test.tmp.dir}/derby.log</derby.stream.error.file>
+-            <hadoop.bin.path>${hadoop.bin.path}</hadoop.bin.path>
+-            <!-- required by Hadoop's JobHistory -->
+-            <hadoop.log.dir>${test.tmp.dir}</hadoop.log.dir>
+-            <hive.root>${basedir}/${hive.path.to.root}/</hive.root>
+-            <hive.version>${project.version}</hive.version>
+-            <!-- required for hive-exec jar path and tests which reference a jar -->
+-            <maven.local.repository>${maven.repo.local}</maven.local.repository>
+-            <mapred.job.tracker>local</mapred.job.tracker>
+-            <log4j.configurationFile>${test.log4j.scheme}${test.conf.dir}/hive-log4j2.properties</log4j.configurationFile>
+-            <hive.test.console.log.level>${test.console.log.level}</hive.test.console.log.level>
+-            <log4j.debug>true</log4j.debug>
+-            <!-- don't diry up /tmp -->
+-            <java.io.tmpdir>${test.tmp.dir}</java.io.tmpdir>
+-            <spark.home>${spark.home}</spark.home>
+-            <!-- Hadoop's minidfs class uses this -->
+-            <test.build.data>${test.tmp.dir}</test.build.data>
+-            <!-- required by QTestUtil -->
+-            <test.data.files>${basedir}/${hive.path.to.root}/data/files</test.data.files>
+-            <test.data.dir>${basedir}/${hive.path.to.root}/data/files</test.data.dir>
+-            <test.tmp.dir>${test.tmp.dir}</test.tmp.dir>
+-            <test.tmp.dir.uri>${test.tmp.dir.uri}</test.tmp.dir.uri>
+-            <test.dfs.mkdir>${test.dfs.mkdir}</test.dfs.mkdir>
+-            <test.output.overwrite>${test.output.overwrite}</test.output.overwrite>
+-            <test.warehouse.dir>${test.warehouse.scheme}${test.warehouse.dir}</test.warehouse.dir>
+-            <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
+-            <!-- EnforceReadOnlyTables hook and QTestUtil -->
+-            <test.src.tables>src,src1,srcbucket,srcbucket2,src_json,src_thrift,src_sequencefile,srcpart,alltypesorc,alltypesparquet,src_hbase,cbo_t1,cbo_t2,cbo_t3,src_cbo,part,lineitem</test.src.tables>
+-            <java.security.krb5.conf>${test.conf.dir}/krb5.conf</java.security.krb5.conf>
+-            <!-- Required by spark to work around SPARK-14958 -->
+-            <antlr.version>${antlr.version}</antlr.version>
+-            <qfile>${qfile}</qfile>
+-            <initScript>${initScript}</initScript>
+-            <clustermode>${clustermode}</clustermode>
+-            <qfile_regex>${qfile_regex}</qfile_regex>
+-            <run_disabled>${run_disabled}</run_disabled>
+-          </systemPropertyVariables>
+-        </configuration>
+-      </plugin>
+-      <plugin>
+-	<groupId>org.apache.rat</groupId>
+-	<artifactId>apache-rat-plugin</artifactId>
+-	<version>0.10</version>
+-	<configuration>
+-	  <excludes>
+-	    <exclude>binary-package-licenses/**</exclude>
+-	    <exclude>data/**</exclude>
+-	    <exclude>conf/**</exclude>
+-	    <exclude>checkstyle/**</exclude>
+-	    <exclude>bin/**</exclude>
+-	    <exclude>itests/**</exclude>
+-            <exclude>**/README.md</exclude>
+-            <exclude>**/*.iml</exclude>
+-	    <exclude>**/*.txt</exclude>
+-	    <exclude>**/*.log</exclude>
+-	    <exclude>**/*.arcconfig</exclude>
+-	    <exclude>**/package-info.java</exclude>
+-	    <exclude>**/*.properties</exclude>
+-	    <exclude>**/*.q</exclude>
+-	    <exclude>**/*.q.out</exclude>
+-	    <exclude>**/*.q.out_*</exclude>
+-	    <exclude>**/*.xml</exclude>
+-	    <exclude>**/gen/**</exclude>
+-	    <exclude>**/scripts/**</exclude>
+-	    <exclude>**/resources/**</exclude>
+-	    <exclude>**/*.rc</exclude>
+-	    <exclude>**/*.rcfile</exclude>
+-	    <exclude>**/*.qv</exclude>
+-	    <exclude>**/*.out</exclude>
+-	    <exclude>**/RecordTestObj.java</exclude>
+-	    <exclude>**/*.m</exclude>
+-	    <exclude>**/gen-java/**</exclude>
+-	    <exclude>**/testdata/**</exclude>
+-	    <exclude>**/ptest2/*.md</exclude>
+-	    <exclude>**/test/org/apache/hadoop/hive/hbase/avro/**</exclude>
+-	    <exclude>**/avro_test.avpr</exclude>
+-	    <exclude>**/xmlReport.pl</exclude>
+-	    <exclude>**/*.html</exclude>
+-	    <exclude>**/sit</exclude>
+-      <exclude>**/test/queries/**/*.sql</exclude>
+-        <exclude>**/patchprocess/**</exclude>
+-        <exclude>**/metastore_db/**</exclude>
+-	  </excludes>
+-	</configuration>
+-      </plugin>
+-      <plugin>
+-        <groupId>org.jamon</groupId>
+-        <artifactId>jamon-maven-plugin</artifactId>
+-        <version>${jamon.plugin.version}</version>
+-      </plugin>
+-    </plugins>
+-  </build>
+-
+-  <profiles>
+-    <profile>
+-      <id>thriftif</id>
+-      <build>
+-        <plugins>
+-          <plugin>
+-            <groupId>org.apache.maven.plugins</groupId>
+-            <artifactId>maven-antrun-plugin</artifactId>
+-            <executions>
+-              <execution>
+-                <id>generate-thrift-sources</id>
+-                <phase>generate-sources</phase>
+-                <configuration>
+-                  <target>
+-                    <taskdef name="for" classname="net.sf.antcontrib.logic.ForTask"
+-                      classpathref="maven.plugin.classpath" />
+-                    <property name="thrift.args" value="-I ${thrift.home} --gen java:beans,hashcode,generated_annotations=undated --gen cpp --gen php --gen py --gen rb"/>
+-                    <property name="thrift.gen.dir" value="${basedir}/src/gen/thrift"/>
+-                    <delete dir="${thrift.gen.dir}"/>
+-                    <mkdir dir="${thrift.gen.dir}"/>
+-                    <for param="thrift.file">
+-                      <path>
+-                        <fileset dir="." includes="if/*.thrift,if/test/*.thrift,src/main/thrift/*.thrift" />
+-                      </path>
+-                      <sequential>
+-                        <echo message="Generating Thrift code for @{thrift.file}"/>
+-                        <exec executable="${thrift.home}/bin/thrift"  failonerror="true" dir=".">
+-                          <arg line="${thrift.args} -I ${basedir}/include -I ${basedir}/.. -o ${thrift.gen.dir} @{thrift.file} " />
+-                        </exec>
+-                      </sequential>
+-                    </for>
+-                  </target>
+-                </configuration>
+-                <goals>
+-                  <goal>run</goal>
+-                </goals>
+-              </execution>
+-            </executions>
+-          </plugin>
+-          <plugin>
+-            <groupId>org.apache.maven.plugins</groupId>
+-            <artifactId>maven-enforcer-plugin</artifactId>
+-            <executions>
+-              <execution>
+-                <id>enforce-property</id>
+-                <goals>
+-                  <goal>enforce</goal>
+-                </goals>
+-                <configuration>
+-                  <rules>
+-                    <requireProperty>
+-                      <property>thrift.home</property>
+-                    </requireProperty>
+-                  </rules>
+-                  <fail>true</fail>
+-                </configuration>
+-              </execution>
+-            </executions>
+-          </plugin>
+-        </plugins>
+-      </build>
+-    </profile>
+-
+-    <profile>
+-      <id>sources</id>
+-      <build>
+-        <plugins>
+-          <plugin>
+-            <groupId>org.apache.maven.plugins</groupId>
+-            <artifactId>maven-source-plugin</artifactId>
+-            <executions>
+-              <execution>
+-                <id>attach-sources</id>
+-                <goals>
+-                  <goal>jar</goal>
+-                </goals>
+-              </execution>
+-            </executions>
+-          </plugin>
+-        </plugins>
+-      </build>
+-    </profile>
+-
+-    <profile>
+-      <id>javadoc</id>
+-      <build>
+-        <plugins>
+-          <plugin>
+-            <groupId>org.apache.maven.plugins</groupId>
+-            <artifactId>maven-javadoc-plugin</artifactId>
+-            <configuration>
+-              <failOnError>false</failOnError>
+-            </configuration>
+-            <executions>
+-              <execution>
+-                <id>attach-javadocs</id>
+-                <goals>
+-                  <goal>jar</goal>
+-                </goals>
+-              </execution>
+-            </executions>
+-          </plugin>
+-        </plugins>
+-      </build>
+-    </profile>
+-
+-    <profile>
+-    <id>findbugs</id>
+-      <build>
+-        <plugins>
+-          <plugin>
+-            <groupId>org.codehaus.mojo</groupId>
+-            <artifactId>findbugs-maven-plugin</artifactId>
+-            <version>3.0.0</version>
+-            <configuration>
+-              <fork>true</fork>
+-              <maxHeap>2048</maxHeap>
+-              <jvmArgs>-Djava.awt.headless=true -Xmx2048m -Xms512m</jvmArgs>
+-              <excludeFilterFile>${basedir}/${hive.path.to.root}/findbugs/findbugs-exclude.xml</excludeFilterFile>
+-            </configuration>
+-          </plugin>
+-        </plugins>
+-      </build>
+-      <reporting>
+-        <plugins>
+-          <plugin>
+-            <groupId>org.codehaus.mojo</groupId>
+-            <artifactId>findbugs-maven-plugin</artifactId>
+-            <version>3.0.0</version>
+-            <configuration>
+-              <fork>true</fork>
+-              <maxHeap>2048</maxHeap>
+-              <jvmArgs>-Djava.awt.headless=true -Xmx2048m -Xms512m</jvmArgs>
+-              <excludeFilterFile>${basedir}/${hive.path.to.root}/findbugs/findbugs-exclude.xml</excludeFilterFile>
+-            </configuration>
+-          </plugin>
+-        </plugins>
+-      </reporting>
+-    </profile>
+-    <profile>
+-      <!-- Windows-specific settings to allow unit tests to work -->
+-      <id>windows-test</id>
+-      <activation>
+-        <os>
+-          <family>Windows</family>
+-       </os>
+-      </activation>
+-      <build>
+-        <plugins>
+-          <!-- maven.test.classpath (used for HIVE_HADOOP_TEST_CLASSPATH) exceeds the 8K Windows -->
+-          <!-- command shell limit which causes tests which call hadoop command to fail.         -->
+-          <!-- Workaround is to copy all necessary jars to a single location to shorten the      -->
+-          <!-- the length of the environment variable.                                           -->
+-          <plugin>
+-            <groupId>org.apache.maven.plugins</groupId>
+-            <artifactId>maven-dependency-plugin</artifactId>
+-            <version>2.8</version>
+-            <executions>
+-              <execution>
+-                <id>copy-dependencies</id>
+-                <phase>package</phase>
+-                <goals>
+-                  <goal>copy-dependencies</goal>
+-                </goals>
+-                <configuration>
+-                  <outputDirectory>${project.build.directory}/deplibs/</outputDirectory>
+-                  <overWriteReleases>false</overWriteReleases>
+-                  <overWriteSnapshots>false</overWriteSnapshots>
+-                  <overWriteIfNewer>true</overWriteIfNewer>
+-                </configuration>
+-              </execution>
+-            </executions>
+-          </plugin>
+-        </plugins>
+-      </build>
+-      <properties>
+-        <hadoop.bin.path>${basedir}/${hive.path.to.root}/testutils/hadoop.cmd</hadoop.bin.path>
+-        <test.extra.path>;${env.HADOOP_HOME}/bin</test.extra.path>
+-        <test.hive.hadoop.classpath>${project.build.directory}/deplibs/*</test.hive.hadoop.classpath>
+-        <test.tmp.dir.uri>file:///${test.tmp.dir}</test.tmp.dir.uri>
+-        <test.log4j.scheme>file:/</test.log4j.scheme>
+-      </properties>
+-    </profile>
+-    <profile>
+-      <id>spark-test</id>
+-      <activation>
+-	<property>
+-          <name>!skipSparkTests</name>
+-	</property>
+-      </activation>
+-      <properties>
+-        <skip.spark.files>
+-          **/ql/exec/spark/session/TestSparkSessionManagerImpl.java,**/TestMultiSessionsHS2WithLocalClusterSpark.java,**/TestJdbcWithLocalClusterSpark.java
+-        </skip.spark.files>
+-      </properties>
+-    </profile>
+-    <profile>
+-      <id>itests</id>
+-      <modules>
+-        <module>itests</module>
+-      </modules>
+-    </profile>
+-  </profiles>
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++    <parent>
++        <groupId>org.apache</groupId>
++        <artifactId>apache</artifactId>
++        <version>18</version>
++    </parent>
++    <groupId>org.apache.hive</groupId>
++    <artifactId>hive</artifactId>
++    <version>3.1.3</version>
++    <packaging>pom</packaging>
++    
++    <name>Hive</name>
++    <url>https://hive.apache.org</url>
++    <prerequisites>
++        <maven>2.2.1</maven>
++    </prerequisites>
++    
++    <modules>
++        <module>accumulo-handler</module>
++        <module>vector-code-gen</module>
++        <module>beeline</module>
++        <module>classification</module>
++        <module>cli</module>
++        <module>common</module>
++        <module>contrib</module>
++        <module>druid-handler</module>
++        <module>hbase-handler</module>
++        <module>jdbc-handler</module>
++        <module>hcatalog</module>
++        <module>hplsql</module>
++        <module>jdbc</module>
++        <module>metastore</module>
++        <module>ql</module>
++        <module>serde</module>
++        <module>service-rpc</module>
++        <module>service</module>
++        <module>streaming</module>
++        <module>llap-common</module>
++        <module>llap-client</module>
++        <module>llap-ext-client</module>
++        <module>llap-tez</module>
++        <module>llap-server</module>
++        <module>shims</module>
++        <module>spark-client</module>
++        <module>kryo-registrator</module>
++        <module>testutils</module>
++        <module>packaging</module>
++        <module>standalone-metastore</module>
++        <module>upgrade-acid</module>
++    </modules>
++    
++    <properties>
++        <hive.version.shortname>3.1.0</hive.version.shortname>
++        
++        <!-- Build Properties -->
++        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
++        <maven.compiler.source>1.8</maven.compiler.source>
++        <maven.compiler.target>1.8</maven.compiler.target>
++        <maven.compiler.useIncrementalCompilation>false</maven.compiler.useIncrementalCompilation>
++        <maven.repo.local>${settings.localRepository}</maven.repo.local>
++        <hive.path.to.root>.</hive.path.to.root>
++        <hive.jdbc.driver.classifier>standalone</hive.jdbc.driver.classifier>
++        <checkstyle.conf.dir>${basedir}/${hive.path.to.root}/checkstyle</checkstyle.conf.dir>
++        
++        <!-- Test Properties -->
++        <test.extra.path></test.extra.path>
++        <test.hive.hadoop.classpath>${maven.test.classpath}</test.hive.hadoop.classpath>
++        <test.log4j.scheme>file://</test.log4j.scheme>
++        <test.tmp.dir>${project.build.directory}/tmp</test.tmp.dir>
++        <test.conf.dir>${project.build.directory}/testconf</test.conf.dir>
++        <test.tmp.dir.uri>file://${test.tmp.dir}</test.tmp.dir.uri>
++        <!-- Determines the log level of the console logger, hive.log is independent of this-->
++        <test.console.log.level>INFO</test.console.log.level>
++        <test.warehouse.dir>${project.build.directory}/warehouse</test.warehouse.dir>
++        <test.warehouse.scheme>pfile://</test.warehouse.scheme>
++        
++        <!-- To add additional exclude patterns set this property -->
++        <test.excludes.additional></test.excludes.additional>
++        <skip.spark.files></skip.spark.files>
++        
++        <!-- Plugin and Plugin Dependency Versions -->
++        <ant.contrib.version>1.0b3</ant.contrib.version>
++        <datanucleus.maven.plugin.version>3.3.0-release</datanucleus.maven.plugin.version>
++        <maven.test.jvm.args>-Xmx2048m</maven.test.jvm.args>
++        <maven.antrun.plugin.version>1.7</maven.antrun.plugin.version>
++        <maven.assembly.plugin.version>2.3</maven.assembly.plugin.version>
++        <maven.checkstyle.plugin.version>2.17</maven.checkstyle.plugin.version>
++        <maven.compiler.plugin.version>3.6.1</maven.compiler.plugin.version>
++        <maven.enforcer.plugin.version>1.3.1</maven.enforcer.plugin.version>
++        <maven.install.plugin.version>2.4</maven.install.plugin.version>
++        <maven.jar.plugin.version>2.4</maven.jar.plugin.version>
++        <maven.javadoc.plugin.version>2.4</maven.javadoc.plugin.version>
++        <maven.shade.plugin.version>3.1.0</maven.shade.plugin.version>
++        <maven.surefire.plugin.version>2.21.0</maven.surefire.plugin.version>
++        <maven.war.plugin.version>2.4</maven.war.plugin.version>
++        <maven.dependency.plugin.version>2.8</maven.dependency.plugin.version>
++        <maven.eclipse.plugin.version>2.9</maven.eclipse.plugin.version>
++        <maven.build-helper.plugin.version>1.8</maven.build-helper.plugin.version>
++        
++        <!-- Library Dependency Versions -->
++        <accumulo.version>1.7.3</accumulo.version>
++        <activemq.version>5.5.0</activemq.version>
++        <ant.version>1.9.1</ant.version>
++        <antlr.version>3.5.2</antlr.version>
++        <apache-directory-server.version>1.5.6</apache-directory-server.version>
++        <apache-directory-clientapi.version>0.1</apache-directory-clientapi.version>
++        <!-- Include arrow for LlapOutputFormatService -->
++        <arrow.version>0.8.0</arrow.version>
++        <avatica.version>1.11.0</avatica.version>
++        <avro.version>1.8.2</avro.version>
++        <bonecp.version>0.8.0.RELEASE</bonecp.version>
++        <calcite.version>1.16.0</calcite.version>
++        <datanucleus-api-jdo.version>4.2.4</datanucleus-api-jdo.version>
++        <datanucleus-core.version>4.1.17</datanucleus-core.version>
++        <datanucleus-rdbms.version>4.1.19</datanucleus-rdbms.version>
++        <datanucleus-jdo.version>3.2.0-m3</datanucleus-jdo.version>
++        <commons-cli.version>1.2</commons-cli.version>
++        <commons-codec.version>1.15</commons-codec.version>
++        <commons-collections.version>3.2.2</commons-collections.version>
++        <commons-compress.version>1.19</commons-compress.version>
++        <commons-exec.version>1.1</commons-exec.version>
++        <commons-io.version>2.6</commons-io.version>
++        <commons-lang.version>2.6</commons-lang.version>
++        <commons-lang3.version>3.9</commons-lang3.version>
++        <commons-pool.version>1.5.4</commons-pool.version>
++        <commons-dbcp.version>1.4</commons-dbcp.version>
++        <derby.version>10.14.1.0</derby.version>
++        <dropwizard.version>3.1.0</dropwizard.version>
++        <dropwizard-metrics-hadoop-metrics2-reporter.version>0.1.2</dropwizard-metrics-hadoop-metrics2-reporter.version>
++        <druid.version>0.12.0</druid.version>
++        <flatbuffers.version>1.2.0-3f79e055</flatbuffers.version>
++        <guava.version>27.0-jre</guava.version>
++        <groovy.version>2.4.11</groovy.version>
++        <h2database.version>1.3.166</h2database.version>
++        <hadoop.version>3.1.0</hadoop.version>
++        <hadoop.bin.path>${basedir}/${hive.path.to.root}/testutils/hadoop</hadoop.bin.path>
++        <hamcrest.version>1.3</hamcrest.version>
++        <hbase.version>2.0.0-alpha4</hbase.version>
++        <hppc.version>0.7.2</hppc.version>
++        <!-- required for logging test to avoid including hbase which pulls disruptor transitively -->
++        <disruptor.version>3.3.7</disruptor.version>
++        <hikaricp.version>2.6.1</hikaricp.version>
++        <!-- httpcomponents are not always in version sync -->
++        <httpcomponents.client.version>4.5.13</httpcomponents.client.version>
++        <httpcomponents.core.version>4.4.13</httpcomponents.core.version>
++        <ivy.version>2.4.0</ivy.version>
++        <jackson.version>2.12.0</jackson.version>
++        <jamon.plugin.version>2.3.4</jamon.plugin.version>
++        <jamon-runtime.version>2.3.1</jamon-runtime.version>
++        <javaewah.version>0.3.2</javaewah.version>
++        <javax-servlet.version>3.1.0</javax-servlet.version>
++        <javax-servlet-jsp.version>2.3.1</javax-servlet-jsp.version>
++        <javolution.version>5.5.1</javolution.version>
++        <jdo-api.version>3.0.1</jdo-api.version>
++        <jettison.version>1.1</jettison.version>
++        <jetty.version>9.3.20.v20170531</jetty.version>
++        <jersey.version>1.19</jersey.version>
++        <!-- Glassfish jersey is included for Spark client test only -->
++        <glassfish.jersey.version>2.22.2</glassfish.jersey.version>
++        <jline.version>2.12</jline.version>
++        <jms.version>2.0.2</jms.version>
++        <joda.version>2.9.9</joda.version>
++        <jodd.version>3.5.2</jodd.version>
++        <json.version>1.8</json.version>
++        <junit.version>4.11</junit.version>
++        <kryo.version>3.0.3</kryo.version>
++        <libfb303.version>0.9.3</libfb303.version>
++        <libthrift.version>0.9.3</libthrift.version>
++        <log4j2.version>2.17.1</log4j2.version>
++        <opencsv.version>2.3</opencsv.version>
++        <orc.version>1.5.8</orc.version>
++        <mockito-all.version>1.10.19</mockito-all.version>
++        <mina.version>2.0.0-M5</mina.version>
++        <netty.version>4.1.17.Final</netty.version>
++        <netty3.version>3.10.5.Final</netty3.version>
++        <parquet.version>1.10.0</parquet.version>
++        <pig.version>0.16.0</pig.version>
++        <plexus.version>1.5.6</plexus.version>
++        <protobuf.version>2.5.0</protobuf.version>
++        <stax.version>1.0.1</stax.version>
++        <slf4j.version>1.7.10</slf4j.version>
++        <ST4.version>4.0.4</ST4.version>
++        <storage-api.version>2.7.0</storage-api.version>
++        <tez.version>0.9.1</tez.version>
++        <super-csv.version>2.2.0</super-csv.version>
++        <spark.version>3.2.3</spark.version>
++        <scala.binary.version>2.12</scala.binary.version>
++        <scala.version>2.12.15</scala.version>
++        <tempus-fugit.version>1.1</tempus-fugit.version>
++        <snappy.version>1.1.4</snappy.version>
++        <wadl-resourcedoc-doclet.version>1.4</wadl-resourcedoc-doclet.version>
++        <velocity.version>2.3</velocity.version>
++        <xerces.version>2.9.1</xerces.version>
++        <zookeeper.version>3.4.6</zookeeper.version>
++        <jpam.version>1.1</jpam.version>
++        <felix.version>2.4.0</felix.version>
++        <curator.version>2.12.0</curator.version>
++        <jsr305.version>3.0.0</jsr305.version>
++        <tephra.version>0.6.0</tephra.version>
++        <gson.version>2.2.4</gson.version>
++    </properties>
++    
++    <repositories>
++        <repository>
++            <id>central</id>
++            <name>central</name>
++            <url>https://repo.maven.apache.org/maven2</url>
++            <layout>default</layout>
++            <releases>
++                <enabled>true</enabled>
++                <checksumPolicy>warn</checksumPolicy>
++            </releases>
++        </repository>
++    </repositories>
++    
++    <dependencyManagement>
++        <dependencies>
++            <!-- dependencies are always listed in sorted order by groupId, artifectId -->
++            <dependency>
++                <groupId>com.esotericsoftware</groupId>
++                <artifactId>kryo-shaded</artifactId>
++                <version>${kryo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.google.guava</groupId>
++                <artifactId>guava</artifactId>
++                <version>${guava.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.google.protobuf</groupId>
++                <artifactId>protobuf-java</artifactId>
++                <version>${protobuf.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.google.code.tempus-fugit</groupId>
++                <artifactId>tempus-fugit</artifactId>
++                <version>${tempus-fugit.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.hamcrest</groupId>
++                        <artifactId>hamcrest-core</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>com.googlecode.javaewah</groupId>
++                <artifactId>JavaEWAH</artifactId>
++                <version>${javaewah.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.jolbox</groupId>
++                <artifactId>bonecp</artifactId>
++                <version>${bonecp.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.zaxxer</groupId>
++                <artifactId>HikariCP</artifactId>
++                <version>${hikaricp.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.parquet</groupId>
++                <artifactId>parquet</artifactId>
++                <version>${parquet.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.parquet</groupId>
++                <artifactId>parquet-column</artifactId>
++                <version>${parquet.version}</version>
++                <classifier>tests</classifier>
++            </dependency>
++            <dependency>
++                <groupId>com.sun.jersey</groupId>
++                <artifactId>jersey-core</artifactId>
++                <version>${jersey.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.sun.jersey</groupId>
++                <artifactId>jersey-json</artifactId>
++                <version>${jersey.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.sun.jersey</groupId>
++                <artifactId>jersey-server</artifactId>
++                <version>${jersey.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.sun.jersey.contribs</groupId>
++                <artifactId>wadl-resourcedoc-doclet</artifactId>
++                <version>${wadl-resourcedoc-doclet.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.sun.jersey</groupId>
++                <artifactId>jersey-servlet</artifactId>
++                <version>${jersey.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>commons-cli</groupId>
++                <artifactId>commons-cli</artifactId>
++                <version>${commons-cli.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>commons-codec</groupId>
++                <artifactId>commons-codec</artifactId>
++                <version>${commons-codec.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>commons-collections</groupId>
++                <artifactId>commons-collections</artifactId>
++                <version>${commons-collections.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>commons-io</groupId>
++                <artifactId>commons-io</artifactId>
++                <version>${commons-io.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>commons-lang</groupId>
++                <artifactId>commons-lang</artifactId>
++                <version>${commons-lang.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>io.netty</groupId>
++                <artifactId>netty-all</artifactId>
++                <version>${netty.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>javax.jdo</groupId>
++                <artifactId>jdo-api</artifactId>
++                <version>${jdo-api.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>javax.jms</groupId>
++                <artifactId>jms</artifactId>
++                <version>${jms.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>javolution</groupId>
++                <artifactId>javolution</artifactId>
++                <version>${javolution.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>jline</groupId>
++                <artifactId>jline</artifactId>
++                <version>${jline.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>junit</groupId>
++                <artifactId>junit</artifactId>
++                <version>${junit.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.logging.log4j</groupId>
++                <artifactId>log4j-1.2-api</artifactId>
++                <version>${log4j2.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.logging.log4j</groupId>
++                <artifactId>log4j-web</artifactId>
++                <version>${log4j2.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.logging.log4j</groupId>
++                <artifactId>log4j-slf4j-impl</artifactId>
++                <version>${log4j2.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.antlr</groupId>
++                <artifactId>antlr-runtime</artifactId>
++                <version>${antlr.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.antlr</groupId>
++                <artifactId>ST4</artifactId>
++                <version>${ST4.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.commons</groupId>
++                <artifactId>commons-compress</artifactId>
++                <version>${commons-compress.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.commons</groupId>
++                <artifactId>commons-exec</artifactId>
++                <version>${commons-exec.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.accumulo</groupId>
++                <artifactId>accumulo-core</artifactId>
++                <version>${accumulo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.accumulo</groupId>
++                <artifactId>accumulo-fate</artifactId>
++                <version>${accumulo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.accumulo</groupId>
++                <artifactId>accumulo-minicluster</artifactId>
++                <version>${accumulo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.accumulo</groupId>
++                <artifactId>accumulo-start</artifactId>
++                <version>${accumulo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.accumulo</groupId>
++                <artifactId>accumulo-trace</artifactId>
++                <version>${accumulo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.activemq</groupId>
++                <artifactId>activemq-core</artifactId>
++                <version>${activemq.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.springframework</groupId>
++                        <artifactId>spring-context</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.activemq</groupId>
++                <artifactId>kahadb</artifactId>
++                <version>${activemq.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.avro</groupId>
++                <artifactId>avro</artifactId>
++                <version>${avro.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.avro</groupId>
++                <artifactId>avro-mapred</artifactId>
++                <classifier>hadoop2</classifier>
++                <version>${avro.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty-util</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.derby</groupId>
++                <artifactId>derby</artifactId>
++                <version>${derby.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.httpcomponents</groupId>
++                <artifactId>httpclient</artifactId>
++                <version>${httpcomponents.client.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.httpcomponents</groupId>
++                <artifactId>httpcore</artifactId>
++                <version>${httpcomponents.core.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.velocity</groupId>
++                <artifactId>velocity-engine-core</artifactId>
++                <version>${velocity.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>stax</groupId>
++                <artifactId>stax-api</artifactId>
++                <version>${stax.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.orc</groupId>
++                <artifactId>orc-core</artifactId>
++                <version>${orc.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.apache.hadoop</groupId>
++                        <artifactId>hadoop-common</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.apache.hive</groupId>
++                        <artifactId>hive-storage-api</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hive</groupId>
++                <artifactId>hive-storage-api</artifactId>
++                <version>${storage-api.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.pig</groupId>
++                <artifactId>pig</artifactId>
++                <version>${pig.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty-util</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.thrift</groupId>
++                <artifactId>libfb303</artifactId>
++                <version>${libfb303.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.thrift</groupId>
++                <artifactId>libthrift</artifactId>
++                <version>${libthrift.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.zookeeper</groupId>
++                <artifactId>zookeeper</artifactId>
++                <version>${zookeeper.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.slf4j</groupId>
++                        <artifactId>slf4j-log4j12</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.apache.httpcomponents</groupId>
++                        <artifactId>httpcore</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.apache.httpcomponents</groupId>
++                        <artifactId>httpclient</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.jboss.netty</groupId>
++                        <artifactId>netty</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.curator</groupId>
++                <artifactId>curator-client</artifactId>
++                <version>${curator.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.curator</groupId>
++                <artifactId>curator-framework</artifactId>
++                <version>${curator.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.curator</groupId>
++                <artifactId>curator-recipes</artifactId>
++                <version>${curator.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.codehaus.groovy</groupId>
++                <artifactId>groovy-all</artifactId>
++                <version>${groovy.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.core</groupId>
++                <artifactId>jackson-annotations</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.core</groupId>
++                <artifactId>jackson-core</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.core</groupId>
++                <artifactId>jackson-databind</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.module</groupId>
++                <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.dataformat</groupId>
++                <artifactId>jackson-dataformat-smile</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.jaxrs</groupId>
++                <artifactId>jackson-jaxrs-json-provider</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.fasterxml.jackson.module</groupId>
++                <artifactId>jackson-module-jaxb-annotations</artifactId>
++                <version>${jackson.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.codehaus.jettison</groupId>
++                <artifactId>jettison</artifactId>
++                <version>${jettison.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>stax</groupId>
++                        <artifactId>stax-api</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.eclipse.jetty</groupId>
++                <artifactId>jetty-rewrite</artifactId>
++                <version>${jetty.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.eclipse.jetty</groupId>
++                <artifactId>jetty-server</artifactId>
++                <version>${jetty.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.eclipse.jetty</groupId>
++                <artifactId>jetty-servlet</artifactId>
++                <version>${jetty.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.eclipse.jetty</groupId>
++                <artifactId>jetty-webapp</artifactId>
++                <version>${jetty.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>javax.servlet</groupId>
++                <artifactId>javax.servlet-api</artifactId>
++                <version>${javax-servlet.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.datanucleus</groupId>
++                <artifactId>datanucleus-api-jdo</artifactId>
++                <version>${datanucleus-api-jdo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.datanucleus</groupId>
++                <artifactId>datanucleus-core</artifactId>
++                <version>${datanucleus-core.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.datanucleus</groupId>
++                <artifactId>datanucleus-rdbms</artifactId>
++                <version>${datanucleus-rdbms.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.datanucleus</groupId>
++                <artifactId>javax.jdo</artifactId>
++                <version>${datanucleus-jdo.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>com.tdunning</groupId>
++                <artifactId>json</artifactId>
++                <version>${json.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.mockito</groupId>
++                <artifactId>mockito-all</artifactId>
++                <version>${mockito-all.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.slf4j</groupId>
++                <artifactId>slf4j-api</artifactId>
++                <version>${slf4j.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>xerces</groupId>
++                <artifactId>xercesImpl</artifactId>
++                <version>${xerces.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-client</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-auth</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-common</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty-sslengine</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.slf4j</groupId>
++                        <artifactId>slf4j-log4j12</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.apache.httpcomponents</groupId>
++                        <artifactId>httpcore</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.apache.httpcomponents</groupId>
++                        <artifactId>httpclient</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-hdfs</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.slf4j</groupId>
++                        <artifactId>slf4j-log4j12</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>com.codahale.metrics</groupId>
++                        <artifactId>metrics-core</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-mapreduce-client-common</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.slf4j</groupId>
++                        <artifactId>slf4j-log4j12</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-mapreduce-client-core</artifactId>
++                <version>${hadoop.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.slf4j</groupId>
++                        <artifactId>slf4j-log4j12</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>commmons-logging</groupId>
++                        <artifactId>commons-logging</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-minikdc</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-api</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-client</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-common</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-registry</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-server-web-common</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-yarn-server-web-proxy</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hbase</groupId>
++                <artifactId>hbase-common</artifactId>
++                <version>${hbase.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hbase</groupId>
++                <artifactId>hbase-hadoop-compat</artifactId>
++                <version>${hbase.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hbase</groupId>
++                <artifactId>hbase-hadoop2-compat</artifactId>
++                <version>${hbase.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>javax.servlet</groupId>
++                        <artifactId>servlet-api</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>javax.servlet.jsp</groupId>
++                        <artifactId>jsp-api</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.jruby</groupId>
++                        <artifactId>jruby-complete</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.jboss.netty</groupId>
++                        <artifactId>netty</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>io.netty</groupId>
++                        <artifactId>netty</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jsp-2.1</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jsp-api-2.1</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>servlet-api-2.5</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>servlet-api-2.5</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>com.sun.jersey</groupId>
++                        <artifactId>jersey-core</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>com.sun.jersey</groupId>
++                        <artifactId>jersey-json</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>com.sun.jersey</groupId>
++                        <artifactId>jersey-server</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>org.mortbay.jetty</groupId>
++                        <artifactId>jetty-util</artifactId>
++                    </exclusion>
++                    <exclusion>
++                        <groupId>com.codahale.metrics</groupId>
++                        <artifactId>metrics-core</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hbase</groupId>
++                <artifactId>hbase-server</artifactId>
++                <version>${hbase.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.glassfish</groupId>
++                        <artifactId>javax.el</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hbase</groupId>
++                <artifactId>hbase-mapreduce</artifactId>
++                <version>${hbase.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.hadoop</groupId>
++                <artifactId>hadoop-minicluster</artifactId>
++                <version>${hadoop.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.scala-lang</groupId>
++                <artifactId>scala-library</artifactId>
++                <version>${scala.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.apache.spark</groupId>
++                <artifactId>spark-core_${scala.binary.version}</artifactId>
++                <version>${spark.version}</version>
++                <exclusions>
++                    <exclusion>
++                        <groupId>org.apache.hadoop</groupId>
++                        <artifactId>hadoop-core</artifactId>
++                    </exclusion>
++                </exclusions>
++            </dependency>
++            <dependency>
++                <groupId>org.jamon</groupId>
++                <artifactId>jamon-runtime</artifactId>
++                <version>${jamon-runtime.version}</version>
++            </dependency>
++            <dependency>
++                <groupId>org.xerial.snappy</groupId>
++                <artifactId>snappy-java</artifactId>
++                <version>${snappy.version}</version>
++            </dependency>
++        </dependencies>
++    </dependencyManagement>
++    
++    <dependencies>
++        <!-- dependencies are always listed in sorted order by groupId, artifectId -->
++        <!-- global dependencies -->
++        <dependency>
++            <groupId>org.slf4j</groupId>
++            <artifactId>slf4j-api</artifactId>
++            <version>${slf4j.version}</version>
++        </dependency>
++        <dependency>
++            <groupId>org.apache.hive</groupId>
++            <artifactId>hive-upgrade-acid</artifactId>
++            <version>${project.version}</version>
++        </dependency>
++        <dependency>
++            <groupId>org.mockito</groupId>
++            <artifactId>mockito-all</artifactId>
++            <scope>test</scope>
++        </dependency>
++    </dependencies>
++    
++    <build>
++        <pluginManagement>
++            <plugins>
++                <!-- plugins are always listed in sorted order by groupId, artifectId -->
++                <plugin>
++                    <groupId>org.antlr</groupId>
++                    <artifactId>antlr3-maven-plugin</artifactId>
++                    <version>${antlr.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-compiler-plugin</artifactId>
++                    <version>${maven.compiler.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-antrun-plugin</artifactId>
++                    <version>${maven.antrun.plugin.version}</version>
++                    <dependencies>
++                        <dependency>
++                            <groupId>ant-contrib</groupId>
++                            <artifactId>ant-contrib</artifactId>
++                            <version>${ant.contrib.version}</version>
++                            <exclusions>
++                                <exclusion>
++                                    <groupId>ant</groupId>
++                                    <artifactId>ant</artifactId>
++                                </exclusion>
++                            </exclusions>
++                        </dependency>
++                    </dependencies>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-assembly-plugin</artifactId>
++                    <version>${maven.assembly.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-eclipse-plugin</artifactId>
++                    <version>${maven.eclipse.plugin.version}</version>
++                    <configuration>
++                        <downloadJavadocs>true</downloadJavadocs>
++                        <downloadSources>true</downloadSources>
++                        <buildOutputDirectory>target/eclipse/classes</buildOutputDirectory>
++                        <workspaceActiveCodeStyleProfileName>Hive</workspaceActiveCodeStyleProfileName>
++                        <workspaceCodeStylesURL>${basedir}/dev-support/eclipse-styles.xml</workspaceCodeStylesURL>
++                    </configuration>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-checkstyle-plugin</artifactId>
++                    <version>${maven.checkstyle.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-enforcer-plugin</artifactId>
++                    <version>${maven.enforcer.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-install-plugin</artifactId>
++                    <version>${maven.install.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-shade-plugin</artifactId>
++                    <version>${maven.shade.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-surefire-plugin</artifactId>
++                    <version>${maven.surefire.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-jar-plugin</artifactId>
++                    <version>${maven.jar.plugin.version}</version>
++                    <configuration>
++                        <archive>
++                            <manifest>
++                                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
++                            </manifest>
++                        </archive>
++                    </configuration>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-war-plugin</artifactId>
++                    <version>${maven.war.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.datanucleus</groupId>
++                    <artifactId>datanucleus-maven-plugin</artifactId>
++                    <version>${datanucleus.maven.plugin.version}</version>
++                    <dependencies>
++                        <dependency>
++                            <groupId>org.datanucleus</groupId>
++                            <artifactId>datanucleus-core</artifactId>
++                            <version>${datanucleus-core.version}</version>
++                        </dependency>
++                    </dependencies>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.felix</groupId>
++                    <artifactId>maven-bundle-plugin</artifactId>
++                    <version>${felix.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.apache.maven.plugins</groupId>
++                    <artifactId>maven-dependency-plugin</artifactId>
++                    <version>${maven.dependency.plugin.version}</version>
++                </plugin>
++                <plugin>
++                    <groupId>org.codehaus.mojo</groupId>
++                    <artifactId>build-helper-maven-plugin</artifactId>
++                    <version>${maven.build-helper.plugin.version}</version>
++                </plugin>
++            </plugins>
++        </pluginManagement>
++        
++        <plugins>
++            <!-- plugins are always listed in sorted order by groupId, artifectId -->
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-antrun-plugin</artifactId>
++                <executions>
++                    <execution>
++                        <id>define-classpath</id>
++                        <phase>process-resources</phase>
++                        <goals>
++                            <goal>run</goal>
++                        </goals>
++                        <configuration>
++                            <exportAntProperties>true</exportAntProperties>
++                            <target>
++                                <property name="maven.test.classpath" refid="maven.test.classpath"/>
++                            </target>
++                        </configuration>
++                    </execution>
++                    <execution>
++                        <id>setup-test-dirs</id>
++                        <phase>process-test-resources</phase>
++                        <goals>
++                            <goal>run</goal>
++                        </goals>
++                        <configuration>
++                            <target>
++                                <delete dir="${test.tmp.dir}"/>
++                                <delete dir="${test.conf.dir}"/>
++                                <delete dir="${test.warehouse.dir}"/>
++                                <mkdir dir="${test.tmp.dir}"/>
++                                <mkdir dir="${test.warehouse.dir}"/>
++                                <mkdir dir="${test.conf.dir}"/>
++                                <!-- copies hive-site.xml so it can be modified -->
++                                <copy todir="${test.conf.dir}">
++                                    <fileset dir="${basedir}/${hive.path.to.root}/data/conf/"/>
++                                </copy>
++                            </target>
++                        </configuration>
++                    </execution>
++                </executions>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-clean-plugin</artifactId>
++                <version>2.5</version>
++                <configuration>
++                    <filesets>
++                        <fileset>
++                            <directory>./</directory>
++                            <includes>
++                                <include>datanucleus.log</include>
++                                <include>derby.log</include>
++                            </includes>
++                            <followSymlinks>false</followSymlinks>
++                        </fileset>
++                        <fileset>
++                            <directory>build</directory>
++                            <followSymlinks>false</followSymlinks>
++                        </fileset>
++                    </filesets>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-checkstyle-plugin</artifactId>
++                <configuration>
++                    <configLocation>${checkstyle.conf.dir}/checkstyle.xml</configLocation>
++                    <propertyExpansion>config_loc=${checkstyle.conf.dir}</propertyExpansion>
++                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-enforcer-plugin</artifactId>
++                <executions>
++                    <execution>
++                        <id>enforce-no-snapshots</id>
++                        <goals>
++                            <goal>enforce</goal>
++                        </goals>
++                        <configuration>
++                            <rules>
++                                <requireReleaseDeps>
++                                    <message>Release builds are not allowed to have SNAPSHOT depenendencies</message>
++                                    <searchTransitive>true</searchTransitive>
++                                    <onlyWhenRelease>true</onlyWhenRelease>
++                                </requireReleaseDeps>
++                            </rules>
++                            <fail>true</fail>
++                        </configuration>
++                    </execution>
++                    <execution>
++                        <id>enforce-banned-dependencies</id>
++                        <goals>
++                            <goal>enforce</goal>
++                        </goals>
++                        <configuration>
++                            <rules>
++                                <bannedDependencies>
++                                    <excludes>
++                                        <!--LGPL licenced library-->
++                                        <exclude>com.google.code.findbugs:annotations</exclude>
++                                    </excludes>
++                                </bannedDependencies>
++                            </rules>
++                            <fail>true</fail>
++                        </configuration>
++                    </execution>
++                </executions>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-surefire-plugin</artifactId>
++                <configuration>
++                    <excludes>
++                        <exclude>**/TestSerDe.java</exclude>
++                        <exclude>**/TestHiveMetaStore.java</exclude>
++                        <exclude>**/ql/exec/vector/util/*.java</exclude>
++                        <exclude>**/ql/exec/vector/udf/legacy/*.java</exclude>
++                        <exclude>**/ql/exec/vector/udf/generic/*.java</exclude>
++                        <exclude>**/TestHiveServer2Concurrency.java</exclude>
++                        <exclude>${test.excludes.additional}</exclude>
++                        <exclude>${skip.spark.files}</exclude>
++                    </excludes>
++                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
++                    <reuseForks>false</reuseForks>
++                    <failIfNoTests>false</failIfNoTests>
++                    <argLine>${maven.test.jvm.args}</argLine>
++                    <trimStackTrace>false</trimStackTrace>
++                    <additionalClasspathElements>
++                        <additionalClasspathElement>${test.conf.dir}</additionalClasspathElement>
++                        <additionalClasspathElement>${basedir}/${hive.path.to.root}/conf</additionalClasspathElement>
++                    </additionalClasspathElements>
++                    <environmentVariables>
++                        <TZ>US/Pacific</TZ>
++                        <LANG>en_US.UTF-8</LANG>
++                        <HADOOP_CLASSPATH>${test.conf.dir}:${basedir}/${hive.path.to.root}/conf</HADOOP_CLASSPATH>
++                        <HIVE_HADOOP_TEST_CLASSPATH>${test.hive.hadoop.classpath}</HIVE_HADOOP_TEST_CLASSPATH>
++                        <SPARK_SUBMIT_CLASSPATH>
++                            ${spark.home}/lib/spark-assembly-${spark.version}-hadoop2.4.0.jar:${test.hive.hadoop.classpath}
++                        </SPARK_SUBMIT_CLASSPATH>
++                        <SPARK_OSX_TEST_OPTS>-Dorg.xerial.snappy.tempdir=/tmp
++                            -Dorg.xerial.snappy.lib.name=libsnappyjava.jnilib
++                        </SPARK_OSX_TEST_OPTS>
++                        <SPARK_SCALA_VERSION>2.12</SPARK_SCALA_VERSION>
++                        <SPARK_HOME>${spark.home}</SPARK_HOME>
++                        <PATH>${env.PATH}${test.extra.path}</PATH>
++                    </environmentVariables>
++                    <systemPropertyVariables>
++                        <build.dir>${project.build.directory}</build.dir>
++                        <!-- required by zk test ClientBase -->
++                        <build.test.dir>${test.tmp.dir}</build.test.dir>x`
++                        <!-- required by a few tests to find the derby jar -->
++                        <derby.version>${derby.version}</derby.version>
++                        <derby.stream.error.file>${test.tmp.dir}/derby.log</derby.stream.error.file>
++                        <hadoop.bin.path>${hadoop.bin.path}</hadoop.bin.path>
++                        <!-- required by Hadoop's JobHistory -->
++                        <hadoop.log.dir>${test.tmp.dir}</hadoop.log.dir>
++                        <hive.root>${basedir}/${hive.path.to.root}/</hive.root>
++                        <hive.version>${project.version}</hive.version>
++                        <!-- required for hive-exec jar path and tests which reference a jar -->
++                        <maven.local.repository>${maven.repo.local}</maven.local.repository>
++                        <mapred.job.tracker>local</mapred.job.tracker>
++                        <log4j.configurationFile>${test.log4j.scheme}${test.conf.dir}/hive-log4j2.properties
++                        </log4j.configurationFile>
++                        <hive.test.console.log.level>${test.console.log.level}</hive.test.console.log.level>
++                        <log4j.debug>true</log4j.debug>
++                        <!-- don't diry up /tmp -->
++                        <java.io.tmpdir>${test.tmp.dir}</java.io.tmpdir>
++                        <spark.home>${spark.home}</spark.home>
++                        <!-- Hadoop's minidfs class uses this -->
++                        <test.build.data>${test.tmp.dir}</test.build.data>
++                        <!-- required by QTestUtil -->
++                        <test.data.files>${basedir}/${hive.path.to.root}/data/files</test.data.files>
++                        <test.data.dir>${basedir}/${hive.path.to.root}/data/files</test.data.dir>
++                        <test.tmp.dir>${test.tmp.dir}</test.tmp.dir>
++                        <test.tmp.dir.uri>${test.tmp.dir.uri}</test.tmp.dir.uri>
++                        <test.dfs.mkdir>${test.dfs.mkdir}</test.dfs.mkdir>
++                        <test.output.overwrite>${test.output.overwrite}</test.output.overwrite>
++                        <test.warehouse.dir>${test.warehouse.scheme}${test.warehouse.dir}</test.warehouse.dir>
++                        <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
++                        <!-- EnforceReadOnlyTables hook and QTestUtil -->
++                        <test.src.tables>
++                            src,src1,srcbucket,srcbucket2,src_json,src_thrift,src_sequencefile,srcpart,alltypesorc,alltypesparquet,src_hbase,cbo_t1,cbo_t2,cbo_t3,src_cbo,part,lineitem
++                        </test.src.tables>
++                        <java.security.krb5.conf>${test.conf.dir}/krb5.conf</java.security.krb5.conf>
++                        <!-- Required by spark to work around SPARK-14958 -->
++                        <antlr.version>${antlr.version}</antlr.version>
++                        <qfile>${qfile}</qfile>
++                        <initScript>${initScript}</initScript>
++                        <clustermode>${clustermode}</clustermode>
++                        <qfile_regex>${qfile_regex}</qfile_regex>
++                        <run_disabled>${run_disabled}</run_disabled>
++                    </systemPropertyVariables>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.rat</groupId>
++                <artifactId>apache-rat-plugin</artifactId>
++                <version>0.10</version>
++                <configuration>
++                    <excludes>
++                        <exclude>binary-package-licenses/**</exclude>
++                        <exclude>data/**</exclude>
++                        <exclude>conf/**</exclude>
++                        <exclude>checkstyle/**</exclude>
++                        <exclude>bin/**</exclude>
++                        <exclude>itests/**</exclude>
++                        <exclude>**/README.md</exclude>
++                        <exclude>**/*.iml</exclude>
++                        <exclude>**/*.txt</exclude>
++                        <exclude>**/*.log</exclude>
++                        <exclude>**/*.arcconfig</exclude>
++                        <exclude>**/package-info.java</exclude>
++                        <exclude>**/*.properties</exclude>
++                        <exclude>**/*.q</exclude>
++                        <exclude>**/*.q.out</exclude>
++                        <exclude>**/*.q.out_*</exclude>
++                        <exclude>**/*.xml</exclude>
++                        <exclude>**/gen/**</exclude>
++                        <exclude>**/scripts/**</exclude>
++                        <exclude>**/resources/**</exclude>
++                        <exclude>**/*.rc</exclude>
++                        <exclude>**/*.rcfile</exclude>
++                        <exclude>**/*.qv</exclude>
++                        <exclude>**/*.out</exclude>
++                        <exclude>**/RecordTestObj.java</exclude>
++                        <exclude>**/*.m</exclude>
++                        <exclude>**/gen-java/**</exclude>
++                        <exclude>**/testdata/**</exclude>
++                        <exclude>**/ptest2/*.md</exclude>
++                        <exclude>**/test/org/apache/hadoop/hive/hbase/avro/**</exclude>
++                        <exclude>**/avro_test.avpr</exclude>
++                        <exclude>**/xmlReport.pl</exclude>
++                        <exclude>**/*.html</exclude>
++                        <exclude>**/sit</exclude>
++                        <exclude>**/test/queries/**/*.sql</exclude>
++                        <exclude>**/patchprocess/**</exclude>
++                        <exclude>**/metastore_db/**</exclude>
++                    </excludes>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>org.jamon</groupId>
++                <artifactId>jamon-maven-plugin</artifactId>
++                <version>${jamon.plugin.version}</version>
++            </plugin>
++        </plugins>
++    </build>
++    
++    <profiles>
++        <profile>
++            <id>thriftif</id>
++            <build>
++                <plugins>
++                    <plugin>
++                        <groupId>org.apache.maven.plugins</groupId>
++                        <artifactId>maven-antrun-plugin</artifactId>
++                        <executions>
++                            <execution>
++                                <id>generate-thrift-sources</id>
++                                <phase>generate-sources</phase>
++                                <configuration>
++                                    <target>
++                                        <taskdef name="for" classname="net.sf.antcontrib.logic.ForTask"
++                                                 classpathref="maven.plugin.classpath"/>
++                                        <property name="thrift.args"
++                                                  value="-I ${thrift.home} --gen java:beans,hashcode,generated_annotations=undated --gen cpp --gen php --gen py --gen rb"/>
++                                        <property name="thrift.gen.dir" value="${basedir}/src/gen/thrift"/>
++                                        <delete dir="${thrift.gen.dir}"/>
++                                        <mkdir dir="${thrift.gen.dir}"/>
++                                        <for param="thrift.file">
++                                            <path>
++                                                <fileset dir="."
++                                                         includes="if/*.thrift,if/test/*.thrift,src/main/thrift/*.thrift"/>
++                                            </path>
++                                            <sequential>
++                                                <echo message="Generating Thrift code for @{thrift.file}"/>
++                                                <exec executable="${thrift.home}/bin/thrift" failonerror="true" dir=".">
++                                                    <arg line="${thrift.args} -I ${basedir}/include -I ${basedir}/.. -o ${thrift.gen.dir} @{thrift.file} "/>
++                                                </exec>
++                                            </sequential>
++                                        </for>
++                                    </target>
++                                </configuration>
++                                <goals>
++                                    <goal>run</goal>
++                                </goals>
++                            </execution>
++                        </executions>
++                    </plugin>
++                    <plugin>
++                        <groupId>org.apache.maven.plugins</groupId>
++                        <artifactId>maven-enforcer-plugin</artifactId>
++                        <executions>
++                            <execution>
++                                <id>enforce-property</id>
++                                <goals>
++                                    <goal>enforce</goal>
++                                </goals>
++                                <configuration>
++                                    <rules>
++                                        <requireProperty>
++                                            <property>thrift.home</property>
++                                        </requireProperty>
++                                    </rules>
++                                    <fail>true</fail>
++                                </configuration>
++                            </execution>
++                        </executions>
++                    </plugin>
++                </plugins>
++            </build>
++        </profile>
++        
++        <profile>
++            <id>sources</id>
++            <build>
++                <plugins>
++                    <plugin>
++                        <groupId>org.apache.maven.plugins</groupId>
++                        <artifactId>maven-source-plugin</artifactId>
++                        <executions>
++                            <execution>
++                                <id>attach-sources</id>
++                                <goals>
++                                    <goal>jar</goal>
++                                </goals>
++                            </execution>
++                        </executions>
++                    </plugin>
++                </plugins>
++            </build>
++        </profile>
++        
++        <profile>
++            <id>javadoc</id>
++            <build>
++                <plugins>
++                    <plugin>
++                        <groupId>org.apache.maven.plugins</groupId>
++                        <artifactId>maven-javadoc-plugin</artifactId>
++                        <configuration>
++                            <failOnError>false</failOnError>
++                        </configuration>
++                        <executions>
++                            <execution>
++                                <id>attach-javadocs</id>
++                                <goals>
++                                    <goal>jar</goal>
++                                </goals>
++                            </execution>
++                        </executions>
++                    </plugin>
++                </plugins>
++            </build>
++        </profile>
++        
++        <profile>
++            <id>findbugs</id>
++            <build>
++                <plugins>
++                    <plugin>
++                        <groupId>org.codehaus.mojo</groupId>
++                        <artifactId>findbugs-maven-plugin</artifactId>
++                        <version>3.0.0</version>
++                        <configuration>
++                            <fork>true</fork>
++                            <maxHeap>2048</maxHeap>
++                            <jvmArgs>-Djava.awt.headless=true -Xmx2048m -Xms512m</jvmArgs>
++                            <excludeFilterFile>${basedir}/${hive.path.to.root}/findbugs/findbugs-exclude.xml
++                            </excludeFilterFile>
++                        </configuration>
++                    </plugin>
++                </plugins>
++            </build>
++            <reporting>
++                <plugins>
++                    <plugin>
++                        <groupId>org.codehaus.mojo</groupId>
++                        <artifactId>findbugs-maven-plugin</artifactId>
++                        <version>3.0.0</version>
++                        <configuration>
++                            <fork>true</fork>
++                            <maxHeap>2048</maxHeap>
++                            <jvmArgs>-Djava.awt.headless=true -Xmx2048m -Xms512m</jvmArgs>
++                            <excludeFilterFile>${basedir}/${hive.path.to.root}/findbugs/findbugs-exclude.xml
++                            </excludeFilterFile>
++                        </configuration>
++                    </plugin>
++                </plugins>
++            </reporting>
++        </profile>
++        <profile>
++            <!-- Windows-specific settings to allow unit tests to work -->
++            <id>windows-test</id>
++            <activation>
++                <os>
++                    <family>Windows</family>
++                </os>
++            </activation>
++            <build>
++                <plugins>
++                    <!-- maven.test.classpath (used for HIVE_HADOOP_TEST_CLASSPATH) exceeds the 8K Windows -->
++                    <!-- command shell limit which causes tests which call hadoop command to fail.         -->
++                    <!-- Workaround is to copy all necessary jars to a single location to shorten the      -->
++                    <!-- the length of the environment variable.                                           -->
++                    <plugin>
++                        <groupId>org.apache.maven.plugins</groupId>
++                        <artifactId>maven-dependency-plugin</artifactId>
++                        <version>2.8</version>
++                        <executions>
++                            <execution>
++                                <id>copy-dependencies</id>
++                                <phase>package</phase>
++                                <goals>
++                                    <goal>copy-dependencies</goal>
++                                </goals>
++                                <configuration>
++                                    <outputDirectory>${project.build.directory}/deplibs/</outputDirectory>
++                                    <overWriteReleases>false</overWriteReleases>
++                                    <overWriteSnapshots>false</overWriteSnapshots>
++                                    <overWriteIfNewer>true</overWriteIfNewer>
++                                </configuration>
++                            </execution>
++                        </executions>
++                    </plugin>
++                </plugins>
++            </build>
++            <properties>
++                <hadoop.bin.path>${basedir}/${hive.path.to.root}/testutils/hadoop.cmd</hadoop.bin.path>
++                <test.extra.path>;${env.HADOOP_HOME}/bin</test.extra.path>
++                <test.hive.hadoop.classpath>${project.build.directory}/deplibs/*</test.hive.hadoop.classpath>
++                <test.tmp.dir.uri>file:///${test.tmp.dir}</test.tmp.dir.uri>
++                <test.log4j.scheme>file:/</test.log4j.scheme>
++            </properties>
++        </profile>
++        <profile>
++            <id>spark-test</id>
++            <activation>
++                <property>
++                    <name>!skipSparkTests</name>
++                </property>
++            </activation>
++            <properties>
++                <skip.spark.files>
++                    **/ql/exec/spark/session/TestSparkSessionManagerImpl.java,**/TestMultiSessionsHS2WithLocalClusterSpark.java,**/TestJdbcWithLocalClusterSpark.java
++                </skip.spark.files>
++            </properties>
++        </profile>
++        <profile>
++            <id>itests</id>
++            <modules>
++                <module>itests</module>
++            </modules>
++        </profile>
++    </profiles>
+ </project>
+Index: hcatalog/webhcat/svr/src/main/java/org/apache/hive/hcatalog/templeton/Main.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/hcatalog/webhcat/svr/src/main/java/org/apache/hive/hcatalog/templeton/Main.java b/hcatalog/webhcat/svr/src/main/java/org/apache/hive/hcatalog/templeton/Main.java
+--- a/hcatalog/webhcat/svr/src/main/java/org/apache/hive/hcatalog/templeton/Main.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/hcatalog/webhcat/svr/src/main/java/org/apache/hive/hcatalog/templeton/Main.java	(date 1666966315719)
+@@ -255,7 +255,8 @@
+   // Configure the AuthFilter with the Kerberos params iff security
+   // is enabled.
+   public FilterHolder makeAuthFilter() throws IOException {
+-    FilterHolder authFilter = new FilterHolder(AuthFilter.class);
++    // FilterHolder authFilter = new FilterHolder(AuthFilter.class);
++    FilterHolder authFilter = new FilterHolder();
+     UserNameHandler.allowAnonymous(authFilter);
+     if (UserGroupInformation.isSecurityEnabled()) {
+       //http://hadoop.apache.org/docs/r1.1.1/api/org/apache/hadoop/security/authentication/server/AuthenticationFilter.html
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/LongColumnStatsAggregator.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/LongColumnStatsAggregator.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/LongColumnStatsAggregator.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/LongColumnStatsAggregator.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/LongColumnStatsAggregator.java	(date 1666966498503)
+@@ -38,6 +38,8 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.longInspectorFromStats;
++
+ public class LongColumnStatsAggregator extends ColumnStatsAggregator implements
+     IExtrapolatePartStatus {
+ 
+@@ -63,8 +65,7 @@
+         LOG.trace("doAllPartitionContainStats for column: {} is: {}", colName,
+             doAllPartitionContainStats);
+       }
+-      LongColumnStatsDataInspector longColumnStatsData =
+-          (LongColumnStatsDataInspector) cso.getStatsData().getLongStats();
++      LongColumnStatsDataInspector longColumnStatsData = longInspectorFromStats(cso);
+       if (longColumnStatsData.getNdvEstimator() == null) {
+         ndvEstimator = null;
+         break;
+@@ -96,8 +97,7 @@
+       double densityAvgSum = 0.0;
+       for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+         ColumnStatisticsObj cso = csp.getColStatsObj();
+-        LongColumnStatsDataInspector newData =
+-            (LongColumnStatsDataInspector) cso.getStatsData().getLongStats();
++        LongColumnStatsDataInspector newData = longInspectorFromStats(cso);
+         lowerBound = Math.max(lowerBound, newData.getNumDVs());
+         higherBound += newData.getNumDVs();
+         densityAvgSum += (newData.getHighValue() - newData.getLowValue()) / newData.getNumDVs();
+@@ -174,8 +174,7 @@
+         for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+           ColumnStatisticsObj cso = csp.getColStatsObj();
+           String partName = csp.getPartName();
+-          LongColumnStatsDataInspector newData =
+-              (LongColumnStatsDataInspector) cso.getStatsData().getLongStats();
++          LongColumnStatsDataInspector newData = longInspectorFromStats(cso);
+           // newData.isSetBitVectors() should be true for sure because we
+           // already checked it before.
+           if (indexMap.get(partName) != curIndex) {
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DecimalColumnStatsAggregator.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DecimalColumnStatsAggregator.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DecimalColumnStatsAggregator.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DecimalColumnStatsAggregator.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DecimalColumnStatsAggregator.java	(date 1666966498503)
+@@ -40,6 +40,8 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.decimalInspectorFromStats;
++
+ public class DecimalColumnStatsAggregator extends ColumnStatsAggregator implements
+     IExtrapolatePartStatus {
+ 
+@@ -65,8 +67,8 @@
+         LOG.trace("doAllPartitionContainStats for column: {} is: {}", colName,
+             doAllPartitionContainStats);
+       }
+-      DecimalColumnStatsDataInspector decimalColumnStatsData =
+-          (DecimalColumnStatsDataInspector) cso.getStatsData().getDecimalStats();
++      DecimalColumnStatsDataInspector decimalColumnStatsData = decimalInspectorFromStats(cso);
++
+       if (decimalColumnStatsData.getNdvEstimator() == null) {
+         ndvEstimator = null;
+         break;
+@@ -98,8 +100,7 @@
+       double densityAvgSum = 0.0;
+       for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+         ColumnStatisticsObj cso = csp.getColStatsObj();
+-        DecimalColumnStatsDataInspector newData =
+-            (DecimalColumnStatsDataInspector) cso.getStatsData().getDecimalStats();
++        DecimalColumnStatsDataInspector newData = decimalInspectorFromStats(cso);
+         lowerBound = Math.max(lowerBound, newData.getNumDVs());
+         higherBound += newData.getNumDVs();
+         densityAvgSum += (MetaStoreUtils.decimalToDouble(newData.getHighValue()) - MetaStoreUtils
+@@ -187,8 +188,7 @@
+         for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+           ColumnStatisticsObj cso = csp.getColStatsObj();
+           String partName = csp.getPartName();
+-          DecimalColumnStatsDataInspector newData =
+-              (DecimalColumnStatsDataInspector) cso.getStatsData().getDecimalStats();
++          DecimalColumnStatsDataInspector newData = decimalInspectorFromStats(cso);
+           // newData.isSetBitVectors() should be true for sure because we
+           // already checked it before.
+           if (indexMap.get(partName) != curIndex) {
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DecimalColumnStatsDataInspector.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DecimalColumnStatsDataInspector.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DecimalColumnStatsDataInspector.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DecimalColumnStatsDataInspector.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DecimalColumnStatsDataInspector.java	(date 1666966498503)
+@@ -43,6 +43,10 @@
+     }
+   }
+ 
++  public DecimalColumnStatsDataInspector(DecimalColumnStatsData other) {
++    super(other);
++  }
++
+   @Override
+   public DecimalColumnStatsDataInspector deepCopy() {
+     return new DecimalColumnStatsDataInspector(this);
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DoubleColumnStatsDataInspector.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DoubleColumnStatsDataInspector.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DoubleColumnStatsDataInspector.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DoubleColumnStatsDataInspector.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DoubleColumnStatsDataInspector.java	(date 1666966498503)
+@@ -43,6 +43,10 @@
+     }
+   }
+ 
++  public DoubleColumnStatsDataInspector(DoubleColumnStatsData other) {
++    super(other);
++  }
++
+   @Override
+   public DoubleColumnStatsDataInspector deepCopy() {
+     return new DoubleColumnStatsDataInspector(this);
+Index: llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorService.java b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorService.java
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorService.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorService.java	(date 1666964078043)
+@@ -175,7 +175,7 @@
+     executionCompletionExecutorService = MoreExecutors.listeningDecorator(
+         executionCompletionExecutorServiceRaw);
+     ListenableFuture<?> future = waitQueueExecutorService.submit(new WaitQueueWorker());
+-    Futures.addCallback(future, new WaitQueueWorkerCallback());
++    Futures.addCallback(future, new WaitQueueWorkerCallback(), MoreExecutors.directExecutor());
+   }
+ 
+   private LlapQueueComparatorBase createComparator(
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/StringColumnStatsAggregator.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/StringColumnStatsAggregator.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/StringColumnStatsAggregator.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/StringColumnStatsAggregator.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/StringColumnStatsAggregator.java	(date 1666966498503)
+@@ -38,6 +38,8 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.stringInspectorFromStats;
++
+ public class StringColumnStatsAggregator extends ColumnStatsAggregator implements
+     IExtrapolatePartStatus {
+ 
+@@ -63,8 +65,7 @@
+         LOG.trace("doAllPartitionContainStats for column: {} is: {}", colName,
+             doAllPartitionContainStats);
+       }
+-      StringColumnStatsDataInspector stringColumnStatsData =
+-          (StringColumnStatsDataInspector) cso.getStatsData().getStringStats();
++      StringColumnStatsDataInspector stringColumnStatsData = stringInspectorFromStats(cso);
+       if (stringColumnStatsData.getNdvEstimator() == null) {
+         ndvEstimator = null;
+         break;
+@@ -93,8 +94,7 @@
+       StringColumnStatsDataInspector aggregateData = null;
+       for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+         ColumnStatisticsObj cso = csp.getColStatsObj();
+-        StringColumnStatsDataInspector newData =
+-            (StringColumnStatsDataInspector) cso.getStatsData().getStringStats();
++        StringColumnStatsDataInspector newData = stringInspectorFromStats(cso);
+         if (ndvEstimator != null) {
+           ndvEstimator.mergeEstimators(newData.getNdvEstimator());
+         }
+@@ -149,7 +149,7 @@
+           ColumnStatisticsObj cso = csp.getColStatsObj();
+           String partName = csp.getPartName();
+           StringColumnStatsDataInspector newData =
+-              (StringColumnStatsDataInspector) cso.getStatsData().getStringStats();
++              stringInspectorFromStats(cso);
+           // newData.isSetBitVectors() should be true for sure because we
+           // already checked it before.
+           if (indexMap.get(partName) != curIndex) {
+@@ -211,7 +211,8 @@
+       int numPartsWithStats, Map<String, Double> adjustedIndexMap,
+       Map<String, ColumnStatisticsData> adjustedStatsMap, double densityAvg) {
+     int rightBorderInd = numParts;
+-    StringColumnStatsDataInspector extrapolateStringData = new StringColumnStatsDataInspector();
++    StringColumnStatsDataInspector extrapolateStringData =
++        new StringColumnStatsDataInspector();
+     Map<String, StringColumnStatsData> extractedAdjustedStatsMap = new HashMap<>();
+     for (Map.Entry<String, ColumnStatisticsData> entry : adjustedStatsMap.entrySet()) {
+       extractedAdjustedStatsMap.put(entry.getKey(), entry.getValue().getStringStats());
+Index: llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java	(date 1666964053719)
+@@ -128,7 +128,7 @@
+         sendCounterInterval, maxEventsToGet, requestCounter, containerIdStr, initialEvent,
+         fragmentRequestId, wmCounters);
+     ListenableFuture<Boolean> future = heartbeatExecutor.submit(currentCallable);
+-    Futures.addCallback(future, new HeartbeatCallback(errorReporter));
++    Futures.addCallback(future, new HeartbeatCallback(errorReporter), MoreExecutors.directExecutor());
+   }
+ 
+   /**
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DateColumnStatsAggregator.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DateColumnStatsAggregator.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DateColumnStatsAggregator.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DateColumnStatsAggregator.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/aggr/DateColumnStatsAggregator.java	(date 1666966498503)
+@@ -38,6 +38,8 @@
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.dateInspectorFromStats;
++
+ public class DateColumnStatsAggregator extends ColumnStatsAggregator implements
+     IExtrapolatePartStatus {
+ 
+@@ -62,8 +64,8 @@
+             cso.getStatsData().getSetField());
+         LOG.trace("doAllPartitionContainStats for column: {} is: {}", colName, doAllPartitionContainStats);
+       }
+-      DateColumnStatsDataInspector dateColumnStats =
+-          (DateColumnStatsDataInspector) cso.getStatsData().getDateStats();
++      DateColumnStatsDataInspector dateColumnStats = dateInspectorFromStats(cso);
++
+       if (dateColumnStats.getNdvEstimator() == null) {
+         ndvEstimator = null;
+         break;
+@@ -95,9 +97,7 @@
+       double densityAvgSum = 0.0;
+       for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+         ColumnStatisticsObj cso = csp.getColStatsObj();
+-        DateColumnStatsDataInspector newData =
+-            (DateColumnStatsDataInspector) cso.getStatsData().getDateStats();
+-        lowerBound = Math.max(lowerBound, newData.getNumDVs());
++        DateColumnStatsDataInspector newData = dateInspectorFromStats(cso);
+         higherBound += newData.getNumDVs();
+         densityAvgSum += (diff(newData.getHighValue(), newData.getLowValue()))
+             / newData.getNumDVs();
+@@ -174,8 +174,7 @@
+         for (ColStatsObjWithSourceInfo csp : colStatsWithSourceInfo) {
+           ColumnStatisticsObj cso = csp.getColStatsObj();
+           String partName = csp.getPartName();
+-          DateColumnStatsDataInspector newData =
+-              (DateColumnStatsDataInspector) cso.getStatsData().getDateStats();
++          DateColumnStatsDataInspector newData = dateInspectorFromStats(cso);
+           // newData.isSetBitVectors() should be true for sure because we
+           // already checked it before.
+           if (indexMap.get(partName) != curIndex) {
+Index: llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/AMReporter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/AMReporter.java b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/AMReporter.java
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/AMReporter.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/AMReporter.java	(date 1666964006667)
+@@ -174,7 +174,7 @@
+           Thread.getDefaultUncaughtExceptionHandler().uncaughtException(Thread.currentThread(), t);
+         }
+       }
+-    });
++    }, MoreExecutors.directExecutor());
+     // TODO: why is this needed? we could just save the host and port?
+     nodeId = LlapNodeId.getInstance(localAddress.get().getHostName(), localAddress.get().getPort());
+     LOG.info("AMReporter running with DaemonId: {}, NodeId: {}", daemonId, nodeId);
+@@ -274,7 +274,7 @@
+         LOG.warn("Failed to send taskKilled for {}. The attempt will likely time out.",
+             taskAttemptId);
+       }
+-    });
++    }, MoreExecutors.directExecutor());
+   }
+ 
+   public void queryComplete(QueryIdentifier queryIdentifier) {
+@@ -342,7 +342,7 @@
+                     amNodeInfo.amNodeId, currentQueryIdentifier, t);
+                   queryFailedHandler.queryFailed(currentQueryIdentifier);
+                 }
+-              });
++              }, MoreExecutors.directExecutor());
+             }
+           }
+         } catch (InterruptedException e) {
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DecimalColumnStatsMerger.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DecimalColumnStatsMerger.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DecimalColumnStatsMerger.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DecimalColumnStatsMerger.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DecimalColumnStatsMerger.java	(date 1666966498503)
+@@ -24,13 +24,15 @@
+ import org.apache.hadoop.hive.metastore.api.Decimal;
+ import org.apache.hadoop.hive.metastore.columnstats.cache.DecimalColumnStatsDataInspector;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.decimalInspectorFromStats;
++
+ public class DecimalColumnStatsMerger extends ColumnStatsMerger {
+   @Override
+   public void merge(ColumnStatisticsObj aggregateColStats, ColumnStatisticsObj newColStats) {
+     DecimalColumnStatsDataInspector aggregateData =
+-        (DecimalColumnStatsDataInspector) aggregateColStats.getStatsData().getDecimalStats();
++        decimalInspectorFromStats(aggregateColStats);
+     DecimalColumnStatsDataInspector newData =
+-        (DecimalColumnStatsDataInspector) newColStats.getStatsData().getDecimalStats();
++        decimalInspectorFromStats(newColStats);
+ 
+     Decimal lowValue = getMin(aggregateData.getLowValue(), newData.getLowValue());
+     aggregateData.setLowValue(lowValue);
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/StringColumnStatsDataInspector.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/StringColumnStatsDataInspector.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/StringColumnStatsDataInspector.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/StringColumnStatsDataInspector.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/StringColumnStatsDataInspector.java	(date 1666966498503)
+@@ -44,6 +44,10 @@
+     }
+   }
+ 
++  public StringColumnStatsDataInspector(StringColumnStatsData other) {
++    super(other);
++  }
++
+   @Override
+   public StringColumnStatsDataInspector deepCopy() {
+     return new StringColumnStatsDataInspector(this);
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/LongColumnStatsDataInspector.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/LongColumnStatsDataInspector.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/LongColumnStatsDataInspector.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/LongColumnStatsDataInspector.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/LongColumnStatsDataInspector.java	(date 1666966498503)
+@@ -43,6 +43,10 @@
+     }
+   }
+ 
++  public LongColumnStatsDataInspector(LongColumnStatsData other) {
++    super(other);
++  }
++
+   @Override
+   public LongColumnStatsDataInspector deepCopy() {
+     return new LongColumnStatsDataInspector(this);
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/ColumnsStatsUtils.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/ColumnsStatsUtils.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/ColumnsStatsUtils.java
+new file mode 100644
+--- /dev/null	(date 1666966498503)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/ColumnsStatsUtils.java	(date 1666966498503)
+@@ -0,0 +1,117 @@
++/*
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.hive.metastore.columnstats;
++
++import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
++import org.apache.hadoop.hive.metastore.columnstats.cache.DateColumnStatsDataInspector;
++import org.apache.hadoop.hive.metastore.columnstats.cache.DecimalColumnStatsDataInspector;
++import org.apache.hadoop.hive.metastore.columnstats.cache.DoubleColumnStatsDataInspector;
++import org.apache.hadoop.hive.metastore.columnstats.cache.LongColumnStatsDataInspector;
++import org.apache.hadoop.hive.metastore.columnstats.cache.StringColumnStatsDataInspector;
++
++/**
++ * Utils class for columnstats package.
++ */
++public final class ColumnsStatsUtils {
++
++  private ColumnsStatsUtils(){}
++
++  /**
++   * Convertes to DateColumnStatsDataInspector if it's a DateColumnStatsData.
++   * @param cso ColumnStatisticsObj
++   * @return DateColumnStatsDataInspector
++   */
++  public static DateColumnStatsDataInspector dateInspectorFromStats(ColumnStatisticsObj cso) {
++    DateColumnStatsDataInspector dateColumnStats;
++    if (cso.getStatsData().getDateStats() instanceof DateColumnStatsDataInspector) {
++      dateColumnStats =
++          (DateColumnStatsDataInspector)(cso.getStatsData().getDateStats());
++    } else {
++      dateColumnStats = new DateColumnStatsDataInspector(cso.getStatsData().getDateStats());
++    }
++    return dateColumnStats;
++  }
++
++  /**
++   * Convertes to StringColumnStatsDataInspector
++   * if it's a StringColumnStatsData.
++   * @param cso ColumnStatisticsObj
++   * @return StringColumnStatsDataInspector
++   */
++  public static StringColumnStatsDataInspector stringInspectorFromStats(ColumnStatisticsObj cso) {
++    StringColumnStatsDataInspector columnStats;
++    if (cso.getStatsData().getStringStats() instanceof StringColumnStatsDataInspector) {
++      columnStats =
++          (StringColumnStatsDataInspector)(cso.getStatsData().getStringStats());
++    } else {
++      columnStats = new StringColumnStatsDataInspector(cso.getStatsData().getStringStats());
++    }
++    return columnStats;
++  }
++
++  /**
++   * Convertes to LongColumnStatsDataInspector if it's a LongColumnStatsData.
++   * @param cso ColumnStatisticsObj
++   * @return LongColumnStatsDataInspector
++   */
++  public static LongColumnStatsDataInspector longInspectorFromStats(ColumnStatisticsObj cso) {
++    LongColumnStatsDataInspector columnStats;
++    if (cso.getStatsData().getLongStats() instanceof LongColumnStatsDataInspector) {
++      columnStats =
++          (LongColumnStatsDataInspector)(cso.getStatsData().getLongStats());
++    } else {
++      columnStats = new LongColumnStatsDataInspector(cso.getStatsData().getLongStats());
++    }
++    return columnStats;
++  }
++
++  /**
++   * Convertes to DoubleColumnStatsDataInspector
++   * if it's a DoubleColumnStatsData.
++   * @param cso ColumnStatisticsObj
++   * @return DoubleColumnStatsDataInspector
++   */
++  public static DoubleColumnStatsDataInspector doubleInspectorFromStats(ColumnStatisticsObj cso) {
++    DoubleColumnStatsDataInspector columnStats;
++    if (cso.getStatsData().getDoubleStats() instanceof DoubleColumnStatsDataInspector) {
++      columnStats =
++          (DoubleColumnStatsDataInspector)(cso.getStatsData().getDoubleStats());
++    } else {
++      columnStats = new DoubleColumnStatsDataInspector(cso.getStatsData().getDoubleStats());
++    }
++    return columnStats;
++  }
++
++  /**
++   * Convertes to DecimalColumnStatsDataInspector
++   * if it's a DecimalColumnStatsData.
++   * @param cso ColumnStatisticsObj
++   * @return DecimalColumnStatsDataInspector
++   */
++  public static DecimalColumnStatsDataInspector decimalInspectorFromStats(ColumnStatisticsObj cso) {
++    DecimalColumnStatsDataInspector columnStats;
++    if (cso.getStatsData().getDecimalStats() instanceof DecimalColumnStatsDataInspector) {
++      columnStats =
++          (DecimalColumnStatsDataInspector)(cso.getStatsData().getDecimalStats());
++    } else {
++      columnStats = new DecimalColumnStatsDataInspector(cso.getStatsData().getDecimalStats());
++    }
++    return columnStats;
++  }
++}
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DateColumnStatsDataInspector.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DateColumnStatsDataInspector.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DateColumnStatsDataInspector.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DateColumnStatsDataInspector.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/cache/DateColumnStatsDataInspector.java	(date 1666966498503)
+@@ -43,6 +43,10 @@
+     }
+   }
+ 
++  public DateColumnStatsDataInspector(DateColumnStatsData other) {
++    super(other);
++  }
++
+   @Override
+   public DateColumnStatsDataInspector deepCopy() {
+     return new DateColumnStatsDataInspector(this);
+Index: ql/src/test/org/apache/hadoop/hive/ql/stats/TestStatsUtils.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ql/src/test/org/apache/hadoop/hive/ql/stats/TestStatsUtils.java b/ql/src/test/org/apache/hadoop/hive/ql/stats/TestStatsUtils.java
+--- a/ql/src/test/org/apache/hadoop/hive/ql/stats/TestStatsUtils.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/ql/src/test/org/apache/hadoop/hive/ql/stats/TestStatsUtils.java	(date 1666964794855)
+@@ -31,7 +31,7 @@
+ import org.apache.hadoop.hive.ql.plan.ColStatistics.Range;
+ import org.apache.hadoop.hive.serde.serdeConstants;
+ import org.junit.Test;
+-import org.spark_project.guava.collect.Sets;
++import org.sparkproject.guava.collect.Sets;
+ 
+ public class TestStatsUtils {
+ 
+Index: spark-client/src/main/java/org/apache/hive/spark/counter/SparkCounter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/spark-client/src/main/java/org/apache/hive/spark/counter/SparkCounter.java b/spark-client/src/main/java/org/apache/hive/spark/counter/SparkCounter.java
+--- a/spark-client/src/main/java/org/apache/hive/spark/counter/SparkCounter.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/spark-client/src/main/java/org/apache/hive/spark/counter/SparkCounter.java	(date 1666965003163)
+@@ -19,15 +19,14 @@
+ 
+ import java.io.Serializable;
+ 
+-import org.apache.spark.Accumulator;
+-import org.apache.spark.AccumulatorParam;
+ import org.apache.spark.api.java.JavaSparkContext;
++import org.apache.spark.util.LongAccumulator;
+ 
+ public class SparkCounter implements Serializable {
+ 
+   private String name;
+   private String displayName;
+-  private Accumulator<Long> accumulator;
++  private LongAccumulator accumulator;
+ 
+   // Values of accumulators can only be read on the SparkContext side. This field is used when
+   // creating a snapshot to be sent to the RSC client.
+@@ -55,9 +54,9 @@
+ 
+     this.name = name;
+     this.displayName = displayName;
+-    LongAccumulatorParam longParam = new LongAccumulatorParam();
++    // LongAccumulatorParam longParam = new LongAccumulatorParam();
+     String accumulatorName = groupName + "_" + name;
+-    this.accumulator = sparkContext.accumulator(initValue, accumulatorName, longParam);
++    this.accumulator = sparkContext.sc().longAccumulator(accumulatorName);
+   }
+ 
+   public long getValue() {
+@@ -88,22 +87,21 @@
+     return new SparkCounter(name, displayName, accumulator.value());
+   }
+ 
+-  class LongAccumulatorParam implements AccumulatorParam<Long> {
+-
+-    @Override
+-    public Long addAccumulator(Long t1, Long t2) {
+-      return t1 + t2;
+-    }
+-
+-    @Override
+-    public Long addInPlace(Long r1, Long r2) {
+-      return r1 + r2;
+-    }
+-
+-    @Override
+-    public Long zero(Long initialValue) {
+-      return 0L;
+-    }
+-  }
+-
++  // class LongAccumulatorParam implements AccumulatorParam<Long> {
++  //
++  //   @Override
++  //   public Long addAccumulator(Long t1, Long t2) {
++  //     return t1 + t2;
++  //   }
++  //
++  //   @Override
++  //   public Long addInPlace(Long r1, Long r2) {
++  //     return r1 + r2;
++  //   }
++  //
++  //   @Override
++  //   public Long zero(Long initialValue) {
++  //     return 0L;
++  //   }
++  // }
+ }
+Index: spark-client/src/main/java/org/apache/hive/spark/client/metrics/ShuffleWriteMetrics.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/spark-client/src/main/java/org/apache/hive/spark/client/metrics/ShuffleWriteMetrics.java b/spark-client/src/main/java/org/apache/hive/spark/client/metrics/ShuffleWriteMetrics.java
+--- a/spark-client/src/main/java/org/apache/hive/spark/client/metrics/ShuffleWriteMetrics.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/spark-client/src/main/java/org/apache/hive/spark/client/metrics/ShuffleWriteMetrics.java	(date 1666964853331)
+@@ -47,8 +47,8 @@
+   }
+ 
+   public ShuffleWriteMetrics(TaskMetrics metrics) {
+-    this(metrics.shuffleWriteMetrics().shuffleBytesWritten(),
+-      metrics.shuffleWriteMetrics().shuffleWriteTime());
++    this(metrics.shuffleWriteMetrics().bytesWritten(),
++      metrics.shuffleWriteMetrics().bytesWritten());
+   }
+ 
+ }
+Index: ql/src/java/org/apache/hadoop/hive/ql/exec/tez/WorkloadManager.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/WorkloadManager.java b/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/WorkloadManager.java
+--- a/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/WorkloadManager.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/WorkloadManager.java	(date 1666964377279)
+@@ -17,6 +17,7 @@
+  */
+ package org.apache.hadoop.hive.ql.exec.tez;
+ 
++import com.google.common.util.concurrent.MoreExecutors;
+ import org.apache.hadoop.hive.metastore.api.WMPoolSchedulingPolicy;
+ import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
+ 
+@@ -1092,7 +1093,7 @@
+   }
+ 
+   private void failOnFutureFailure(ListenableFuture<?> future) {
+-    Futures.addCallback(future, FATAL_ERROR_CALLBACK);
++    Futures.addCallback(future, FATAL_ERROR_CALLBACK, MoreExecutors.directExecutor());
+   }
+ 
+   private void queueGetRequestOnMasterThread(
+@@ -1925,7 +1926,7 @@
+ 
+     public void start() throws Exception {
+       ListenableFuture<WmTezSession> getFuture = tezAmPool.getSessionAsync();
+-      Futures.addCallback(getFuture, this);
++      Futures.addCallback(getFuture, this, MoreExecutors.directExecutor());
+     }
+ 
+     @Override
+@@ -1979,7 +1980,7 @@
+       case GETTING: {
+         ListenableFuture<WmTezSession> waitFuture = session.waitForAmRegistryAsync(
+             amRegistryTimeoutMs, timeoutPool);
+-        Futures.addCallback(waitFuture, this);
++        Futures.addCallback(waitFuture, this, MoreExecutors.directExecutor());
+         break;
+       }
+       case WAITING_FOR_REGISTRY: {
+Index: druid-handler/src/java/org/apache/hadoop/hive/druid/serde/DruidScanQueryRecordReader.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/druid-handler/src/java/org/apache/hadoop/hive/druid/serde/DruidScanQueryRecordReader.java b/druid-handler/src/java/org/apache/hadoop/hive/druid/serde/DruidScanQueryRecordReader.java
+--- a/druid-handler/src/java/org/apache/hadoop/hive/druid/serde/DruidScanQueryRecordReader.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/druid-handler/src/java/org/apache/hadoop/hive/druid/serde/DruidScanQueryRecordReader.java	(date 1666964400751)
+@@ -28,6 +28,7 @@
+ import com.google.common.collect.Iterators;
+ 
+ import java.io.IOException;
++import java.util.Collections;
+ import java.util.Iterator;
+ import java.util.List;
+ 
+@@ -43,7 +44,7 @@
+ 
+   private ScanResultValue current;
+ 
+-  private Iterator<List<Object>> compactedValues = Iterators.emptyIterator();
++  private Iterator<List<Object>> compactedValues = Collections.emptyIterator();
+ 
+   @Override
+   protected JavaType getResultTypeDef() {
+Index: ql/src/test/org/apache/hadoop/hive/ql/exec/tez/SampleTezSessionState.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ql/src/test/org/apache/hadoop/hive/ql/exec/tez/SampleTezSessionState.java b/ql/src/test/org/apache/hadoop/hive/ql/exec/tez/SampleTezSessionState.java
+--- a/ql/src/test/org/apache/hadoop/hive/ql/exec/tez/SampleTezSessionState.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/ql/src/test/org/apache/hadoop/hive/ql/exec/tez/SampleTezSessionState.java	(date 1666964106343)
+@@ -22,6 +22,7 @@
+ import com.google.common.util.concurrent.Futures;
+ import com.google.common.util.concurrent.FutureCallback;
+ import com.google.common.util.concurrent.ListenableFuture;
++import com.google.common.util.concurrent.MoreExecutors;
+ import com.google.common.util.concurrent.SettableFuture;
+ import java.io.IOException;
+ import java.util.concurrent.ScheduledExecutorService;
+@@ -128,7 +129,7 @@
+       public void onFailure(Throwable t) {
+         future.setException(t);
+       }
+-    });
++    }, MoreExecutors.directExecutor());
+     return future;
+   }
+ 
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DateColumnStatsMerger.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DateColumnStatsMerger.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DateColumnStatsMerger.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DateColumnStatsMerger.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DateColumnStatsMerger.java	(date 1666966498503)
+@@ -24,13 +24,13 @@
+ import org.apache.hadoop.hive.metastore.api.Date;
+ import org.apache.hadoop.hive.metastore.columnstats.cache.DateColumnStatsDataInspector;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.dateInspectorFromStats;
++
+ public class DateColumnStatsMerger extends ColumnStatsMerger {
+   @Override
+   public void merge(ColumnStatisticsObj aggregateColStats, ColumnStatisticsObj newColStats) {
+-    DateColumnStatsDataInspector aggregateData =
+-        (DateColumnStatsDataInspector) aggregateColStats.getStatsData().getDateStats();
+-    DateColumnStatsDataInspector newData =
+-        (DateColumnStatsDataInspector) newColStats.getStatsData().getDateStats();
++    DateColumnStatsDataInspector aggregateData = dateInspectorFromStats(aggregateColStats);
++    DateColumnStatsDataInspector newData = dateInspectorFromStats(newColStats);
+     Date lowValue = aggregateData.getLowValue().compareTo(newData.getLowValue()) < 0 ? aggregateData
+         .getLowValue() : newData.getLowValue();
+     aggregateData.setLowValue(lowValue);
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DoubleColumnStatsMerger.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DoubleColumnStatsMerger.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DoubleColumnStatsMerger.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DoubleColumnStatsMerger.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/DoubleColumnStatsMerger.java	(date 1666966498503)
+@@ -23,13 +23,13 @@
+ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+ import org.apache.hadoop.hive.metastore.columnstats.cache.DoubleColumnStatsDataInspector;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.doubleInspectorFromStats;
++
+ public class DoubleColumnStatsMerger extends ColumnStatsMerger {
+   @Override
+   public void merge(ColumnStatisticsObj aggregateColStats, ColumnStatisticsObj newColStats) {
+-    DoubleColumnStatsDataInspector aggregateData =
+-        (DoubleColumnStatsDataInspector) aggregateColStats.getStatsData().getDoubleStats();
+-    DoubleColumnStatsDataInspector newData =
+-        (DoubleColumnStatsDataInspector) newColStats.getStatsData().getDoubleStats();
++    DoubleColumnStatsDataInspector aggregateData = doubleInspectorFromStats(aggregateColStats);
++    DoubleColumnStatsDataInspector newData = doubleInspectorFromStats(newColStats);
+     aggregateData.setLowValue(Math.min(aggregateData.getLowValue(), newData.getLowValue()));
+     aggregateData.setHighValue(Math.max(aggregateData.getHighValue(), newData.getHighValue()));
+     aggregateData.setNumNulls(aggregateData.getNumNulls() + newData.getNumNulls());
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/LongColumnStatsMerger.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/LongColumnStatsMerger.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/LongColumnStatsMerger.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/LongColumnStatsMerger.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/LongColumnStatsMerger.java	(date 1666966498503)
+@@ -23,13 +23,13 @@
+ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+ import org.apache.hadoop.hive.metastore.columnstats.cache.LongColumnStatsDataInspector;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.longInspectorFromStats;
++
+ public class LongColumnStatsMerger extends ColumnStatsMerger {
+   @Override
+   public void merge(ColumnStatisticsObj aggregateColStats, ColumnStatisticsObj newColStats) {
+-    LongColumnStatsDataInspector aggregateData =
+-        (LongColumnStatsDataInspector) aggregateColStats.getStatsData().getLongStats();
+-    LongColumnStatsDataInspector newData =
+-        (LongColumnStatsDataInspector) newColStats.getStatsData().getLongStats();
++    LongColumnStatsDataInspector aggregateData = longInspectorFromStats(aggregateColStats);
++    LongColumnStatsDataInspector newData = longInspectorFromStats(newColStats);
+     aggregateData.setLowValue(Math.min(aggregateData.getLowValue(), newData.getLowValue()));
+     aggregateData.setHighValue(Math.max(aggregateData.getHighValue(), newData.getHighValue()));
+     aggregateData.setNumNulls(aggregateData.getNumNulls() + newData.getNumNulls());
+Index: standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/StringColumnStatsMerger.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/StringColumnStatsMerger.java b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/StringColumnStatsMerger.java
+--- a/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/StringColumnStatsMerger.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/merge/StringColumnStatsMerger.java	(date 1666966498503)
+@@ -23,13 +23,13 @@
+ import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+ import org.apache.hadoop.hive.metastore.columnstats.cache.StringColumnStatsDataInspector;
+ 
++import static org.apache.hadoop.hive.metastore.columnstats.ColumnsStatsUtils.stringInspectorFromStats;
++
+ public class StringColumnStatsMerger extends ColumnStatsMerger {
+   @Override
+   public void merge(ColumnStatisticsObj aggregateColStats, ColumnStatisticsObj newColStats) {
+-    StringColumnStatsDataInspector aggregateData =
+-        (StringColumnStatsDataInspector) aggregateColStats.getStatsData().getStringStats();
+-    StringColumnStatsDataInspector newData =
+-        (StringColumnStatsDataInspector) newColStats.getStatsData().getStringStats();
++    StringColumnStatsDataInspector aggregateData = stringInspectorFromStats(aggregateColStats);
++    StringColumnStatsDataInspector newData = stringInspectorFromStats(newColStats);
+     aggregateData.setMaxColLen(Math.max(aggregateData.getMaxColLen(), newData.getMaxColLen()));
+     aggregateData.setAvgColLen(Math.max(aggregateData.getAvgColLen(), newData.getAvgColLen()));
+     aggregateData.setNumNulls(aggregateData.getNumNulls() + newData.getNumNulls());
+Index: llap-tez/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskSchedulerService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/llap-tez/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskSchedulerService.java b/llap-tez/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskSchedulerService.java
+--- a/llap-tez/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskSchedulerService.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/llap-tez/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskSchedulerService.java	(date 1666964214403)
+@@ -744,15 +744,16 @@
+       }, 10000L, TimeUnit.MILLISECONDS);
+ 
+       nodeEnablerFuture = nodeEnabledExecutor.submit(nodeEnablerCallable);
+-      Futures.addCallback(nodeEnablerFuture, new LoggingFutureCallback("NodeEnablerThread", LOG));
++      Futures.addCallback(nodeEnablerFuture, new LoggingFutureCallback("NodeEnablerThread", LOG), MoreExecutors.directExecutor());
+ 
+       delayedTaskSchedulerFuture =
+           delayedTaskSchedulerExecutor.submit(delayedTaskSchedulerCallable);
+       Futures.addCallback(delayedTaskSchedulerFuture,
+-          new LoggingFutureCallback("DelayedTaskSchedulerThread", LOG));
++          new LoggingFutureCallback("DelayedTaskSchedulerThread", LOG),
++          MoreExecutors.directExecutor());
+ 
+       schedulerFuture = schedulerExecutor.submit(schedulerCallable);
+-      Futures.addCallback(schedulerFuture, new LoggingFutureCallback("SchedulerThread", LOG));
++      Futures.addCallback(schedulerFuture, new LoggingFutureCallback("SchedulerThread", LOG), MoreExecutors.directExecutor());
+ 
+       registry.start();
+       registry.registerStateChangeListener(new NodeStateChangeListener());
+Index: llap-common/src/java/org/apache/hadoop/hive/llap/AsyncPbRpcProxy.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/llap-common/src/java/org/apache/hadoop/hive/llap/AsyncPbRpcProxy.java b/llap-common/src/java/org/apache/hadoop/hive/llap/AsyncPbRpcProxy.java
+--- a/llap-common/src/java/org/apache/hadoop/hive/llap/AsyncPbRpcProxy.java	(revision 4df4d75bf1e16fe0af75aad0b4179c34c07fc975)
++++ b/llap-common/src/java/org/apache/hadoop/hive/llap/AsyncPbRpcProxy.java	(date 1666964261603)
+@@ -171,7 +171,7 @@
+           CallableRequest<T, U> request, LlapNodeId nodeId) {
+         ListenableFuture<U> future = executor.submit(request);
+         Futures.addCallback(future, new ResponseCallback<U>(
+-            request.getCallback(), nodeId, this));
++            request.getCallback(), nodeId, this), MoreExecutors.directExecutor());
+       }
+ 
+       @VisibleForTesting
+@@ -283,7 +283,7 @@
+           LOG.warn("RequestManager shutdown with error", t);
+         }
+       }
+-    });
++    }, MoreExecutors.directExecutor());
+   }
+ 
+   @Override
