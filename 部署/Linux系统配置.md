@@ -1,6 +1,6 @@
 ## 1. 修改 yum / dnf 或 apt 源
 
-### 1.1 ubuntu 修改 阿里镜像源
+### 1.1 ubuntu 修改 阿里镜像源（需要使用 root 或使用 sudo）
 
 ```bash
     cp  /etc/apt/sources.list  /etc/apt/sources.list.bak
@@ -27,33 +27,25 @@
     apt upgrade
 ```
 
-### 1.2 centos7 修改 阿里镜像源
+### 1.2 centos 7 系列修改 阿里镜像源
 
 ```bash
     mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
     wget -O /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
     curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
     
+    yum clean all
     yum makecache
-    dnf clean all
     yum update
     yum upgrade
 ```
 
-### 1.3 rocky8 和 rocky9 修改 阿里镜像源
+### 1.3 rocky 8 系列修改 阿里镜像源
 
 ```bash 
-    # rocky8
+    # 下载
     sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-        -e 's|^#baseurl=https://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
-        -i.bak \
-        /etc/yum.repos.d/[Rr]ocky-*.repo
-    
-    # rocky9
-    sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-        -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
-        -i.bak \
-        /etc/yum.repos.d/[Rr]ocky-*.repo
+        -e 's|^#baseurl=https://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
     
     dnf clean all
     dnf makecache
@@ -61,13 +53,26 @@
     dnf upgrade
 ```
 
-### 1.3 almalinux9 修改 阿里镜像源
+### 1.4 rocky 9 系列修改 阿里镜像源
+
+```bash 
+    # 下载
+    sed -e 's|^mirrorlist=|#mirrorlist=|g' \
+        -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
+        -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
+    
+    dnf clean all
+    dnf makecache
+    dnf update
+    dnf upgrade
+```
+
+### 1.3 almalinux 9 修改 阿里镜像源
 
 ```bash
     sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-          -e 's|^# baseurl=https://repo.almalinux.org|baseurl=https://mirrors.aliyun.com|g' \
-          -i.bak \
-          /etc/yum.repos.d/almalinux*.repo
+        -e 's|^# baseurl=https://repo.almalinux.org|baseurl=https://mirrors.aliyun.com|g' \
+        -i.bak /etc/yum.repos.d/almalinux*.repo
     
     dnf clean all
     dnf makecache  
@@ -80,31 +85,30 @@
 
 ```bash
     hostname                                               # 查看当前系统的主机名
-    hostname master                                        # 临时修改主机名，会话关闭失效
-    hostnamectl set-hostname master                        # 永久修改主机名（重启生效）
-    vim /etc/hostname                                      # 修改主机名（重启生效）
+    hostname master                                        # 临时修改主机名为 master，会话关闭失效
+    hostnamectl set-hostname master                        # 永久修改主机名为 master（重启生效）
+    vim /etc/hostname                                      # 永久修改主机名为 master（重启生效）
 ```
 
 
 ## 3. 修改 hosts 映射
 
 ```bash
-    vim /etc/hosts ==> 192.168.100.10      master          # 方法 1
-     echo "192.168.100.100      master"  >> /etc/hosts     # master
-     echo "192.168.100.111      slaver1" >> /etc/hosts     # slaver1
-     echo "192.168.100.122      slaver2" >> /etc/hosts     # slaver2
-     echo "192.168.100.133      slaver3" >> /etc/hosts     # slaver3
-     
-     echo "127.0.0.1            issac"   >> /etc/hosts     # issac
-     echo "127.0.0.1            unix"    >> /etc/hosts     # ubuntu
-     echo "127.0.0.1            linux"   >> /etc/hosts     # linux
-     echo "127.0.0.1            centos"  >> /etc/hosts     # centos
-     echo "127.0.0.1            ubuntu"  >> /etc/hosts     # ubuntu
-     echo "127.0.0.1            unix"    >> /etc/hosts     # unix
-     echo "127.0.0.1            hadoop"  >> /etc/hosts     # hadoop
-     echo "127.0.0.1            spark"   >> /etc/hosts     # spark
-     echo "127.0.0.1            flink"   >> /etc/hosts     # flink
-     echo "127.0.0.1            elastic" >> /etc/hosts     # elastic
+    # 方法一：vim 编辑器进行修改
+    vim /etc/hosts                                         # 使用 vim 编辑器添加如下内容
+        192.168.100.10      master
+    
+    # 方法二：使用重定向追加模式
+    echo "192.168.100.100      master"  >> /etc/hosts      # master
+    echo "192.168.100.111      slaver1" >> /etc/hosts      # slaver1
+    echo "192.168.100.122      slaver2" >> /etc/hosts      # slaver2
+    echo "192.168.100.133      slaver3" >> /etc/hosts      # slaver3
+    
+    # 以下内容适量添加
+    echo "127.0.0.1            unix"    >> /etc/hosts      # unix
+    echo "127.0.0.1            linux"   >> /etc/hosts      # linux
+    echo "127.0.0.1            rocky"   >> /etc/hosts      # rocky
+    echo "127.0.0.1            elastic" >> /etc/hosts      # elastic
 ```
 
 
@@ -112,22 +116,28 @@
 
 ```bash
     # start：开启防火墙；stop：关闭防火墙；status：查看状态；enable：开机自启；disable：关闭开机自启
-    systemctl status  firewalld.service                    # 查看防火墙状态，或者： firewall-cmd --state             
+    systemctl status  firewalld.service                    # 查看防火墙状态，或者：firewall-cmd --state
     systemctl stop    firewalld.service                    # 关闭防火墙
     systemctl disable firewalld.service                    # 关闭防火墙开机自启
+    
+    # 将如下 ip 添加到防火墙
+    firewall-cmd --permanent --add-source=192.168.100.100  # 添加到防火墙白名单
+    firewall-cmd --permanent --add-source=192.168.100.111  # 添加到防火墙白名单
+    firewall-cmd --permanent --add-source=192.168.100.122  # 添加到防火墙白名单
+    firewall-cmd --permanent --add-source=192.168.100.133  # 添加到防火墙白名单
 ```
 
 
 ## 5. 关闭 selinux
 
 ```bash
-    sudo apt install policycoreutils                                           # ubuntu 安装策略包
-    sudo yum install policycoreutils                                           # redhat 安装策略包
-    sestatus                                                                   # 检查系统 SELinux 状态
-    setenforce 0                                                               # 临时禁用 SELinux，或者：setenforce Permissive
-    vim /etc/sysconfig/selinux                                                 # 编辑 SELinux 配置文件
-        SELinux=disabled                                                       # 注释 SELinux=enforcing，需要重启系统
-    sestatus                                                                   # 检查系统 SELinux 状态
+    sudo apt install policycoreutils                       # ubuntu 安装策略包
+    sudo yum install policycoreutils                       # redhat 安装策略包
+    sestatus                                               # 检查系统 SELinux 状态
+    setenforce 0                                           # 临时禁用 SELinux，或者：setenforce Permissive
+    vim /etc/sysconfig/selinux                             # 编辑 SELinux 配置文件
+        SELinux=disabled                                   # 注释 SELinux=enforcing，需要重启系统
+    sestatus                                               # 检查系统 SELinux 状态
 ```
 
 
@@ -146,20 +156,20 @@
     *    soft    memlock    134217728
     *    hard    memlock    134217728
     *    soft    data       unlimited
-    *    hard    data       unlimited 
+    *    hard    data       unlimited
 ```
 
 ### 6.2 修改 /proc/sys/fs/file-max
 
 ```bash
     vim  /proc/sys/fs/file-max
-    sudo echo "65536" >> /proc/sys/fs/file-max                                 # 
+    sudo echo "65536" >> /proc/sys/fs/file-max                                 # 系统限制的文件最大值
 ```
 
 ### 6.3 优化内核：/etc/sysctl.conf
 
 ```bash
-    # 编辑配置文件，添加如下内容
+    # 编辑配置文件，添加如下内容（注意，部分系统会导致重启报错）
     vm.max_map_count             = 655360
     kernel.shmmni                = 4096               # 这个内核参数用于设置系统范围内共享内存段的最大数量，该参数的默认值是 4096
     kernel.shmmax                = 2147483648         # 该参数定义了共享内存段的最大尺寸（以字节为单位），缺省为 32M
@@ -192,16 +202,39 @@
     vm.overcommit_memory         = 1
 ```
 
-### 6.4 
+### 6.4 设置虚拟内存
+
+```bash
+    swapon -s                                              # 查看当前 swap 的使用情况
+    cat /proc/swaps                                        # 查看当前 swap 的使用情况
+    swapoff /swap/swapfile                                 # 关闭相应的 swap_disk_name
+    rm /swap/swapfile                                      # 删除 swapfile 文件
+    /swap/swapfile swap swap defaults 0 0                  # vim 编辑器打开 /etc/fstab，删除此内容
+    
+    cd /tmp/                                               # 进入根路径
+    dd if=/dev/zero of=/tmp/swap bs=1M count=16384         # 创建虚拟内存文件
+    chmod 600 /tmp/swap                                    # 给文件添加授权
+    du -sh /tmp/swap                                       # 查看 swap 文件
+    mkswap /tmp/swap                                       # 将目标设置为 swap 分区文件
+    swapon /tmp/swap                                       # 激活 swap 区，并立即启用交换区文件
+    free -m                                                # 查看Swap 分区
+    sysctl vm.swappiness=10                                # 临时修改启用虚拟内存时剩余的内存大小
+    vim /etc/fstab                                         # vim 编辑器打开 /etc/fstab，添加此如下内容
+        /tmp/swap swap swap defaults 0 0
+    vim /etc/sysctl.conf                                   # 永久修改启用虚拟内存时剩余的内存大小，添加此如下内容
+        vm.swappiness=25
+```
 
 
 ## 7. 添加管理员帐号
 
 ```bash
     useradd -m issac                                       # 添加 issac 用户
-    passwd issac                                           # 添加 issac 用户的密码：111111
+    chmod u+w /etc/sudoers                                 # 添加可编辑权限
     vim /etc/sudoers                                       # 给 issac 添加管理员权限，添加如下内容
-        issac    ALL=(ALL:ALL) ALL         
+        issac   ALL=(ALL:ALL)   ALL
+    chmod u-w /etc/sudoers                                 # 取消可编辑权限
+    root                                                   # 重启服务器，并使用 issac 用户登录：shutdown -r now
 ```
 
 
@@ -211,8 +244,8 @@
 
 ```bash
     # redhat 系列
+    sudo yum install -y epel-release                       # 安装 红帽系 的操作系统提供额外的软件包
     sudo yum install -y lrzsz                              # 安装 lrzsz 可用于文件传输
-    sudo yum install -y binutils compat-libcap1 compat-libstdc++-33 compat-libstdc++-33*i686 compat-libstdc++-33*.devel compat-libstdc++-33 compat-libstdc++-33*.devel gcc gcc-c++ glibc glibc*.i686 glibc-devel glibc-devel*.i686 ksh libaio libaio*.i686 libaio-devel libaio-devel*.devel libgcc libgcc*.i686 libstdc++ libstdc++*.i686 libstdc++-devel libstdc++-devel*.devel libXi libXi*.i686 libXtst libXtst*.i686 make sysstat unixODBC unixODBC*.i686 unixODBC-devel unixODBC-devel*.i686
     sudo yum install -y htop                               # 监控服务器
     sudo yum install -y curl-devel expat-devel openssl-devel gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # 安装编译器
 ```
@@ -222,6 +255,7 @@
 ```bash
     # 
     sudo apt install -y lrzsz                              # 监控服务器
+    sudo apt install -y htop                               # 监控服务器
     sudo apt install -y gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # 安装编译器
 ```
 
