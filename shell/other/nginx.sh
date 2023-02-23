@@ -187,7 +187,7 @@ case "$1" in
         echo "        |        stop     ：  关闭服务           | "
         echo "        |        restart  ：  重启服务           | "
         echo "        |        status   ：  查看状态           | "
-        echo "        |        test     ：  测试配置文件       | "
+        echo "        |        test     ：  测试配置           | "
         echo "        +----------------------------------------+ "
     ;;
 esac
