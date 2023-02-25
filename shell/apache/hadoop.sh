@@ -1,72 +1,118 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2120
+
+# =========================================================================================
+#    FileName      ：  hadoop.sh
+#    CreateTime    ：  2023-02-26 01:46:31
+#    Author        ：  lihua shiyu
+#    Email         ：  lihuashiyu@github.com
+#    Description   ：  hadoop.sh 被用于 ==> Hadoop 集群的启停和状态检查脚本
+# =========================================================================================
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)
-SERVICE_NAME=Hadoop
-JUDGE_NAME=org.apache.hadoop
+SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)                           # Hadoop 安装目录
+ALIAS_NAME=Hadoop                                                              # 服务别名
 
-NAME_NODE_PORT=9870
-DATA_NODE_PORT=9864
-SECOND_NAME_NODE_PORT=50090
-NODE_MANAGER_PORT=8042
-RESOURCE_MANAGER_PORT=8088
-JOB_HISTORY_PORT=19888
+NAME_NODE_PORT=9870                                                            # NameNode 外部访问端口号
+DATA_NODE_PORT=9864                                                            # DataNode 外部访问端口号
+SECOND_NAME_NODE_PORT=50090                                                    # 2NN      外部访问端口号
+NODE_MANAGER_PORT=8042                                                         # NodeManager      外部访问端口号
+RESOURCE_MANAGER_PORT=8088                                                     # ResourceManager  外部访问端口号
+JOB_HISTORY_PORT=19888                                                         # JobHistoryServer 外部访问端口号
 
-NAME_NODE=org.apache.hadoop.hdfs.server.namenode.NameNode
-DATA_NODE=org.apache.hadoop.hdfs.server.datanode.DataNode
-SECOND_NAME_NODE=org.apache.hadoop.hdfs.server.namenode.SecondaryNameNode
-NODE_MANAGER=org.apache.hadoop.yarn.server.nodemanager.NodeManager
-RESOURCE_MANAGER=org.apache.hadoop.yarn.server.resourcemanager.ResourceManager
-JOB_HISTORY_SERVER=org.apache.hadoop.mapreduce.v2.hs.JobHistoryServer
+NAME_NODE=org.apache.hadoop.hdfs.server.namenode.NameNode                      # NameNode 进程名称
+DATA_NODE=org.apache.hadoop.hdfs.server.datanode.DataNode                      # DataNode 进程名称
+SECOND_NAME_NODE=org.apache.hadoop.hdfs.server.namenode.SecondaryNameNode      # 2NN      进程名称
+NODE_MANAGER=org.apache.hadoop.yarn.server.nodemanager.NodeManager             # NodeManager      进程名称
+RESOURCE_MANAGER=org.apache.hadoop.yarn.server.resourcemanager.ResourceManager # ResourceManager  进程名称
+JOB_HISTORY_SERVER=org.apache.hadoop.mapreduce.v2.hs.JobHistoryServer          # JobHistoryServer 进程名称
 
-RUNNING=1
-STOP=0
+MASTER_LIST=(master)                                                           # master 主机主机名
+SLAVER_LIST=(slaver1 slaver2 slaver3)                                          # slaver 集群主机名
+USER=$(whoami)                                                                 # 获取当前登录用户
+RUNNING=1                                                                      # 服务运行状态码
+STOP=0                                                                         # 服务停止状态码
 
 
 # 服务状态检测
 function service_status()
 {
-    # 1. 统计正在运行程序的 pid 的个数
-    pid_list=$(ps -aux | grep -i "${JUDGE_NAME}" | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}')
+    # 1. 初始返回结果
+    result_list=()
+    pid_list=()
     
-    # 2. 程序 NameNode 的 pid
-    name_pid=$(ps -aux | grep -i ${NAME_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+    # 2. 遍历 master 的所有的主机，查看 jvm 进程
+    for host_name in "${MASTER_LIST[@]}"
+    do
+        # 2.1. 程序 NameNode 的 pid
+        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${name_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（NameNode）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+        
+        # 2.2. 程序 SecondaryNameNode 的 pid
+        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${SECOND_NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${second_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（SecondaryNameNode）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+        
+        # 2.3. 程序 ResourceManager 的 pid
+        resource_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${RESOURCE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${resource_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（ResourceManager）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+        
+        # 2.4. 程序 JobHistoryServer 的 pid
+        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${JOB_HISTORY_SERVER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${history_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（JobHistoryServer）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+    done
     
-    # 3. 程序 DataNode 的 pid
-    data_pid=$(ps -aux | grep -i ${DATA_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+    # 3. 遍历 slaver 的所有的主机，查看 jvm 进程
+    for host_name in "${SLAVER_LIST[@]}"
+    do
+        # 3.1. 程序 DataNode 的 pid
+        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${DATA_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${name_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（DataNode）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+        
+        # 3.2. 程序 SecondaryNameNode 的 pid
+        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${NODE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        if [ "${second_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（NodeManager）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+    done
     
-    # 4. 程序 SecondaryNameNode 的 pid
-    second_pid=$(ps -aux | grep -i ${SECOND_NAME_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+    # 4. 判断是否所有的进程都正常
+    run_pid_count=$(echo "${pid_list[@]}"  | grep "${RUNNING}" | wc -l)
+    result_pid_count=$(echo "${#result_list[@]}") 
     
-    # 5. 程序 NodeManager 的 pid
-    node_pid=$(ps -aux | grep -i ${NODE_MANAGER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-    
-    # 6. 程序 ResourceManager 的 pid
-    resource_pid=$(ps -aux | grep -i ${RESOURCE_MANAGER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-    
-    # 7. 程序 JobHistoryServer 的 pid
-    history_pid=$(ps -aux | grep -i ${JOB_HISTORY_SERVER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-    
-    # 8. pid 不存在，则程序停止运行，否则判断程序每个进程是否在运行
-    if [ ! "${pid_list}" ]; then
+    if [ "${result_pid_count}" -eq 0 ]; then
+        echo "${RUNNING}"
+    elif [ "${run_pid_count}" -eq 0 ]; then
         echo "${STOP}"
     else
-        # 5. 判断程序每个进程是否存在，若都存在则断定程序正在运行中
-        if [ "${name_pid}" -ne 1 ]; then
-            echo "    程序（NameNode）出现错误 ...... "
-        elif [ "${data_pid}" -ne 1 ]; then
-            echo "    程序（DataNode）出现错误 ...... "
-        elif [ "${second_pid}" -ne 1 ]; then
-            echo "    程序（SecondaryNameNode）出现错误 ...... "
-        elif [ "${resource_pid}" -ne 1 ]; then
-            echo "    程序（ResourceManager）出现错误 ...... "
-        elif [ "${node_pid}" -ne 1 ]; then
-            echo "    程序（NodeManager）出现错误 ...... "
-        elif [ "${history_pid}" -ne 1 ]; then
-            echo "    程序（JobHistoryServer）出现错误 ...... "
-        else
-            echo "${RUNNING}"
-        fi
+        echo "${result_list[@]}"
     fi
 }
     
@@ -83,10 +129,11 @@ function service_start()
     elif [ "${status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
         
-        "${SERVICE_DIR}/bin/${SERVICE_NAME}" -c "${SERVICE_DIR}/${CONFIG_FILE}" > /dev/null 2>&1
-        sleep 2
+        "${SERVICE_DIR}/sbin/start-all.sh" > /dev/null 2>&1
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
-        sleep 1
+        sleep 13
+        "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" start historyserver > /dev/null 2>&1
+        sleep 2
         
         # 3. 判断程序每个进程启动状态
         status=$(service_status)
@@ -94,10 +141,16 @@ function service_start()
             echo "    程序（${ALIAS_NAME}）启动成功 ...... "
         else
             echo "    程序（${ALIAS_NAME}）启动失败 ...... "
-            echo "    ${status}"
+            for ps in ${status}
+            do
+                echo "    ${ps} ...... "
+            done
         fi
     else
-        echo "${status}"
+        for ps in ${status}
+        do
+            echo "    ${ps} ...... "
+        done
     fi
 }
     
@@ -114,10 +167,11 @@ function service_stop()
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
-        "${SERVICE_DIR}/bin/${SERVICE_NAME}" -s quit > /dev/null 2>&1
-        sleep 1 
-        echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
+        "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" stop historyserver > /dev/null 2>&1
         sleep 1
+        echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
+        "${SERVICE_DIR}/sbin/stop-all.sh" > /dev/null 2>&1
+        sleep 4
         
         # 3. 判断程序每个进程停止状态
         status=$(service_status)
@@ -128,127 +182,59 @@ function service_stop()
         fi
     else
         echo "    程序（${ALIAS_NAME}）运行出错 ...... "
-        echo "${status}"
+        for ps in ${status}
+        do
+            echo "    ${ps} ...... "
+        done
     fi
 }
     
     
-
+    
 printf "\n=========================================================================\n"
-#  匹配输入参数
+# 1. 获取脚本执行开始时间
+start_time=$(date +"%Y-%m-%d %H:%M:%S")
+start_timestamp=$(date -d "${start_time}" +%s)
+
+#  2. 匹配输入参数
 case "$1" in
-    #  1. 运行程序
+    # 2.1 运行程序
     start)
-        # 1.1 查找程序的 pid
-        pid_list=$(ps -aux | grep -i "${JUDGE_NAME}" | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}')
-        
-        #  1.2 若 pid 不存在，则运行程序，否则打印程序运行状态
-        if [ ! "${pid_list}" ]; then
-            echo "    程序 ${SERVICE_NAME} 正在加载中 ......"
-            "${SERVICE_DIR}/sbin/start-all.sh" > /dev/null 2>&1
-            sleep 11
-            
-            # 1.3 判断程序 NameNode 启动是否成功
-            name_pid=$(ps -aux | grep -i ${NAME_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${name_pid}" -ne 1 ]; then
-                echo "    程序 NameNode 启动失败 ...... "
-            fi
-            
-            # 1.4 判断程序 DataNode 启动是否成功
-            data_pid=$(ps -aux | grep -i ${DATA_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${data_pid}" -ne 1 ]; then
-                echo "    程序 DataNode 启动失败 ...... "
-            fi
-            
-            # 1.5 判断程序 SecondaryNameNode 启动是否成功
-            second_pid=$(ps -aux | grep -i ${SECOND_NAME_NODE} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${second_pid}" -ne 1 ]; then
-                echo "    程序 DataNode 启动失败 ...... "
-            fi
-            
-            # 1.6 判断程序 NodeManager 启动是否成功
-            node_pid=$(ps -aux | grep -i ${NODE_MANAGER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${node_pid}" -ne 1 ]; then
-                echo "    程序 NodeManager 启动失败 ...... "
-            fi
-            
-            # 1.7 判断程序 ResourceManager 启动是否成功
-            resource_pid=$(ps -aux | grep -i ${RESOURCE_MANAGER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${resource_pid}" -ne 1 ]; then
-                echo "    程序 ResourceManager 启动失败 ...... "
-            fi
-            
-            "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" start historyserver > /dev/null 2>&1
-            sleep 3
-            
-            # 1.8 判断程序 JobHistoryServer 启动是否成功
-            history_pid=$(ps -aux | grep -i ${JOB_HISTORY_SERVER} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${history_pid}" -ne 1 ]; then
-                echo "    程序 JobHistoryServer 启动失败 ...... "
-            fi
-            
-            # 1.9 判断所有程序启动是否成功
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${pid_count}" -ge 6 ]; then
-                echo "    程序 ${SERVICE_NAME} 启动成功 ...... "
-            else
-                echo "    程序 ${SERVICE_NAME} 启动失败 ...... "
-            fi
-            
-        else
-            echo "    程序 ${SERVICE_NAME} 正在运行当中 ...... "
-        fi
+        service_start
     ;;
     
-    #  2. 停止
+    # 2.2 停止
     stop)
-        # 2.1 根据程序的 pid 查询程序运行状态
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    ${SERVICE_NAME} 的进程不存在，程序没有运行 ...... "
-        elif [ "${pid_count}" -eq 6 ]; then
-            # 2.2 杀死进程，关闭程序
-            "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" stop historyserver > /dev/null 2>&1
-            sleep 1
-            echo "    程序 ${SERVICE_NAME} 正在停止中 ...... "
-            "${SERVICE_DIR}/sbin/stop-all.sh" > /dev/null 2>&1
-            sleep 5
-            
-            # 2.3 若还未关闭，则强制杀死进程，关闭程序
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | wc -l)
-            if [ "${pid_count}" -ge 1 ]; then
-                # temp=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | xargs kill -9)
-                echo "    "
-            fi
-            
-            echo "    程序 ${SERVICE_NAME} 已经停止成功 ......"            
-        else
-            echo "    程序 ${SERVICE_NAME} 运行出现问题 ......"
-        fi
+        service_stop
     ;;
     
-    #  3. 状态查询
+    # 2.3 状态查询
     status)
         # 3.1 查看正在运行程序的 pid
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+        pid_status=$(service_status)
+        
         #  3.2 判断 ES 运行状态
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    程序 ${SERVICE_NAME} 已经停止 ...... "
-        elif [ "${pid_count}" -eq 6 ]; then
-            echo "    程序 ${SERVICE_NAME} 正在运行中 ...... "
+        if [ "${pid_status}" == "${STOP}" ]; then
+            echo "    程序（${ALIAS_NAME}）已经停止 ...... "
+        elif [ "${pid_status}" == "${RUNNING}" ]; then
+            echo "    程序（${ALIAS_NAME}）正在运行中 ...... "
         else
-            echo "    程序 ${SERVICE_NAME} 运行出现问题 ...... "
+            echo "    程序（${ALIAS_NAME}）运行出现问题 ...... "
+            for ps in ${pid_status}
+            do
+                echo "    ${ps} ...... "
+            done
         fi
     ;;
     
-    #  4. 重启程序
+    # 2.4 重启程序
     restart)
         "$0" stop
         sleep 3
         "$0" start
     ;;
     
-    #  5. 其它情况
+    # 2.5 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：              "
         echo "        +-----------------------------------+ "
@@ -261,5 +247,14 @@ case "$1" in
         echo "        +-----------------------------------+ "
     ;;
 esac
-printf "=========================================================================\n\n"
 
+# 3. 获取脚本执行结束时间
+end_time=$(date +"%Y-%m-%d %H:%M:%S")
+end_timestamp=$(date -d "${end_time}" +%s)
+
+# 4. 获取脚本执行结束时间
+time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
+echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+
+printf "=========================================================================\n\n"
+exit 0
