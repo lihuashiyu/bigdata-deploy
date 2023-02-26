@@ -104,8 +104,8 @@ function service_status()
     done
     
     # 4. 判断是否所有的进程都正常
-    run_pid_count=$(echo "${pid_list[@]}"  | grep "${RUNNING}" | wc -l)
-    result_pid_count=$(echo "${#result_list[@]}") 
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -c "${RUNNING}")
+    result_pid_count=$("${#result_list[@]}") 
     
     if [ "${result_pid_count}" -eq 0 ]; then
         echo "${RUNNING}"
