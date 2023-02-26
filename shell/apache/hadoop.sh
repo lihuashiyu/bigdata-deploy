@@ -15,7 +15,7 @@ ALIAS_NAME=Hadoop                                                              #
 
 NAME_NODE_PORT=9870                                                            # NameNode 外部访问端口号
 DATA_NODE_PORT=9864                                                            # DataNode 外部访问端口号
-SECOND_NAME_NODE_PORT=50090                                                    # 2NN      外部访问端口号
+SECOND_NAME_NODE_PORT=9860                                                     # 2NN      外部访问端口号
 NODE_MANAGER_PORT=8042                                                         # NodeManager      外部访问端口号
 RESOURCE_MANAGER_PORT=8088                                                     # ResourceManager  外部访问端口号
 JOB_HISTORY_PORT=19888                                                         # JobHistoryServer 外部访问端口号
@@ -104,8 +104,8 @@ function service_status()
     done
     
     # 4. 判断是否所有的进程都正常
-    run_pid_count=$(echo "${pid_list[@]}"  | grep -c "${RUNNING}")
-    result_pid_count=$("${#result_list[@]}") 
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -i "${RUNNING}" | wc -l)
+    result_pid_count=$(echo "${#result_list[@]}") 
     
     if [ "${result_pid_count}" -eq 0 ]; then
         echo "${RUNNING}"
@@ -252,9 +252,11 @@ esac
 end_time=$(date +"%Y-%m-%d %H:%M:%S")
 end_timestamp=$(date -d "${end_time}" +%s)
 
-# 4. 获取脚本执行结束时间
+# 4. 计算并输出脚本执束时间
 time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
-echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+if [ "$#" -eq 1 ]  && ( [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ] ); then
+    echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+fi
 
 printf "================================================================================\n\n"
 exit 0

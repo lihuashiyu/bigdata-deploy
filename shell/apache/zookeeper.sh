@@ -10,21 +10,20 @@
 # =========================================================================================
     
     
-ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)    # Zookeeper 安装目录
-ALIAS_NAME=Zookeeper                                       # 服务别名
-SERVICE_NAME=org.apache.zookeeper
+ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)             # Zookeeper 安装目录
+ALIAS_NAME=Zookeeper                                                # 服务别名
+SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain      # Zookeeper 进程名称
 
-SERVICE_PORT=2181
-SERVICE_PORT=2181
-SERVER_PORT=8180
+ZOOKEEPER_PORT=2181                                                  # Zookeeper 端口号
+ZOOKEEPER_UI_PORT=8180                                               # Zookeeper Web 端口号
 
-ZOOKEEPER_LIST=(slaver1 slaver2 slaver3)                   # zookeeper 集群的主机名
-USER=$(whoami)                                             # 获取当前登录用户
-RUNNING=1                                                  # 服务运行状态码
-STOP=0                                                     # 服务停止状态码
-LEADER_STATUS=leader                                       # 节点的 leader 状态 
-FLOWER_STATUS=leader                                       # 节点的 flower 状态 
-LOCAL_STATUS=standalone                                    # 节点的 standalone 状态 
+ZOOKEEPER_LIST=(slaver1 slaver2 slaver3)                             # zookeeper 集群的主机名
+USER=$(whoami)                                                       # 获取当前登录用户
+RUNNING=1                                                            # 服务运行状态码
+STOP=0                                                               # 服务停止状态码
+LEADER_STATUS=leader                                                 # 节点的 leader 状态 
+FLOWER_STATUS=leader                                                 # 节点的 flower 状态 
+LOCAL_STATUS=standalone                                              # 节点的 standalone 状态 
 
 
 # 服务状态检测
@@ -50,8 +49,8 @@ function service_status()
     done
     
     # 3. 判断是否所有的进程都正常
-    run_pid_count=$(echo "${pid_list[@]}"  | grep -c "${RUNNING}")
-    result_pid_count=$(${#result_list[@]}) 
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -i "${RUNNING}" | wc -l)
+    result_pid_count=$(echo "${#result_list[@]}") 
     
     if [ "${result_pid_count}" -eq 0 ]; then
         echo "${RUNNING}"
@@ -77,7 +76,7 @@ function service_start()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在加载中 ......"
-            ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh start > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh start > /dev/null 2>&1 "
         done
         
         # 3. 验证每个节点进程状态
@@ -119,7 +118,7 @@ function service_stop()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
-            ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh stop > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh stop > /dev/null 2>&1 "
         done
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
@@ -141,6 +140,7 @@ function service_stop()
     fi
 }
     
+    
 # 节点角色
 function service_role()
 {
@@ -155,17 +155,17 @@ function service_role()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             # 2.1 程序 节点 的 角色
-            node_role=$(ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh status > /dev/null 2>&1 ")
-            leader_count=$(echo "${node_role}" | grep -c "$LEADER_STATUS")
-            flower_count=$(echo "${node_role}" | grep -c "$FLOWER_STATUS")
-            local_count=$(echo "${node_role}"  | grep -c "$LOCAL_STATUS")
+            node_role=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh status 2> /dev/null  | grep -i 'mode'")
+            leader_count=$(echo "${node_role}" | grep -i "${LEADER_STATUS}" | wc -l)
+            flower_count=$(echo "${node_role}" | grep -i "${FLOWER_STATUS}" | wc -l)
+            local_count=$(echo "${node_role}"  | grep -i "${LOCAL_STATUS}"  | wc -l)
             
             if [ "${leader_count}" -ne 0 ]; then
                 echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 leader 状态 ......"
             elif [ "${flower_count}" -ne 0 ]; then
                 echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 flower 状态 ......"
             elif [ "${local_count}" -ne 0 ]; then
-                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 stand-alone 状态 ......"
+                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 standalone 状态 ......"
             fi
         done
     else
@@ -245,9 +245,11 @@ esac
 end_time=$(date +"%Y-%m-%d %H:%M:%S")
 end_timestamp=$(date -d "${end_time}" +%s)
 
-# 4. 获取脚本执行结束时间
+# 4. 计算并输出脚本执束时间
 time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
-echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+if [ "$#" -eq 1 ]  && ( [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ] ); then
+    echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+fi
 
 printf "================================================================================\n\n"
 exit 0

@@ -46,8 +46,8 @@ function service_status()
     done
     
     # 3. 判断是否所有的进程都正常
-    run_pid_count=$(echo "${pid_list[@]}"  | grep -c "${RUNNING}")
-    result_pid_count=$(${#result_list[@]}) 
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -i "${RUNNING}" | wc -l)
+    result_pid_count=$(echo "${#result_list[@]}") 
     
     if [ "${result_pid_count}" -eq 0 ]; then
         echo "${RUNNING}"
@@ -75,7 +75,7 @@ function service_start()
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在加载中 ......"
             
             # 2.1 程序 Master 的 pid
-            ssh "${USER}@${host_name}" "${KAFKA_HOME}/bin/kafka-server-start.sh -daemon ${KAFKA_HOME}/${CONF_FILE} > /dev/null 2>&1 & "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${KAFKA_HOME}/bin/kafka-server-start.sh -daemon ${KAFKA_HOME}/${CONF_FILE} > /dev/null 2>&1 & "
         done
         
         # 3. 验证每个节点进程状态
@@ -119,7 +119,7 @@ function service_stop()
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
             
             # 2.1 程序 Master 的 pid
-            ssh "${USER}@${host_name}" " ${KAFKA_HOME}/bin/kafka-server-stop.sh > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${KAFKA_HOME}/bin/kafka-server-stop.sh > /dev/null 2>&1 "
         done
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
@@ -203,9 +203,11 @@ esac
 end_time=$(date +"%Y-%m-%d %H:%M:%S")
 end_timestamp=$(date -d "${end_time}" +%s)
 
-# 4. 获取脚本执行结束时间
+# 4. 计算并输出脚本执束时间
 time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
-echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+if [ "$#" -eq 1 ]  && ( [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ] ); then
+    echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+fi
 
 printf "================================================================================\n\n"
 exit 0
