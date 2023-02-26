@@ -118,7 +118,7 @@ function service_stop()
         do
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
             
-            # 2.1 程序 Master 的 pid
+            # 2.1 程序 Kafka 的 pid
             ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${KAFKA_HOME}/bin/kafka-server-stop.sh > /dev/null 2>&1 "
         done
         

@@ -1,89 +1,147 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2120
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)
-SERVICE_NAME=Hive
-JUDGE_NAME=org.apache.hadoop.util.RunJar
+# =========================================================================================
+#    FileName      ：  hive.sh
+#    CreateTime    ：  2023-02-26 01:46:31
+#    Author        ：  lihua shiyu
+#    Email         ：  lihuashiyu@github.com
+#    Description   ：  hive.sh 被用于 ==> Hadoop 集群的启停和状态检查脚本
+# =========================================================================================
+    
+    
+HIVE_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)
+ALIAS_NAME=Hive
+SERVICE_NAME=org.apache.hadoop.util.RunJar                 # Hive 安装目录
 
-HiveServer2_PORT=10002
-BEELIN_PORT=10000
+HiveServer2_PORT=10002                                     # HiveServer2 端口号
+BEELINE_PORT=10000                                         # Beeline 客户端端口
+
+USER=$(whoami)                                             # 获取当前登录用户
+RUNNING=1                                                  # 服务运行状态码
+STOP=0                                                     # 服务停止状态码
 
 
-# beeline -u jdbc:hive2://issac:10000 -n issac
-printf "\n=========================================================================\n"
-#  匹配输入参数
-case "$1" in
-    #  1. 运行程序
-    start)
-        # 1.1 统计正在运行程序的 pid 的个数
-        pid_list=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}')
-		
-        #  1.2 若 pid 个数为 0，则运行程序，否则打印程序正在运行
-        if [ ! "${pid_list}" ]; then
-            echo "    程序 ${SERVICE_NAME} 正在加载中 ......"
-            nohup "${SERVICE_DIR}/bin/hive" --service metastore > /dev/null 2>&1 &
-            sleep 3
-            nohup "${SERVICE_DIR}/bin/hiveserver2" > /dev/null 2>&1 &
-            sleep 15
-            
-            # 1.3 判断程序启动是否成功
-            # 1.5 判断所有程序启动是否成功
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${pid_count}" -ge 2 ]; then
-                echo "    程序 ${SERVICE_NAME} 启动成功 ...... "
-            else
-                echo "    程序 ${SERVICE_NAME} 启动失败 ...... "
-            fi
+# 服务状态检测
+function service_status()
+{
+    # 1. 获取 hive 进程数目
+    pid_count=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+    
+    # 2. 判断 Hive 运行状态
+    if [ "${pid_count}" -eq 0 ]; then
+        echo "${STOP}"
+    elif [ "${pid_count}" -eq 2 ]; then
+        echo "${RUNNING}"
+    else
+        echo "    程序 ${ALIAS_NAME} 运行出现问题 ...... "
+    fi
+}
+    
+    
+# 服务启动
+function service_start()
+{
+    # 1. 判断程序所处的状态
+    status=$(service_status)
+    
+    # 2. 若处于运行状态，则打印结果；若处于停止状态，则启动程序，并判断启动结果；若程序出现错误，则打印错误
+    if [ "${status}" == "${RUNNING}" ]; then
+        echo "    程序（${ALIAS_NAME}）正在运行 ...... "
+    elif [ "${status}" == "${STOP}" ]; then
+        echo "    程序（${ALIAS_NAME}）正在加载中 ......"
+        
+        # 2.1 启动 Hive 的两个进程
+        nohup "${HIVE_HOME}/bin/hive" --service metastore > /dev/null 2>&1 &
+        sleep 3
+        nohup "${HIVE_HOME}/bin/hiveserver2" > /dev/null 2>&1 &
+        sleep 5
+        echo "    程序（${ALIAS_NAME}）启动验证中 ......"
+        sleep 10
+        
+        # 2.2 判断每个进程启动状态
+        status=$(service_status)
+        if [ "${status}" == "${RUNNING}" ]; then
+            echo "    程序（${ALIAS_NAME}）启动成功 ...... "
         else
-            echo "    程序 ${SERVICE_NAME} 正在运行当中 ...... "
+            echo "    程序（${ALIAS_NAME}）启动失败 ...... "
         fi
+    else
+        echo "    程序 ${ALIAS_NAME} 运行出现问题 ...... "
+    fi
+}
+    
+    
+# 服务停止
+function service_stop()
+{
+    # 1. 判断程序所处的状态
+    status=$(service_status)
+    
+    # 2. 若处于停止状态，则打印结果；若处于运行状态，则停止程序；若停止时，程序出现错误，则打印错误的进程
+    if [ "${status}" == "${STOP}" ]; then
+        echo "    程序（${ALIAS_NAME}）已经停止运行 ...... "
+    elif [ "${status}" == "${RUNNING}" ]; then
+        echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
+        
+        # 2.1 结束进程
+        temp=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | xargs kill -term)
+        sleep 5
+        echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
+        
+        # 2.2 若还未关闭，则强制杀死进程，关闭程序
+        status=$(service_status)
+        if [ "${status}" != "${STOP}" ]; then
+            tmp=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | xargs kill -9)
+        fi
+        echo "    程序（${ALIAS_NAME}）停止成功 ...... "
+    else
+        echo "    程序（${ALIAS_NAME}）运行出错 ...... "
+    fi
+}
+    
+    
+# beeline -u jdbc:hive2://issac:10000 -n issac
+printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start_time=$(date +"%Y-%m-%d %H:%M:%S")
+start_timestamp=$(date -d "${start_time}" +%s)
+
+#  2. 匹配输入参数
+case "$1" in
+    # 2.1 运行程序
+    start)
+        service_start
     ;;
     
-    #  2. 停止	
+    # 2.2 停止
     stop)
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    ${SERVICE_NAME} 的进程不存在，程序没有运行 ...... "
-        elif [ "${pid_count}" -eq 2 ]; then
-            # 2.2 杀死进程，关闭程序
-            echo "    程序 ${SERVICE_NAME} 正在停止 ......"    
-            pid_list=program_count=$(ps -aux | grep $SERVICE_NAME | grep -v grep | awk '{print $2}' | xargs kill -term)
-            sleep 5
-            
-            # 2.3 若还未关闭，则强制杀死进程，关闭程序
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | wc -l)
-            if [ "${pid_count}" -ge 1 ]; then
-                temp=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | xargs kill -9)
-            fi
-                        
-            echo "    程序 ${SERVICE_NAME} 已经停止成功 ......"            
-        else
-            echo "    程序 ${SERVICE_NAME} 运行出现问题 ......"
-        fi
+        service_stop
     ;;
-    #  3. 状态查询
+    
+    # 2.3 状态查询
     status)
         # 3.1 查看正在运行程序的 pid
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+        pid_status=$(service_status)
+        
         #  3.2 判断 ES 运行状态
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    程序 ${SERVICE_NAME} 已经停止 ...... "
-        elif [ "${pid_count}" -eq 2 ]; then
-            echo "    程序 ${SERVICE_NAME} 正在运行中 ...... "
+        if [ "${pid_status}" == "${STOP}" ]; then
+            echo "    程序（${ALIAS_NAME}）已经停止 ...... "
+        elif [ "${pid_status}" == "${RUNNING}" ]; then
+            echo "    程序（${ALIAS_NAME}）正在运行中 ...... "
         else
-            echo "    程序 ${SERVICE_NAME} 运行出现问题 ...... "
+            echo "    程序（${ALIAS_NAME}）运行出现问题 ...... "
         fi
     ;;
     
-    
-    #  4. 重启程序
+    # 2.4 重启程序
     restart)
         "$0" stop
         sleep 3
         "$0" start
     ;;
     
-    
-    #  5. 其它情况
+    # 2.5 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：              "
         echo "        +-----------------------------------+ "
@@ -96,4 +154,16 @@ case "$1" in
         echo "        +-----------------------------------+ "
     ;;
 esac
-printf "=========================================================================\n\n"
+
+# 3. 获取脚本执行结束时间
+end_time=$(date +"%Y-%m-%d %H:%M:%S")
+end_timestamp=$(date -d "${end_time}" +%s)
+
+# 4. 计算并输出脚本执束时间
+time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
+if [ "$#" -eq 1 ]  && ( [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ] ); then
+    echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+fi
+
+printf "================================================================================\n\n"
+exit 0
