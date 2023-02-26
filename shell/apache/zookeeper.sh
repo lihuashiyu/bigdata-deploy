@@ -216,9 +216,9 @@ case "$1" in
     
     # 2.4 重启程序
     restart)
-        "$0" stop
-        sleep 1
-        "$0" start
+        service_stop
+        sleep 3
+        service_start
     ;;
     
     # 2.5 重启程序

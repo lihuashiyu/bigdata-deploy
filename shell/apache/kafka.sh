@@ -180,9 +180,9 @@ case "$1" in
     
     # 2.4 重启程序
     restart)
-        "$0" stop
+        service_stop
         sleep 1
-        "$0" start
+        service_start
     ;;
     
     # 2.5 其它情况
