@@ -1,93 +1,254 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2120
 
+# =========================================================================================
+#    FileName      ：  zookeeper.sh
+#    CreateTime    ：  2023-02-27 17:09:54
+#    Author        ：  lihua shiyu
+#    Email         ：  lihuashiyu@github.com
+#    Description   ：  zookeeper.sh 被用于 ==> zookeeper 集群的启停和状态检查脚本
+# =========================================================================================
+    
+    
+ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)    # Zookeeper 安装目录
+ALIAS_NAME=Zookeeper                                       # 服务别名
+SERVICE_NAME=org.apache.zookeeper
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)
-SERVICE_NAME=Zookeeper
-JUDGE_NAME=org.apache.zookeeper
+SERVICE_PORT=2181
 SERVICE_PORT=2181
 SERVER_PORT=8180
 
+ZOOKEEPER_LIST=(slaver1 slaver2 slaver3)                   # zookeeper 集群的主机名
+USER=$(whoami)                                             # 获取当前登录用户
+RUNNING=1                                                  # 服务运行状态码
+STOP=0                                                     # 服务停止状态码
+LEADER_STATUS=leader                                       # 节点的 leader 状态 
+FLOWER_STATUS=leader                                       # 节点的 flower 状态 
+LOCAL_STATUS=standalone                                    # 节点的 standalone 状态 
 
-printf "\n=========================================================================\n"
-#  匹配输入参数
-case "$1" in
-    #  1. 运行程序
-    start)
-        # 1.1 查找程序的 pid
-        pid_list=$(ps -aux | grep -i "${JUDGE_NAME}" | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}')
+
+# 服务状态检测
+function service_status()
+{
+    # 1. 初始返回结果
+    result_list=()
+    pid_list=()
+    
+    # 2. 遍历 kafka 的所有的主机，查看 jvm 进程
+    for host_name in "${ZOOKEEPER_LIST[@]}"
+    do
+        # 2.1 程序 Master 的 pid
+        zk_pid=$(ssh "${USER}@${host_name}" " ps -aux | grep -i '${USER}' | grep -i '${SERVICE_NAME}' | grep -v grep | awk '{print $2}' " | wc -l)
         
-        #  1.2 若 pid 不存在，则运行程序，否则打印程序运行状态
-        if [ ! "${pid_list}" ]; then
-            echo "    程序 ${SERVICE_NAME} 正在加载中 ......"
-            "${SERVICE_DIR}/bin/zkServer.sh" start > /dev/null 2>&1
-            sleep 5
-            
-            # 1.9 判断所有程序启动是否成功
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-            if [ "${pid_count}" -ge 1 ]; then
-                echo "    程序 ${SERVICE_NAME} 启动成功 ...... "
-            else
-                echo "    程序 ${SERVICE_NAME} 启动失败 ...... "
-            fi
-            
+        # 2.2 判断进程是否存在
+        if [ "${zk_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（Zookeeper）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
         else
-            echo "    程序 ${SERVICE_NAME} 正在运行当中 ...... "
+            pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
-    ;;
+    done
     
-    #  2. 停止
-    stop)
-        # 2.1 根据程序的 pid 查询程序运行状态
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    ${SERVICE_NAME} 的进程不存在，程序没有运行 ...... "
+    # 3. 判断是否所有的进程都正常
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -c "${RUNNING}")
+    result_pid_count=$(${#result_list[@]}) 
+    
+    if [ "${result_pid_count}" -eq 0 ]; then
+        echo "${RUNNING}"
+    elif [ "${run_pid_count}" -eq 0 ]; then
+        echo "${STOP}"
+    else
+        echo "${result_list[@]}"
+    fi
+}
+    
+    
+# 服务启动
+function service_start()
+{
+    # 1. 判断程序所处的状态
+    status=$(service_status)
+    
+    # 2. 若处于运行状态，则打印结果；若处于停止状态，则启动程序；若程序启动时，出现错误，则打印错误的进程
+    if [ "${status}" == "${RUNNING}" ]; then
+        echo "    程序（${ALIAS_NAME}）正在运行 ...... "
+    elif [ "${status}" == "${STOP}" ]; then
+        # 2. 遍历 kafka 的所有的主机，启动各个节点的服务
+        for host_name in "${ZOOKEEPER_LIST[@]}"
+        do
+            echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在加载中 ......"
+            ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh start > /dev/null 2>&1 "
+        done
+        
+        # 3. 验证每个节点进程状态
+        echo "    程序（${ALIAS_NAME}）启动验证中 ......"
+        sleep 2
+        
+        # 4. 判断程序每个进程启动状态
+        status=$(service_status)
+        if [ "${status}" == "${RUNNING}" ]; then
+            echo "    程序（${ALIAS_NAME}）启动成功 ...... "
         else
-            # 2.2 关闭进程，关闭程序
-            echo "    程序 ${SERVICE_NAME} 正在停止中 ...... "
-            "${SERVICE_DIR}/bin/zkServer.sh" stop > /dev/null 2>&1
-            sleep 3
+            echo "    程序（${ALIAS_NAME}）启动失败 ...... "
+            for ps in ${status}
+            do
+                echo "    ${ps} ...... "
+            done
+        fi
+    else
+        echo "    程序（${ALIAS_NAME}）运行出现问题 ...... "
+        for ps in ${status}
+        do
+            echo "    ${ps} ...... "
+        done
+    fi
+}
+    
+    
+# 服务停止
+function service_stop()
+{
+    # 1. 判断程序所处的状态
+    status=$(service_status)
+    
+    # 2. 若处于停止状态，则打印结果；若处于运行状态，则停止程序；若停止时，程序出现错误，则打印错误的进程
+    if [ "${status}" == "${STOP}" ]; then
+        echo "    程序（${ALIAS_NAME}）已经停止运行 ...... "
+    elif [ "${status}" == "${RUNNING}" ]; then
+        # 2. 遍历 kafka 的所有的主机，停止各个节点的服务
+        for host_name in "${ZOOKEEPER_LIST[@]}"
+        do
+            echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
+            ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh stop > /dev/null 2>&1 "
+        done
+        
+        echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
+        sleep 2
+        
+        # 3. 判断程序每个进程停止状态
+        status=$(service_status)
+        if [ "${status}" == "${STOP}" ]; then
+            echo "    程序（${ALIAS_NAME}）停止成功 ...... "
+        else
+            echo "    程序（${ALIAS_NAME}）停止失败 ...... "
+        fi
+    else
+        echo "    程序（${ALIAS_NAME}）运行出错 ...... "
+        for ps in ${status}
+        do
+            echo "    ${ps} ...... "
+        done
+    fi
+}
+    
+# 节点角色
+function service_role()
+{
+    # 1. 判断程序所处的状态
+    status=$(service_status)
+    
+    # 2. 若处于停止状态，则打印结果；若处于运行状态，则判断节点的角色
+    if [ "${status}" == "${STOP}" ]; then
+        echo "    程序（${ALIAS_NAME}）已经停止运行 ...... "
+    elif [ "${status}" == "${RUNNING}" ]; then
+        # 2. 遍历 kafka 的所有的主机，停止各个节点的服务
+        for host_name in "${ZOOKEEPER_LIST[@]}"
+        do
+            # 2.1 程序 节点 的 角色
+            node_role=$(ssh "${USER}@${host_name}" " ${ZOOKEEPER_HOME}/bin/zkServer.sh status > /dev/null 2>&1 ")
+            leader_count=$(echo "${node_role}" | grep -c "$LEADER_STATUS")
+            flower_count=$(echo "${node_role}" | grep -c "$FLOWER_STATUS")
+            local_count=$(echo "${node_role}"  | grep -c "$LOCAL_STATUS")
+            
+            if [ "${leader_count}" -ne 0 ]; then
+                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 leader 状态 ......"
+            elif [ "${flower_count}" -ne 0 ]; then
+                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 flower 状态 ......"
+            elif [ "${local_count}" -ne 0 ]; then
+                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 stand-alone 状态 ......"
+            fi
+        done
+    else
+        echo "    程序（${ALIAS_NAME}）运行出错 ...... "
+        for ps in ${status}
+        do
+            echo "    ${ps} ...... "
+        done
+    fi
+}
 
-            # 2.3 若还未关闭，则强制杀死进程，关闭程序
-            pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | wc -l)
-            if [ "${pid_count}" -ge 1 ]; then
-                temp=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | xargs kill -9)
-            fi
-            
-            echo "    程序 ${SERVICE_NAME} 已经停止成功 ......"
-        fi
+
+printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start_time=$(date +"%Y-%m-%d %H:%M:%S")
+start_timestamp=$(date -d "${start_time}" +%s)
+
+#  2. 匹配输入参数
+case "$1" in
+    # 2.1 运行程序
+    start)
+        service_start
     ;;
     
-    #  3. 状态查询
+    # 2.2 停止
+    stop)
+        service_stop
+    ;;
+    
+    # 2.3 状态查询
     status)
         # 3.1 查看正在运行程序的 pid
-        pid_count=$(ps -aux | grep -i ${JUDGE_NAME} | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+        pid_status=$(service_status)
+        
         #  3.2 判断 ES 运行状态
-        if [ "${pid_count}" -eq 0 ]; then
-            echo "    程序 ${SERVICE_NAME} 已经停止 ...... "
+        if [ "${pid_status}" == "${STOP}" ]; then
+            echo "    程序（${ALIAS_NAME}）已经停止 ...... "
+        elif [ "${pid_status}" == "${RUNNING}" ]; then
+            echo "    程序（${ALIAS_NAME}）正在运行中 ...... "
         else
-            echo "    程序 ${SERVICE_NAME} 正在运行中 ...... "
+            echo "    程序（${ALIAS_NAME}）运行出现问题 ...... "
+            for ps in ${pid_status}
+            do
+                echo "    ${ps} ...... "
+            done
         fi
     ;;
     
-    #  4. 重启程序
+    # 2.4 重启程序
     restart)
         "$0" stop
-        sleep 3
+        sleep 1
         "$0" start
     ;;
     
-    #  5. 其它情况
+    # 2.5 重启程序
+    role)
+        service_role
+    ;;
+    
+    # 2.6 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：              "
-        echo "        +-----------------------------------+ "
-        echo "        |  start | stop | restart | status  | "
-        echo "        +-----------------------------------+ "
-        echo "        |        start    ：  启动服务      | "
-        echo "        |        stop     ：  关闭服务      | "
-        echo "        |        restart  ：  重启服务      | "
-        echo "        |        status   ：  查看状态      | "
-        echo "        +-----------------------------------+ "
+        echo "    脚本可传入一个参数，如下所示：                   "
+        echo "        +------------------------------------------+ "
+        echo "        |  start | stop | restart | status | role  | "
+        echo "        +------------------------------------------+ "
+        echo "        |          start    ：  启动服务           | "
+        echo "        |          stop     ：  关闭服务           | "
+        echo "        |          restart  ：  重启服务           | "
+        echo "        |          status   ：  查看状态           | "
+        echo "        |          role     ：  节点角色           | "
+        echo "        +------------------------------------------+ "
     ;;
 esac
-printf "=========================================================================\n\n"
+
+# 3. 获取脚本执行结束时间
+end_time=$(date +"%Y-%m-%d %H:%M:%S")
+end_timestamp=$(date -d "${end_time}" +%s)
+
+# 4. 获取脚本执行结束时间
+time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
+echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+
+printf "================================================================================\n\n"
+exit 0
 
