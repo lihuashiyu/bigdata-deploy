@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
     
+# =========================================================================================
+#    FileName      ：  mysql.sh
+#    CreateTime    ：  2023-02-27 19:24:36
+#    Author        ：  lihua shiyu
+#    Email         ：  lihuashiyu@github.com
+#    Description   ：  mysql.sh 被用于 ==> mysql 的启停和状态检查脚本
+# =========================================================================================
+    
     
 SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)       # 程序路径
 SERVICE_NAME=mysql                                         # 程序主进程名称
@@ -17,7 +25,7 @@ STOP=0                                                     # 停止状态
 function service_status()
 {
     # 1. 统计正在运行程序的 pid 的个数
-    pid_count=$(ps -aux | grep -i "${SERVICE_NAME}" | grep -vi "$0" | grep -v grep | awk '{print $2}' | wc -l)
+    pid_count=$(ps -aux | grep -i "${MYSQLD}" | grep -vi "$0" | grep -v grep | awk '{print $2}' | wc -l)
     
     # 2. 调用 Mysql 默认脚本查看状态
     mysql_status=$("${SERVICE_DIR}/support-files/mysql.server" status | awk '{print $3}')
@@ -29,8 +37,8 @@ function service_status()
         echo "${RUNNING}"
     else
         # 3.1 查看个进程的状态
-        safe_pid=$(ps -aux | grep -i "${MYSQL_SAFE}" | grep -vi "$0" | grep -v grep | awk '{print $2}')
-        mysqld_pid=$(ps -aux | grep -i "${MYSQLD}" |grep -vi "$0" | grep -v grep | awk '{print $2}')
+        safe_pid=$(ps -aux | grep -i "${MYSQL_SAFE}" | grep -vi "$0" | grep -v grep | awk '{print $2}' | wc -l)
+        mysqld_pid=$(ps -aux | grep -i "${MYSQLD}" | grep -vi "${MYSQL_SAFE}" | grep -vi "$0" | grep -v grep | awk '{print $2}' | wc -l)
         
         # 3.2 判断程序 Mysqld_Safe 启动是否成功
         if [ ! "${safe_pid}" ]; then
@@ -229,4 +237,4 @@ case "$1" in
     ;;
 esac
 printf "================================================================================\n\n"
-
+exit 0
