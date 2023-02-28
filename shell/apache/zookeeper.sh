@@ -10,9 +10,9 @@
 # =========================================================================================
     
     
-ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)             # Zookeeper 安装目录
-ALIAS_NAME=Zookeeper                                                # 服务别名
-SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain      # Zookeeper 进程名称
+ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)              # Zookeeper 安装目录
+ALIAS_NAME=Zookeeper                                                 # 服务别名
+SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain       # Zookeeper 进程名称
 
 ZOOKEEPER_PORT=2181                                                  # Zookeeper 端口号
 ZOOKEEPER_UI_PORT=8180                                               # Zookeeper Web 端口号
@@ -22,7 +22,7 @@ USER=$(whoami)                                                       # 获取当
 RUNNING=1                                                            # 服务运行状态码
 STOP=0                                                               # 服务停止状态码
 LEADER_STATUS=leader                                                 # 节点的 leader 状态 
-FLOWER_STATUS=leader                                                 # 节点的 flower 状态 
+FLOWER_STATUS=flower                                                 # 节点的 flower 状态 
 LOCAL_STATUS=standalone                                              # 节点的 standalone 状态 
 
 
@@ -76,7 +76,7 @@ function service_start()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在加载中 ......"
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh start > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh start > /dev/null 2>&1 "
         done
         
         # 3. 验证每个节点进程状态
@@ -118,7 +118,7 @@ function service_stop()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh stop > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh stop > /dev/null 2>&1 "
         done
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
@@ -155,7 +155,7 @@ function service_role()
         for host_name in "${ZOOKEEPER_LIST[@]}"
         do
             # 2.1 程序 节点 的 角色
-            node_role=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh status 2> /dev/null  | grep -i 'mode'")
+            node_role=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh status 2> /dev/null  | grep -i 'mode'")
             leader_count=$(echo "${node_role}" | grep -i "${LEADER_STATUS}" | wc -l)
             flower_count=$(echo "${node_role}" | grep -i "${FLOWER_STATUS}" | wc -l)
             local_count=$(echo "${node_role}"  | grep -i "${LOCAL_STATUS}"  | wc -l)

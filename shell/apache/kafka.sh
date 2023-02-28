@@ -75,7 +75,7 @@ function service_start()
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在加载中 ......"
             
             # 2.1 程序 Master 的 pid
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${KAFKA_HOME}/bin/kafka-server-start.sh -daemon ${KAFKA_HOME}/${CONF_FILE} > /dev/null 2>&1 & "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${KAFKA_HOME}/bin/kafka-server-start.sh -daemon ${KAFKA_HOME}/${CONF_FILE} > /dev/null 2>&1 & "
         done
         
         # 3. 验证每个节点进程状态
@@ -119,7 +119,7 @@ function service_stop()
             echo "    主机（${host_name}）的程序（${ALIAS_NAME}）正在停止中 ......"
             
             # 2.1 程序 Kafka 的 pid
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ${KAFKA_HOME}/bin/kafka-server-stop.sh > /dev/null 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${KAFKA_HOME}/bin/kafka-server-stop.sh > /dev/null 2>&1 "
         done
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "

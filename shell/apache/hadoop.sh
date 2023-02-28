@@ -45,7 +45,7 @@ function service_status()
     for host_name in "${MASTER_LIST[@]}"
     do
         # 2.1. 程序 NameNode 的 pid
-        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${name_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（NameNode）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -54,7 +54,7 @@ function service_status()
         fi
         
         # 2.2. 程序 SecondaryNameNode 的 pid
-        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${SECOND_NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${SECOND_NAME_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${second_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（SecondaryNameNode）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -63,7 +63,7 @@ function service_status()
         fi
         
         # 2.3. 程序 ResourceManager 的 pid
-        resource_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${RESOURCE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        resource_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${RESOURCE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${resource_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（ResourceManager）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -72,7 +72,7 @@ function service_status()
         fi
         
         # 2.4. 程序 JobHistoryServer 的 pid
-        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${JOB_HISTORY_SERVER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${JOB_HISTORY_SERVER}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${history_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（JobHistoryServer）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -85,7 +85,7 @@ function service_status()
     for host_name in "${SLAVER_LIST[@]}"
     do
         # 3.1. 程序 DataNode 的 pid
-        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${DATA_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
+        name_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${DATA_NODE}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${name_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（DataNode）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -94,7 +94,7 @@ function service_status()
         fi
         
         # 3.2. 程序 SecondaryNameNode 的 pid
-        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${NODE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
+        second_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${NODE_MANAGER}' | grep -v grep | awk '{print $2}' " | wc -l)
         if [ "${second_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（NodeManager）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"

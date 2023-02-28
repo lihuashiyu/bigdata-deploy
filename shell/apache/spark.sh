@@ -41,7 +41,7 @@ function service_status()
     for host_name in "${MASTER_LIST[@]}"
     do
         # 2.1 程序 Master 的 pid
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${MASTER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
+        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${MASTER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
         if [ "${master_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Master）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -50,7 +50,7 @@ function service_status()
         fi
         
         # 2.2 程序 JobHistoryServer 的 pid
-        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
+        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
         if [ "${history_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（HistoryServer）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -63,7 +63,7 @@ function service_status()
     for host_name in "${SLAVER_LIST[@]}"
     do
         # 3.1 程序 Work 的 pid
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source ~/.bash_profile; ps -aux | grep -i '${USER}' | grep -i '${WORKER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
+        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${WORKER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
         if [ "${master_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Worker）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
