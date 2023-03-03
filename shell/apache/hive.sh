@@ -10,31 +10,65 @@
 # =========================================================================================
     
     
-HIVE_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)
-ALIAS_NAME=Hive
-SERVICE_NAME=org.apache.hadoop.util.RunJar                 # Hive 安装目录
+HIVE_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)                   # Hive 安装目录
+ALIAS_NAME=Hive                                                      # 服务别名
+    
+HiveServer2_PORT=10002                                               # HiveServer2 端口号
+BEELINE_PORT=10000                                                   # Beeline 客户端端口
+HIVE_SERVER_2=org.apache.hive.service.server.HiveServer2             # HiveServer2 进程名称
+HIVE_META_STORE=org.apache.hadoop.hive.metastore.HiveMetaStore       # NameNode 进程名称
 
-HiveServer2_PORT=10002                                     # HiveServer2 端口号
-BEELINE_PORT=10000                                         # Beeline 客户端端口
-
-USER=$(whoami)                                             # 获取当前登录用户
-RUNNING=1                                                  # 服务运行状态码
-STOP=0                                                     # 服务停止状态码
+LOG_FILE=hive-$(date +%F).log                                        # 程序操作日志文件    
+SERVER_2_LIST=(master)                                               # HiveServer2 主机主机名
+META_STORE_LIST=(master)                                             # HiveMetaStore 集群主机名
+USER=$(whoami)                                                       # 获取当前登录用户
+RUNNING=1                                                            # 服务运行状态码
+STOP=0                                                               # 服务停止状态码
 
 
 # 服务状态检测
 function service_status()
 {
-    # 1. 获取 hive 进程数目
-    pid_count=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | awk -F "_" '{print $1}' | wc -l)
+    # 1. 初始返回结果
+    result_list=()
+    pid_list=()
     
-    # 2. 判断 Hive 运行状态
-    if [ "${pid_count}" -eq 0 ]; then
-        echo "${STOP}"
-    elif [ "${pid_count}" -eq 2 ]; then
+    # 2. 遍历 HiveMetaStore 的所有的主机，查看 jvm 进程
+    for host_name in "${SERVER_2_LIST[@]}"
+    do
+        # 3.1 程序 HiveMetaStore 的 pid
+        meta_store_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HIVE_META_STORE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}'  | wc -l ")
+        if [ "${meta_store_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（HiveMetaStore）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+    done
+    
+    # 3. 遍历 HiveServer2 的所有的主机，查看 jvm 进程
+    for host_name in "${SERVER_2_LIST[@]}"
+    do
+        # 3.1 程序 HiveServer2 的 pid
+        server_2_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HIVE_SERVER_2}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
+        if [ "${server_2_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（HiveServer2）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+    done
+      
+    # 4. 判断是否所有的进程都正常
+    run_pid_count=$(echo "${pid_list[@]}"  | grep -i "${RUNNING}" | wc -l)
+    result_pid_count=$(echo "${#result_list[@]}") 
+    
+    if [ "${result_pid_count}" -eq 0 ]; then
         echo "${RUNNING}"
+    elif [ "${run_pid_count}" -eq 0 ]; then
+        echo "${STOP}"
     else
-        echo "    程序 ${ALIAS_NAME} 运行出现问题 ...... "
+        echo "${result_list[@]}"
     fi
 }
     
@@ -51,20 +85,34 @@ function service_start()
     elif [ "${status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
         
-        # 2.1 启动 Hive 的两个进程
-        nohup "${HIVE_HOME}/bin/hive" --service metastore > /dev/null 2>&1 &
+        # 2.1 启动 Hive 的 HiveMetaStore 进程
+        for host_name in "${META_STORE_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hive --service metastore >> ${HIVE_HOME}/logs/${LOG_FILE} 2>&1 & "
+        done
+        
+        echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         sleep 3
-        nohup "${HIVE_HOME}/bin/hiveserver2" > /dev/null 2>&1 &
-        sleep 5
+        
+        # 2.2 启动 Hive 的 HiveServer2 进程
+        for host_name in "${SERVER_2_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hiveserver2 >> ${HIVE_HOME}/logs/${LOG_FILE} 2>&1 & "
+        done
+        
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         sleep 10
         
-        # 2.2 判断每个进程启动状态
+        # 2.3 判断每个进程启动状态
         status=$(service_status)
         if [ "${status}" == "${RUNNING}" ]; then
             echo "    程序（${ALIAS_NAME}）启动成功 ...... "
         else
             echo "    程序（${ALIAS_NAME}）启动失败 ...... "
+            for ps in ${status}
+            do
+                echo "    ${ps} ...... "
+            done
         fi
     else
         echo "    程序 ${ALIAS_NAME} 运行出现问题 ...... "
@@ -84,16 +132,28 @@ function service_stop()
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
-        # 2.1 结束进程
-        temp=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | xargs kill -term)
-        sleep 5
+        # 2.1 停止 Hive 的 HiveServer2 进程
+        for host_name in "${SERVER_2_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i ${USER} | grep -i ${HIVE_SERVER_2} | grep -v grep | awk '{print $2}' | xargs kill -term " > /dev/null 2>&1
+            sleep 3
+            
+            # 2.2 若还未关闭，则强制杀死进程，关闭程序
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i ${USER} | grep -i ${HIVE_SERVER_2} | grep -v grep | awk '{print $2}' | xargs kill -9 " > /dev/null 2>&1
+        done
+        
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
         
-        # 2.2 若还未关闭，则强制杀死进程，关闭程序
-        status=$(service_status)
-        if [ "${status}" != "${STOP}" ]; then
-            tmp=$(ps -aux | grep -i "${USER}" | grep -i "${SERVICE_NAME}" | grep -v grep | awk '{print $2}' | xargs kill -9)
-        fi
+        # 2.3 停止 Hive 的 HiveMetaStore 进程
+        for host_name in "${META_STORE_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i ${USER} | grep -i ${HIVE_META_STORE} | grep -v grep | awk '{print $2}' | xargs kill -15 " > /dev/null 2>&1
+            sleep 3
+            
+            # 2.2 若还未关闭，则强制杀死进程，关闭程序
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i ${USER} | grep -i ${HIVE_META_STORE} | grep -v grep | awk '{print $2}' | xargs kill -9 " > /dev/null 2>&1
+        done
+        
         echo "    程序（${ALIAS_NAME}）停止成功 ...... "
     else
         echo "    程序（${ALIAS_NAME}）运行出错 ...... "

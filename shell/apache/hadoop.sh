@@ -10,7 +10,7 @@
 # =========================================================================================
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)                           # Hadoop 安装目录
+HADOOP_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)                           # Hadoop 安装目录
 ALIAS_NAME=Hadoop                                                              # 服务别名
 
 NAME_NODE_PORT=9870                                                            # NameNode 外部访问端口号
@@ -27,6 +27,7 @@ NODE_MANAGER=org.apache.hadoop.yarn.server.nodemanager.NodeManager             #
 RESOURCE_MANAGER=org.apache.hadoop.yarn.server.resourcemanager.ResourceManager # ResourceManager  进程名称
 JOB_HISTORY_SERVER=org.apache.hadoop.mapreduce.v2.hs.JobHistoryServer          # JobHistoryServer 进程名称
 
+LOG_FILE=hadoop-$(date +%F).log                                                # 程序操作日志文件
 MASTER_LIST=(master)                                                           # master 主机主机名
 SLAVER_LIST=(slaver1 slaver2 slaver3)                                          # slaver 集群主机名
 USER=$(whoami)                                                                 # 获取当前登录用户
@@ -128,11 +129,17 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）正在运行 ...... "
     elif [ "${status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
+        for host_name in "${MASTER_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${HADOOP_HOME}/sbin/start-all.sh >> ${HADOOP_HOME}/logs/${LOG_FILE} 2>&1 "
+        done
         
-        "${SERVICE_DIR}/sbin/start-all.sh" > /dev/null 2>&1
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         sleep 13
-        "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" start historyserver > /dev/null 2>&1
+        for host_name in "${MASTER_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh start historyserver >> ${HADOOP_HOME}/logs/${LOG_FILE} 2>&1 "
+        done
         sleep 2
         
         # 3. 判断程序每个进程启动状态
@@ -167,11 +174,15 @@ function service_stop()
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
-        "${SERVICE_DIR}/sbin/mr-jobhistory-daemon.sh" stop historyserver > /dev/null 2>&1
-        sleep 1
+        for host_name in "${MASTER_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh stop historyserver >> ${HADOOP_HOME}/logs/${LOG_FILE} 2>&1 "
+            sleep 2
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${HADOOP_HOME}/sbin/stop-all.sh >> ${HADOOP_HOME}/logs/${LOG_FILE} 2>&1 "
+        done
+        
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
-        "${SERVICE_DIR}/sbin/stop-all.sh" > /dev/null 2>&1
-        sleep 4
+        sleep 3
         
         # 3. 判断程序每个进程停止状态
         status=$(service_status)

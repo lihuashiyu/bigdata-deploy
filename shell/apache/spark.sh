@@ -23,6 +23,7 @@ MASTER_NODE=org.apache.spark.deploy.master.Master                    # Master �
 WORKER_NODE=org.apache.spark.deploy.worker.Worker                    # Worker 进程名称
 HISTORY_SERVER=org.apache.spark.deploy.history.HistoryServer         # 历史服务器 进程名称
 
+LOG_FILE=spark-$(date +%F).log                                       # 程序操作日志文件
 MASTER_LIST=(master)                                                 # master 主机主机名
 SLAVER_LIST=(slaver1 slaver2 slaver3)                                # slaver 集群主机名
 USER=$(whoami)                                                       # 获取当前登录用户
@@ -41,7 +42,7 @@ function service_status()
     for host_name in "${MASTER_LIST[@]}"
     do
         # 2.1 程序 Master 的 pid
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${MASTER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
+        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${MASTER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
         if [ "${master_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Master）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -50,7 +51,7 @@ function service_status()
         fi
         
         # 2.2 程序 JobHistoryServer 的 pid
-        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
+        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
         if [ "${history_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（HistoryServer）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -97,11 +98,14 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）正在运行 ...... "
     elif [ "${status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
+        for host_name in "${MASTER_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/start-all.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 " 
+            sleep 3    
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/start-history-server.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
+        done
         
-        "${SPARK_HOME}/sbin/start-all.sh" > /dev/null 2>&1
-        echo "    程序（${ALIAS_NAME}）启动验证中 ......"
-        sleep 1
-        "${SPARK_HOME}/sbin/start-history-server.sh" > /dev/null 2>&1
+        echo "    程序（${ALIAS_NAME}）启动验证中 ......"        
         sleep 2
         
         # 3. 判断程序每个进程启动状态
@@ -136,10 +140,14 @@ function service_stop()
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
-        "${SPARK_HOME}/sbin/stop-history-server.sh" > /dev/null 2>&1
-        sleep 1
+        for host_name in "${MASTER_LIST[@]}"
+        do
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/stop-history-server.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
+            sleep 2
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/stop-all.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
+        done
+        
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
-        "${SPARK_HOME}/sbin/stop-all.sh" > /dev/null 2>&1
         sleep 2
         
         # 3. 判断程序每个进程停止状态

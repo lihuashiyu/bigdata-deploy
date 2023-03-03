@@ -5,7 +5,7 @@ SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)       # 程序路径
 SERVICE_NAME=nginx                                         # 程序名称
 ALIAS_NAME=Nginx                                           # 程序别名
 CONFIG_FILE=conf/nginx.conf                                # 配置文件
-LOG_FILE=mock-db-$(date +%F).log                           # 程序运行日志文件
+LOG_FILE=nginx-$(date +%F).log                             # 程序运行日志文件
     
 NGINX_PORT=47722                                           # Nginx 前端静态资源监控端口
 SERVICE_PORT2=10800                                        # 后台服务
