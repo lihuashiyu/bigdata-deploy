@@ -1,6 +1,26 @@
-## 1. 修改 yum / dnf 或 apt 源
+## 1. 修改 yum/dnf 或 apt 源（需要使用 root 权限）
 
-### 1.1 ubuntu 修改 阿里镜像源（需要使用 root 或使用 sudo）
+### 1.1 debian 11/ubuntu（20.* 22.*）修改 阿里镜像源
+```bash
+    cp  /etc/apt/sources.list  /etc/apt/sources.list.bak
+    
+    deb https://mirrors.aliyun.com/debian/ bullseye main non-free contrib
+    deb-src https://mirrors.aliyun.com/debian/ bullseye main non-free contrib
+    
+    deb https://mirrors.aliyun.com/debian-security/ bullseye-security main
+    deb-src https://mirrors.aliyun.com/debian-security/ bullseye-security main
+    
+    deb https://mirrors.aliyun.com/debian/ bullseye-updates main non-free contrib
+    deb-src https://mirrors.aliyun.com/debian/ bullseye-updates main non-free contrib
+    
+    deb https://mirrors.aliyun.com/debian/ bullseye-backports main non-free contrib
+    deb-src https://mirrors.aliyun.com/debian/ bullseye-backports main non-free contrib
+    
+    deb http://mirrors.aliyun.com/debian-security/ squeeze/updates main non-free contrib
+    deb-src http://mirrors.aliyun.com/debian-security/ squeeze/updates main non-free contrib
+```
+
+### 1.2 ubuntu（20.* 22.*）修改 阿里镜像源
 
 ```bash
     cp  /etc/apt/sources.list  /etc/apt/sources.list.bak
@@ -27,7 +47,7 @@
     apt upgrade
 ```
 
-### 1.2 centos 7 系列修改 阿里镜像源
+### 1.3 centos 7 系列修改 阿里镜像源
 
 ```bash
     mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak
@@ -40,10 +60,9 @@
     yum upgrade
 ```
 
-### 1.3 rocky 8 系列修改 阿里镜像源
+### 1.4 rocky 8/9 系列修改 阿里镜像源
 
-```bash 
-    # 下载
+```bash
     sed -e 's|^mirrorlist=|#mirrorlist=|g' \
         -e 's|^#baseurl=https://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
     
@@ -53,26 +72,11 @@
     dnf upgrade
 ```
 
-### 1.4 rocky 9 系列修改 阿里镜像源
-
-```bash 
-    # 下载
-    sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-        -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
-        -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
-    
-    dnf clean all
-    dnf makecache
-    dnf update
-    dnf upgrade
-```
-
-### 1.3 almalinux 9 修改 阿里镜像源
+### 1.5 almalinux 8/9 修改 阿里镜像源
 
 ```bash
     sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-        -e 's|^# baseurl=https://repo.almalinux.org|baseurl=https://mirrors.aliyun.com|g' \
-        -i.bak /etc/yum.repos.d/almalinux*.repo
+        -e 's|^# baseurl=https://repo.almalinux.org|baseurl=https://mirrors.aliyun.com|g' -i.bak /etc/yum.repos.d/almalinux*.repo
     
     dnf clean all
     dnf makecache  
@@ -80,6 +84,7 @@
     dnf upgrade
 ```
 
+<br />
 
 ## 2. 修改主机名称
 
@@ -90,6 +95,7 @@
     vim /etc/hostname                                      # 永久修改主机名为 master（重启生效）
 ```
 
+<br />
 
 ## 3. 修改 hosts 映射
 
@@ -111,6 +117,7 @@
     echo "127.0.0.1            elastic" >> /etc/hosts      # elastic
 ```
 
+<br />
 
 ## 4. 关闭防火墙
 
@@ -120,13 +127,14 @@
     systemctl stop    firewalld.service                    # 关闭防火墙
     systemctl disable firewalld.service                    # 关闭防火墙开机自启
     
-    # 将如下 ip 添加到防火墙
+    # 将如下 ip 添加到防火墙（如果必须开启防火墙）
     firewall-cmd --permanent --add-source=192.168.100.100  # 添加到防火墙白名单
     firewall-cmd --permanent --add-source=192.168.100.111  # 添加到防火墙白名单
     firewall-cmd --permanent --add-source=192.168.100.122  # 添加到防火墙白名单
     firewall-cmd --permanent --add-source=192.168.100.133  # 添加到防火墙白名单
 ```
 
+<br />
 
 ## 5. 关闭 selinux
 
@@ -135,11 +143,12 @@
     sudo yum install policycoreutils                       # redhat 安装策略包
     sestatus                                               # 检查系统 SELinux 状态
     setenforce 0                                           # 临时禁用 SELinux，或者：setenforce Permissive
-    vim /etc/sysconfig/selinux                             # 编辑 SELinux 配置文件
-        SELinux=disabled                                   # 注释 SELinux=enforcing，需要重启系统
+    vim /etc/sysconfig/selinux                             # 编辑 SELinux 配置文件（需要重启系统）
+        SELinux=disabled                                   # 注释 SELinux=enforcing，或命令：sed -i 's/SELinux=enforcing/SELinux=disabled/g' /etc/sysconfig/selinux
     sestatus                                               # 检查系统 SELinux 状态
 ```
 
+<br />
 
 ## 6. 修改系统限制
 
@@ -225,6 +234,7 @@
         vm.swappiness=25
 ```
 
+<br />
 
 ## 7. 添加管理员帐号
 
@@ -237,25 +247,23 @@
     root                                                   # 重启服务器，并使用 issac 用户登录：shutdown -r now
 ```
 
+<br />
 
 ## 8. 安装必要的软件包
 
 ### 8.1 redhat 系列安装必要的软件包
 
 ```bash
-    # redhat 系列
-    sudo yum install -y epel-release                       # 安装 红帽系 的操作系统提供额外的软件包
-    sudo yum install -y lrzsz                              # 安装 lrzsz 可用于文件传输
-    sudo yum install -y htop                               # 监控服务器
-    sudo yum install -y curl-devel expat-devel openssl-devel gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # 安装编译器
+    sudo dnf install -y epel-release                       # 安装 红帽系 的操作系统提供额外的软件包
+    sudo dnf install -y lrzsz                              # 安装 lrzsz 可用于文件传输
+    sudo dnf install -y htop                               # 监控服务器
+    sudo dnf install -y curl-devel expat-devel openssl-devel gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # 安装编译器
 ```
 
-### 8.2 debian 系列安装必要的软件包
+### 8.2 ubuntu 系列安装必要的软件包
 
 ```bash
-    # 
     sudo apt install -y lrzsz                              # 监控服务器
     sudo apt install -y htop                               # 监控服务器
     sudo apt install -y gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # 安装编译器
 ```
-
