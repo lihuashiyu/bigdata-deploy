@@ -12,8 +12,8 @@
 SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # Shell 脚本目录
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
-#USER=$(whoami)
-export param_list=()                                                                  # 初始化参数列表
+LOG_FILE="system-init-$(date +%F).log"                                         # 程序操作日志文件
+export param_list=()                                                           # 初始化参数列表
 
 
 # 读取配置文件，获取配置参数
@@ -43,6 +43,7 @@ function read_param()
 # 获取参数（$1：参数键值，$2：待替换的字符，$3：需要替换的字符，$4：后缀字符）
 function get_param()
 {
+    # 定义局部变量
     local value=""
     for param in "${param_list[@]}"
     do
@@ -58,6 +59,7 @@ function get_param()
 # 配置网卡
 function network_init()
 {
+    echo "    ****************************** 配置网卡信息 ******************************    "
     # 定义局部变量
     local ip dns gateway
     
@@ -67,13 +69,14 @@ function network_init()
     
     # 替换网卡配置文件中的参数
     sed -i "s|^address1=.*|address1=${ip},${gateway}|g" /etc/NetworkManager/system-connections/ens160.nmconnection
-    sed -i "s|^dns=.*|dns=${dns}|g"                     /etc/NetworkManager/system-connections/ens160.nmconnection   
+    sed -i "s|^dns=.*|dns=${dns}|g"                     /etc/NetworkManager/system-connections/ens160.nmconnection
 }
 
 
 # 设置主机名与 hosts 映射
 function host_init()
 {
+    echo "    ***************************** 设置主机名映射 *****************************    "    
     # 定义参数
     local host_name ip_host_list
     
@@ -91,31 +94,25 @@ function host_init()
 # 关闭防火墙 和 SELinux
 function stop_protect()
 {
+    echo "    ******************************* 关闭防火墙 *******************************    "  
     # 关闭防火墙
     systemctl stop    firewalld.service
     systemctl disable firewalld.service
     
     # 关闭 SELinux
     setenforce 0
-    sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELinux=disabled|g" /etc/sysconfig/selinux
+    sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELinux=disabled|g" /etc/sysconfig/selinux 
     echo "SELinux=disabled" >>       /etc/sysconfig/selinux
 }
 
 
 # 解除文件读写限制
-function stop_protect()
+function unlock_limit()
 {
+    echo "    **************************** 修改打开文件限制 ****************************    "  
+    
     # 修改打开文件限制
-    echo "*    soft    nproc      65536"      >> /etc/security/limits.conf
-    echo "*    hard    nproc      65536"      >> /etc/security/limits.conf
-    echo "*    soft    nofile     65536"      >> /etc/security/limits.conf
-    echo "*    hard    nofile     65536"      >> /etc/security/limits.conf
-    echo "*    soft    stack      20480"      >> /etc/security/limits.conf
-    echo "*    hard    stack      20480"      >> /etc/security/limits.conf
-    echo "*    soft    memlock    134217728"  >> /etc/security/limits.conf
-    echo "*    hard    memlock    134217728"  >> /etc/security/limits.conf
-    echo "*    soft    data       unlimited"  >> /etc/security/limits.conf
-    echo "*    hard    data       unlimited"  >> /etc/security/limits.conf
+    cat "${ROOT_DIR}/conf/limits.conf" >> /etc/security/limits.conf    
     
     # 系统限制的文件最大值
     echo "65536" >> /proc/sys/fs/file-max                                 # 
@@ -125,43 +122,15 @@ function stop_protect()
 # 优化内核
 function kernel_optimize()
 {
-    /etc/sysctl.conf
-    echo "vm.max_map_count             = 655360"               >> /etc/sysctl.conf
-    echo "kernel.shmmni                = 4096"                 >> /etc/sysctl.conf 
-    echo "kernel.shmmax                = 2147483648"           >> /etc/sysctl.conf 
-    echo "kernel.shmall                = 2097152"              >> /etc/sysctl.conf 
-    echo "kernel.sem                   = 250 32000 100 128"    >> /etc/sysctl.conf 
-    echo "fs.aio-max-nr                = 1048576"              >> /etc/sysctl.conf
-    echo "fs.file-max                  = 65536"                >> /etc/sysctl.conf 
-    echo "fs.nr_open                   = 196680"               >> /etc/sysctl.conf    
-    echo "vm.swappiness                = 40"                   >> /etc/sysctl.conf 
-    echo "net.ipv4.ip_local_port_range = 1024 65536"           >> /etc/sysctl.conf 
-    echo "net.core.rmem_max            = 16777216"             >> /etc/sysctl.conf
-    echo "net.core.wmem_max            = 16777216"             >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_rmem            = 4096 87380 16777216"  >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_wmem            = 4096 65536 16777216"  >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_fin_timeout     = 10"                   >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_tw_recycle      = 1"                    >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_timestamps      = 0"                    >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_window_scaling  = 0"                    >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_sack            = 0"                    >> /etc/sysctl.conf
-    echo "net.core.netdev_max_backlog  = 30000"                >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_no_metrics_save = 1"                    >> /etc/sysctl.conf
-    echo "net.core.somaxconn           = 22144"                >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_syncookies      = 0"                    >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_max_orphans     = 262144"               >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_max_syn_backlog = 262144"               >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_synack_retries  = 2"                    >> /etc/sysctl.conf
-    echo "net.ipv4.tcp_syn_retries     = 2"                    >> /etc/sysctl.conf
-    echo "net.core.rmem_default        = 262144"               >> /etc/sysctl.conf
-    echo "net.core.wmem_default        = 262144"               >> /etc/sysctl.conf
-    echo "vm.overcommit_memory         = 1"                    >> /etc/sysctl.conf
+    echo "    ******************************** 优化内核 ********************************    "
+    cat "${ROOT_DIR}/conf/sysctl.conf" >> /etc/sysctl.conf
 }
 
 
 # 添加管理员
 function add_user()
 {
+    echo "    ******************************** 添加用户 ********************************    "
     # 定义变量
     local user password
     
@@ -175,9 +144,11 @@ function add_user()
 }
 
 
-# 安装必要的软件包
+# 替换 dnf 镜像
 function dnf_mirror()
 {
+    echo "    ******************************* 替换镜像源 *******************************    "
+    # 定义变量
     local mirror
     
     # 备份原来的路径
@@ -186,23 +157,98 @@ function dnf_mirror()
         -e "s|^#baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
         -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
     
-    dnf clean all
-    dnf makecache
-    dnf update
-    dnf upgrade   
+    { dnf clean all; dnf makecache; dnf update; dnf upgrade; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
 # 安装必要的软件包
 function install_rpm()
 {
+    echo "    ******************************* 安装软件包 *******************************    "
+    # 定义变量
     local rpm_list=""
+    
     rpm_list=$(get_param "dnf.rpm" "," " ")
     
-    dnf install "${rpm_list}" -y
+    dnf install "${rpm_list}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
-echo "============================================================================"
-read_param
-install_rpm
+printf "\n================================================================================\n"
+read_param                                                                     # 读取配置文件，获取参数
+mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
+
+# 匹配输入参数
+case "$1" in
+    # 1. 配置网卡
+    network)
+        network_init
+    ;;
+
+    # 2. 设置主机名与 hosts 映射
+    host)
+        host_init
+    ;;
+    
+    # 3. 关闭防火墙 和 SELinux
+    stop)
+        stop_protect
+    ;;
+    
+    # 4. 解除文件读写限制
+    unlock)
+        unlock_limit
+    ;;
+    
+    # 5. 优化内核
+    knernel)
+        kernel_optimize
+    ;;
+        
+    # 6. 添加管理员
+    add)
+        add_user
+    ;;
+    
+    # 7. 替换 dnf 镜像
+    dnf)
+        dnf_mirror
+    ;;
+    
+    # 8. 安装必要的软件包
+    install)
+        install_rpm
+    ;;
+    
+    # 9. 安装必要的软件包
+    all)
+        network_init
+        host_init
+        stop_protect
+        unlock_limit
+        kernel_optimize
+        add_user
+        dnf_mirror
+        install_rpm
+    ;;
+    
+    # 10. 其它情况
+    *)
+        echo "    脚本可传入一个参数，如下所示：                       "
+        echo "        +-------------------+--------------+ "
+        echo "        |       参 数       |    描  述    | "
+        echo "        +-------------------+--------------+ "
+        echo "        |  network_init     |   配置网卡   | "
+        echo "        |  host_init        |   主机映射   | "
+        echo "        |  stop_protectt    |   关闭保护   | "
+        echo "        |  unlock_limit     |   解除限制   | "
+        echo "        |  kernel_optimize  |   优化内核   | "
+        echo "        |  add_user         |   添加用户   | "
+        echo "        |  dnf_mirror       |   替换镜像   | "
+        echo "        |  install_rpm      |   安装软件   | "
+        echo "        |  all              |   执行全部   | "
+        echo "        +-------------------+--------------+ "
+    ;;
+esac
+printf "================================================================================\n\n"
+exit 0
