@@ -227,11 +227,11 @@
     mkswap /tmp/swap                                       # 将目标设置为 swap 分区文件
     swapon /tmp/swap                                       # 激活 swap 区，并立即启用交换区文件
     free -m                                                # 查看Swap 分区
-    sysctl vm.swappiness=10                                # 临时修改启用虚拟内存时剩余的内存大小
+    sysctl vm.swappiness=40                                # 临时修改启用虚拟内存时剩余的内存大小
     vim /etc/fstab                                         # vim 编辑器打开 /etc/fstab，添加此如下内容
         /tmp/swap swap swap defaults 0 0
     vim /etc/sysctl.conf                                   # 永久修改启用虚拟内存时剩余的内存大小，添加此如下内容
-        vm.swappiness=25
+        vm.swappiness=40
 ```
 
 <br />
@@ -240,6 +240,8 @@
 
 ```bash
     useradd -m issac                                       # 添加 issac 用户
+    passwd --stdin 111111                                  # 修改 issac 用户的密码为：111111
+    
     chmod u+w /etc/sudoers                                 # 添加可编辑权限
     vim /etc/sudoers                                       # 给 issac 添加管理员权限，添加如下内容
         issac   ALL=(ALL:ALL)   ALL
