@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =========================================================================================
-#    FileName      ：  01.system-init.sh
+#    FileName      ：  01-system-init.sh
 #    CreateTime    ：  2023-07-06 10:09:14
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
@@ -9,18 +9,17 @@
 # =========================================================================================
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # Shell 脚本目录
-ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
+SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # shell 脚本目录
+ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 项目根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="system-init-$(date +%F).log"                                         # 程序操作日志文件
-export param_list=()                                                           # 初始化参数列表
 
 
 # 读取配置文件，获取配置参数
 function read_param()
 {
     # 1. 定义局部变量
-    local line string
+    local line string param_list=()
     
     # 2. 读取配置文件
     while read -r line
@@ -30,13 +29,16 @@ function read_param()
         
         # 4. 判断是否为注释文字，是否为空行
         if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
+            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
             
             # 6. 将参数添加到参数列表
             param_list[${#param_list[@]}]="${param}"
         fi
-    done < "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    done < "$1"
+    
+    # 将参数列表进行返回
+    echo "${param_list[@]}"
 }
 
 
@@ -44,15 +46,33 @@ function read_param()
 function get_param()
 {
     # 定义局部变量
-    local value=""
-    for param in "${param_list[@]}"
+    local param_list value
+    
+    # 获取参数，并进行遍历
+    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
+    for param in ${param_list}
     do
+        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
         if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param}" | awk -F '=' '{print $2}' | tr "\'$2\'" "\'$3\'")
+            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
         fi
     done
     
+    # 返回结果
     echo "${value}$4"
+}
+
+
+# 判断文件中参数是否存在，不存在就文件末尾追加（$1：待追加的参数，$2：文件绝对路径）
+function append_param()
+{
+    # 定义参数
+    local exist
+    
+    exist=$(grep -ni "$1" "$2")
+    if [ -z "${exist}" ]; then 
+        echo "$1" >> "$2"
+    fi
 }
 
 
@@ -67,9 +87,11 @@ function network_init()
     dns=$(get_param "server.dns" "," ";" ";")
     gateway=$(get_param "server.gateway")
     
-    # 替换网卡配置文件中的参数
+    # 替换网卡配置文件中的参数：ipv4地址、网关、DNS
     sed -i "s|^address1=.*|address1=${ip},${gateway}|g" /etc/NetworkManager/system-connections/ens160.nmconnection
     sed -i "s|^dns=.*|dns=${dns}|g"                     /etc/NetworkManager/system-connections/ens160.nmconnection
+    
+    { nmcli connection reload; nmcli connection down ens160; nmcli connection up ens160; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
@@ -78,15 +100,17 @@ function host_init()
 {
     echo "    ***************************** 设置主机名映射 *****************************    "    
     # 定义参数
-    local host_name ip_host_list
+    local host_name ip_host_list item
     
+    # 配置主机名
     host_name=$(get_param  "server.hostname")
     echo "${host_name}" > /etc/hostname
     
+    # 添加主机和ip映射
     ip_host_list=$(get_param "server.hosts" "," " ")
-    for ip_host in ${ip_host_list}
+    for item in ${ip_host_list}
     do
-         echo "${ip_host//\:/    }"  >> /etc/hosts
+        append_param "${item//\:/    }"  /etc/hosts
     done
 }
 
@@ -95,27 +119,32 @@ function host_init()
 function stop_protect()
 {
     echo "    ******************************* 关闭防火墙 *******************************    "  
+    # 定义参数
+    local exist
+    
     # 关闭防火墙
     systemctl stop    firewalld.service
-    systemctl disable firewalld.service
+    systemctl disable firewalld.service  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     # 关闭 SELinux
-    setenforce 0
-    sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELinux=disabled|g" /etc/sysconfig/selinux 
-    echo "SELinux=disabled" >>       /etc/sysconfig/selinux
+    setenforce 0                                                               # 临时关闭
+    exist=$(grep -ni "^selinux=disabled" /etc/sysconfig/selinux)               # 永久关闭，需要重启系统
+    if [ -z "${exist}" ]; then
+        sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELINUX=disabled|g" /etc/sysconfig/selinux 
+    fi
 }
 
 
 # 解除文件读写限制
 function unlock_limit()
 {
-    echo "    **************************** 修改打开文件限制 ****************************    "  
+    echo "    **************************** 修改打开文件限制 ****************************    "
     
-    # 修改打开文件限制
-    cat "${ROOT_DIR}/conf/limits.conf" >> /etc/security/limits.conf    
+    # 配置用户打开文件限制
+    cp -fpr "${ROOT_DIR}/conf/limits.conf" /etc/security/limits.d/     
     
-    # 系统限制的文件最大值
-    echo "65536" >> /proc/sys/fs/file-max                                 # 
+    # 系统限制的文件最大值，RedHat 9 系列无需操作
+    # append_param "65536" /proc/sys/fs/file-max 
 }
 
 
@@ -123,7 +152,17 @@ function unlock_limit()
 function kernel_optimize()
 {
     echo "    ******************************** 优化内核 ********************************    "
-    cat "${ROOT_DIR}/conf/sysctl.conf" >> /etc/sysctl.conf
+    # 定义参数
+    local param_list
+    
+    param_list=$(read_param "${ROOT_DIR}/conf/sysctl.conf")
+    for param in ${param_list}
+    do 
+        sysctl -w "${param//#/}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        append_param "${param//#/ }" /etc/sysctl.conf
+    done
+    
+    sysctl -p  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            # 刷新配置
 }
 
 
@@ -132,15 +171,21 @@ function add_user()
 {
     echo "    ******************************** 添加用户 ********************************    "
     # 定义变量
-    local user password
+    local user password exist
     
     user=$(get_param "server.user")                                            # 用户名
+    useradd -m "${user}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1               # 添加用户，并指定密码
+    
     password=$(get_param "server.password")                                    # 密码
-    useradd -m -d "/home/${user}" -g "${user}" "${user}"                       # 添加用户，并指定密码
-    echo "${password}" | passwd "${user}" --stdin                              # 修改用户的密码
+    echo "${password}" | passwd "${user}" --stdin >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 修改用户的密码
+    
     chmod u+w /etc/sudoers                                                     # 给文件添加可编辑权限
-    sed -i "s|^root.*|root    ALL=\(ALL\)    ALL\n${user}    ALL=\(ALL\)    ALL|g" /etc/sudoers 
-    chmod u+w /etc/sudoers                                                     # 取消可编辑权限
+    # 给用户添加管理员权限
+    exist=$(grep -ni "^${user}"  /etc/sudoers)
+    if [[ -z "${exist}" ]]; then
+        sed -i "s|^root.*|root    ALL=\(ALL\)    ALL\n${user}    ALL=\(ALL\)    ALL|g" /etc/sudoers
+    fi
+    chmod u-w /etc/sudoers                                                     # 取消可编辑权限
 }
 
 
@@ -149,15 +194,27 @@ function dnf_mirror()
 {
     echo "    ******************************* 替换镜像源 *******************************    "
     # 定义变量
-    local mirror
+    local mirror exist
     
     # 备份原来的路径
-    mirror=$(get_mirror "dnf.image")
-    sed -e "s|^mirrorlist=|#mirrorlist=|g" \
-        -e "s|^#baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
-        -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
+    mirror=$(get_param "dnf.image")
     
-    { dnf clean all; dnf makecache; dnf update; dnf upgrade; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # 备份原来的源，并修改源
+    exist=$(echo "${mirror}" | grep -i "rocky")
+    if [[ -n "${exist}" ]]; then
+        sed -e "s|^mirrorlist=|#mirrorlist=|g" \
+            -e "s|^#baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
+            -e "s|^#baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
+            -i.bak /etc/yum.repos.d/[Rr]ocky*.repo
+    else
+        sed -e "s|^mirrorlist=|#mirrorlist=|g" \
+            -e "s|^# baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"  \
+            -e "s|^# baseurl=https://repo.almalinux.org|baseurl=${mirror}|g" \
+            -i.bak /etc/yum.repos.d/almalinux*.repo
+    fi
+    
+    #  更新源缓存和软件 
+    { dnf clean all; dnf makecache; dnf update  -y; dnf upgrade -y; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
@@ -166,88 +223,98 @@ function install_rpm()
 {
     echo "    ******************************* 安装软件包 *******************************    "
     # 定义变量
-    local rpm_list=""
+    local rpm_list rpm
     
+    # 获取安装软件包名称
     rpm_list=$(get_param "dnf.rpm" "," " ")
-    
-    dnf install "${rpm_list}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    for rpm in ${rpm_list}
+    do
+        echo "    +++++++++++++++++++++++++ 安装 ${rpm} +++++++++++++++++++++++++    "
+        dnf install "${rpm}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    done    
 }
 
 
 printf "\n================================================================================\n"
-read_param                                                                     # 读取配置文件，获取参数
 mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
 
 # 匹配输入参数
 case "$1" in
     # 1. 配置网卡
-    network)
+    network | -n)
         network_init
     ;;
 
     # 2. 设置主机名与 hosts 映射
-    host)
+    host | -h)
         host_init
     ;;
     
     # 3. 关闭防火墙 和 SELinux
-    stop)
+    stop | -s)
         stop_protect
     ;;
     
     # 4. 解除文件读写限制
-    unlock)
+    unlock | -u)
         unlock_limit
     ;;
     
     # 5. 优化内核
-    knernel)
+    knernel | -k)
         kernel_optimize
     ;;
         
     # 6. 添加管理员
-    add)
+    add | -c)
         add_user
     ;;
     
     # 7. 替换 dnf 镜像
-    dnf)
+    dnf | -d)
         dnf_mirror
     ;;
     
     # 8. 安装必要的软件包
-    install)
+    install | -i)
         install_rpm
     ;;
     
     # 9. 安装必要的软件包
-    all)
+    all | -a)
         network_init
+        sleep 1
         host_init
+        sleep 1
         stop_protect
+        sleep 1
         unlock_limit
+        sleep 1
         kernel_optimize
+        sleep 1
         add_user
+        sleep 1
         dnf_mirror
+        sleep 1
         install_rpm
     ;;
     
     # 10. 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：                       "
-        echo "        +-------------------+--------------+ "
-        echo "        |       参 数       |    描  述    | "
-        echo "        +-------------------+--------------+ "
-        echo "        |  network_init     |   配置网卡   | "
-        echo "        |  host_init        |   主机映射   | "
-        echo "        |  stop_protectt    |   关闭保护   | "
-        echo "        |  unlock_limit     |   解除限制   | "
-        echo "        |  kernel_optimize  |   优化内核   | "
-        echo "        |  add_user         |   添加用户   | "
-        echo "        |  dnf_mirror       |   替换镜像   | "
-        echo "        |  install_rpm      |   安装软件   | "
-        echo "        |  all              |   执行全部   | "
-        echo "        +-------------------+--------------+ "
+        echo "    脚本可传入一个参数，如下所示：     "
+        echo "        +-------------+--------------+ "
+        echo "        |    参 数    |    描  述    | "
+        echo "        +-------------+--------------+ "
+        echo "        |   network   |   配置网卡   | "
+        echo "        |   host      |   主机映射   | "
+        echo "        |   stop      |   关闭保护   | "
+        echo "        |   unlock    |   解除限制   | "
+        echo "        |   kernel    |   优化内核   | "
+        echo "        |   add       |   添加用户   | "
+        echo "        |   dnf       |   替换镜像   | "
+        echo "        |   install   |   安装软件   | "
+        echo "        |   all       |   执行全部   | "
+        echo "        +-------------+--------------+ "
     ;;
 esac
 printf "================================================================================\n\n"

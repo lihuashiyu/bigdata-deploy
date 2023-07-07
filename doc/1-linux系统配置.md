@@ -64,7 +64,9 @@
 
 ```bash
     sed -e 's|^mirrorlist=|#mirrorlist=|g' \
-        -e 's|^#baseurl=https://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' -i.bak /etc/yum.repos.d/[Rr]ocky-*.repo
+        -e 's|^#baseurl=http://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g'  \
+        -e 's|^#baseurl=https://dl.rockylinux.org/$contentdir|baseurl=https://mirrors.aliyun.com/rockylinux|g' \
+        -i.bak /etc/yum.repos.d/[Rr]ocky*.repo
     
     dnf clean all
     dnf makecache
