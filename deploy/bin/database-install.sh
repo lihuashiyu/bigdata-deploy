@@ -12,15 +12,15 @@
 SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # Shell 脚本目录
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
 CONFIG_FILE="database.conf"                                                    # 配置文件名称
-LOG_FILE="components-install-$(date +%F).log"                                  # 程序操作日志文件
-export param_list=()                                                           # 初始化参数列表
+LOG_FILE="database-install-$(date +%F).log"                                    # 程序操作日志文件
+
 
 
 # 读取配置文件，获取配置参数
 function read_param()
 {
     # 1. 定义局部变量
-    local line string
+    local line string param_list=()
     
     # 2. 读取配置文件
     while read -r line
@@ -30,13 +30,16 @@ function read_param()
         
         # 4. 判断是否为注释文字，是否为空行
         if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
+            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
             
             # 6. 将参数添加到参数列表
             param_list[${#param_list[@]}]="${param}"
         fi
-    done < "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    done < "$1"
+    
+    # 将参数列表进行返回
+    echo "${param_list[@]}"
 }
 
 
@@ -44,16 +47,22 @@ function read_param()
 function get_param()
 {
     # 定义局部变量
-    local value=""
-    for param in "${param_list[@]}"
+    local param_list value
+    
+    # 获取参数，并进行遍历
+    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
+    for param in ${param_list}
     do
+        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
         if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param}" | awk -F '=' '{print $2}' | tr "\'$2\'" "\'$3\'")
+            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
         fi
     done
     
+    # 返回结果
     echo "${value}$4"
 }
+
 
 
 printf "\n================================================================================\n"
@@ -63,48 +72,48 @@ mkdir -p "${ROOT_DIR}/logs"                                                    #
 # 匹配输入参数
 case "$1" in
     # 1. 配置网卡
-    mysql)
+    mysql | -m)
         network_init
     ;;
 
     # 2. 设置主机名与 hosts 映射
-    redis)
+    redis | -r)
         host_init
     ;;
     
     # 3. 关闭防火墙 和 SELinux
-    stop)
+    pgsql | -p)
         stop_protect
     ;;
     
     # 4. 安装必要的软件包
-    all)
+    mongodb | -g)
         network_init
-        host_init
-        stop_protect
-        unlock_limit
-        kernel_optimize
-        add_user
-        dnf_mirror
+    ;;
+    
+    # 4. 安装必要的软件包
+    oracle | -o)
+        network_init
+    ;;
+    
+    # 4. 安装必要的软件包
+    all | -a)
         install_rpm
     ;;
     
     # 10. 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：                       "
-        echo "        +-------------------+--------------+ "
-        echo "        |       参 数       |    描  述    | "
-        echo "        +-------------------+--------------+ "
-        echo "        |  network_init     |   配置网卡   | "
-        echo "        |  host_init        |   主机映射   | "
-        echo "        |  stop_protectt    |   关闭保护   | "
-        echo "        |  unlock_limit     |   解除限制   | "
-        echo "        |  kernel_optimize  |   优化内核   | "
-        echo "        |  add_user         |   添加用户   | "
-        echo "        |  dnf_mirror       |   替换镜像   | "
-        echo "        |  install_rpm      |   安装软件   | "
-        echo "        |  all              |   执行全部   | "
-        echo "        +-------------------+--------------+ "
+        echo "    脚本可传入一个参数，如下所示：   "
+        echo "        +----------+-------------+ "
+        echo "        |  参  数  |    描 述    |  "
+        echo "        +----------+-------------+ "
+        echo "        |    -m    |   mysql     | "
+        echo "        |    -r    |   redis     | "
+        echo "        |    -p    |   pgsql     | "
+        echo "        |    -g    |   mongodb   | "
+        echo "        |    -o    |   oracle    | "
+        echo "        |    -a    |   all       | "
+        echo "        +----------+-------------+ "
     ;;
 esac
 printf "================================================================================\n\n"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # =========================================================================================
-#    FileName      ：  01-system-init.sh
+#    FileName      ：  system-init.sh
 #    CreateTime    ：  2023-07-06 10:09:14
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
