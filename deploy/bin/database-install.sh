@@ -15,7 +15,6 @@ CONFIG_FILE="database.conf"                                                    #
 LOG_FILE="database-install-$(date +%F).log"                                    # 程序操作日志文件
 
 
-
 # 读取配置文件，获取配置参数
 function read_param()
 {
@@ -63,6 +62,54 @@ function get_param()
     echo "${value}$4"
 }
 
+
+# 解压缩文件到临时路径（$1：，$2：）
+function file_decompress()
+{
+    # 定义参数
+    local file_name software_home prefix
+    
+    file_name=$(get_param "$1" | sed 's/.*\/\([^\/]*\)$/\1/')
+    
+    if [ -e "${ROOT_DIR}/package/${file_name}" ]; then
+        mkdir -p "${ROOT_DIR}/tmp"
+        
+        # software_home=$(get_param "$2")
+        # 判断临时文件夹是否存在，存在就删除
+        if [ -d "${ROOT_DIR}/tmp/$1" ]; then
+            rm -rf "${ROOT_DIR}/tmp/$1"
+        fi
+        
+        # 对压缩包进行解压
+        if [[ "${file_name}" =~ tar.xz$ ]]; then
+            tar -Jxvf "${ROOT_DIR}/package/${file_name}" -C "${ROOT_DIR}/tmp" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ tar.gz$ ]] || [[ "${file_name}" =~ tgz$ ]]; then
+            tar -zxvf "${ROOT_DIR}/package/${file_name}" -C "${ROOT_DIR}/tmp" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ tar.bz2$ ]]; then
+            tar -jxvf "${ROOT_DIR}/package/${file_name}" -C "${ROOT_DIR}/tmp" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ tar.Z$ ]]; then
+            tar -Zxvf "${ROOT_DIR}/package/${file_name}" -C "${ROOT_DIR}/tmp" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ tar$ ]]; then
+            tar -xvf "${ROOT_DIR}/package/${file_name}"  -C "${ROOT_DIR}/tmp" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ zip$ ]]; then
+            unzip -d "${ROOT_DIR}/package/${file_name}"     "${ROOT_DIR}/tmp"
+        elif [[ "${file_name}" =~ xz$ ]]; then
+            xz -dk "${ROOT_DIR}/package/${file_name}"     > "${ROOT_DIR}/tmp/${file_name}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ gz$ ]]; then
+            gzip -dk "${ROOT_DIR}/package/${file_name}"   > "${ROOT_DIR}/tmp/"   
+        elif [[ "${file_name}" =~ bz2$ ]]; then
+            bzip2 -vcdk "${ROOT_DIR}/package/${file_name}" > "${ROOT_DIR}/tmp/"
+        elif [[ "${file_name}" =~ Z$ ]]; then
+            uncompress -rc "${ROOT_DIR}/package/${file_name}" > "${ROOT_DIR}/tmp/"
+        elif [[ "${file_name}" =~ rar$ ]]; then
+            unrar vx  "${ROOT_DIR}/package/${file_name}" "${ROOT_DIR}/tmp/" 
+        fi
+    else
+        echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
+    fi
+    
+    echo "    ********** 开始解压：${file_name} ********** "
+}
 
 
 printf "\n================================================================================\n"

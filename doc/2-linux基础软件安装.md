@@ -13,13 +13,13 @@
 ```bash
     sudo dnf update                                                                           # 更新源
     sudo dnf install -y gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # redhat 系列
-	sudo dnf install -y zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel
-	sudo dnf install -y libffi-devel zlib1g-dev zlib* 
-	
+    sudo dnf install -y zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel
+    sudo dnf install -y libffi-devel zlib1g-dev zlib* 
+    
     sudo apt update                                                                           # 更新源
     sudo apt install -y gcc gcc-c++ kernel-devel pcsc-lite-libs elfutils-libelf-devel make    # debian 系列
     sudo apt install -y zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel
-	sudo apt install  -y libffi-devel zlib1g-dev zlib* 
+    sudo apt install  -y libffi-devel zlib1g-dev zlib* 
 ```
 
 ### 1.3 解压并下载必要的依赖源码
