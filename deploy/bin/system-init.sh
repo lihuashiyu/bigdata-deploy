@@ -69,6 +69,7 @@ function append_param()
     # 定义参数
     local exist
     
+    # 根据文件获取该文件中，是否存在某参数，不存在就追加到文件末尾
     exist=$(grep -ni "$1" "$2")
     if [ -z "${exist}" ]; then 
         echo "$1" >> "$2"
@@ -106,7 +107,7 @@ function host_init()
     host_name=$(get_param  "server.hostname")
     echo "${host_name}" > /etc/hostname
     
-    # 添加主机和ip映射
+    # 添加主机和 ip 映射
     ip_host_list=$(get_param "server.hosts" "," " ")
     for item in ${ip_host_list}
     do
@@ -144,7 +145,7 @@ function unlock_limit()
     cp -fpr "${ROOT_DIR}/conf/limits.conf" /etc/security/limits.d/     
     
     # 系统限制的文件最大值，RedHat 9 系列无需操作
-    # append_param "65536" /proc/sys/fs/file-max 
+    # append_param "65536" /proc/sys/fs/file-max                               # RedHat 9 默认值：9223372036854775807
 }
 
 
@@ -155,11 +156,12 @@ function kernel_optimize()
     # 定义参数
     local param_list
     
+    # 获取配置文件中所有的参数
     param_list=$(read_param "${ROOT_DIR}/conf/sysctl.conf")
     for param in ${param_list}
     do 
-        sysctl -w "${param//#/}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        append_param "${param//#/ }" /etc/sysctl.conf
+        sysctl -w "${param//#/}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 对内核进行临时修改，仅当前会话生效
+        append_param "${param//#/ }" /etc/sysctl.conf                          # 对内核进行永久修改，仅重启后才生效
     done
     
     sysctl -p  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            # 刷新配置
