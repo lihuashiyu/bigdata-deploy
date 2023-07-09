@@ -188,6 +188,9 @@ function add_user()
         sed -i "s|^root.*|root    ALL=\(ALL\)    ALL\n${user}    ALL=\(ALL\)    ALL|g" /etc/sudoers
     fi
     chmod u-w /etc/sudoers                                                     # 取消可编辑权限
+    
+    touch /etc/profile.d/issac.sh                                              # 为用户添加环境配置变量
+    chown -R "${user}:${user}" /etc/profile.d/issac                            # 将文件的权限授予新添加的用户
 }
 
 

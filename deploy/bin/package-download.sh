@@ -13,7 +13,7 @@ SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               #
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="package-download-$(date +%F).log"                                    # 程序操作日志文件
-software_list=(mysql redis)                                                    # 定义所需要的下载的软件包
+software_list=(mysql.url redis.url)                                            # 定义所需要的下载的软件包地址
 
 
 # 读取配置文件，获取配置参数
