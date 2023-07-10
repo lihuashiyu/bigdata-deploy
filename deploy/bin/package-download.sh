@@ -13,7 +13,8 @@ SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               #
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="package-download-$(date +%F).log"                                    # 程序操作日志文件
-software_list=(mysql.url redis.url)                                            # 定义所需要的下载的软件包地址
+# 定义所需要的下载的软件包地址
+software_list=(mysql.url redis.url java.url python.url scala.url maven.url gradle.url)
 
 
 # 读取配置文件，获取配置参数
@@ -56,14 +57,17 @@ function get_param()
         # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
         if [[ ${param} =~ ^$1 ]]; then
             value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
+            
+            # 返回结果，停止循环
+            echo "${value}$4"
+            
+            return
         fi
     done
-    
-    # 返回结果
-    echo "${value}$4"
 }
 
 
+# 下载软件包（$1：配置文件中软件包 url 的 key）
 function download()
 {
     # 定义局部变量

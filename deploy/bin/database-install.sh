@@ -83,7 +83,57 @@ function append_param()
 }
 
 
-# 解压缩文件到临时路径（$1：Mysql 安装路径，$2：mysql.url）
+# 添加到环境变量（$1：配置文件中变量的 key，$1：，$2：软件版本号，$3：是否为系统环境变量）
+function append_env()
+{
+    echo "    ******************************* 添加环境变量 *******************************    "
+    local software_name variate_key variate_value password env_file exist
+    
+    software_name=$(echo "$1" | awk -F '.' '{print $1}')
+    variate_key=$(echo "${1^^}" | tr '.' '_')
+    variate_value=$(get_param "$1")
+    password=$(get_password)
+    
+    if [[ -z "$3" ]]; then
+        env_file="/etc/profile.d/${USER}.sh"
+    else
+        env_file="${HOME}/.bashrc"
+    fi
+    
+    exist=$(grep -ni "${variate_key}" "${env_file}")
+    if [ -z "${exist}" ]; then 
+        echo "${password}" | sudo -S echo "# ===================================== ${software_name}-$2 ====================================== #" >> "${env_file}"
+        echo "${password}" | sudo -S echo "export ${variate_key}=${variate_value}"      >> "${env_file}"
+        echo "${password}" | sudo -S echo "export PATH=\${PATH}:\${${variate_key}}/bin" >> "${env_file}"
+        echo "${password}" | sudo -S echo ""                                            >> "${env_file}"
+    fi
+    
+    # 刷新环境变量
+    source "${env_file}"
+    source /etc/profile
+}
+
+
+# 获取配置文件中主机的密码
+function get_password()
+{
+    local user password
+    
+    # 判断当前登录用户和配置文件中的用户是否相同
+    user=$(get_param "server.user")
+    
+    if [ "${USER}" = "${user}" ]; then
+        password=$(get_param "server.password")
+    else
+        echo "    配置文件：${ROOT_DIR}/conf/${CONFIG_FILE} 中用户和当前登录用户不同 ...... "
+        exit 1
+    fi
+    
+    echo "${password}"
+}
+
+
+# 解压缩文件到临时路径（$1：下载软件包 url 的 key，$2：软件包安装路径）
 function file_decompress()
 {
     # 定义参数
@@ -94,20 +144,23 @@ function file_decompress()
     
     if [ -e "${ROOT_DIR}/package/${file_name}" ]; then
         # 判断软件安装目录是否存在，存在就删除
-        if [ -d "$2" ]; then
+        if [ -n "$2" ] && [ -d "$2" ]; then
             rm -rf "$2"
         fi
         
+        # 先删除已经存在的目录
+        cd "${ROOT_DIR}/package" || exit
+        ls -F "${ROOT_DIR}/package" | grep "/$" | xargs rm -rf
+        
         # 对压缩包进行解压
         if [[ "${file_name}" =~ tar.xz$ ]]; then
-            tar -Jxvf "${ROOT_DIR}/package/${file_name}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-            mv "${file_name//.tar.xz/}" "$2"
+            tar -Jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.gz$ ]] || [[ "${file_name}" =~ tgz$ ]]; then
-            tar -zxvf "${ROOT_DIR}/package/${file_name}" -C "$2" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.bz2$ ]]; then
-            tar -jxvf "${ROOT_DIR}/package/${file_name}" -C "$2" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.Z$ ]]; then
-            tar -Zxvf "${ROOT_DIR}/package/${file_name}" -C "$2" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -Zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar$ ]]; then
             tar -xvf "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ zip$ ]]; then
@@ -123,6 +176,13 @@ function file_decompress()
         elif [[ "${file_name}" =~ rar$ ]]; then
             unrar vx  "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
         fi
+        
+        # 将文件夹移动到安装路径
+        if [ -n "$2" ]; then
+            folder=$(ls -F | grep "/$")
+            mkdir -p "$2"
+            mv "${ROOT_DIR}/package/${folder}"* "$2"
+        fi
     else
         echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
     fi
@@ -130,46 +190,46 @@ function file_decompress()
 
 
 # 卸载系统自带的 MariaDB
+# shellcheck disable=SC2024
 function uninstall_mariadb()
 {
-    local user password software_list
+    local password software_list software pid_list pid
     
-    # 判断当前登录用户和配置文件中的用户是否相同
-    user=$(get_param "server.user")
-    if [ "${USER}" = "${user}" ]; then
-        password=$(get_param "server.password")
-    eles
-        echo "    配置文件：${ROOT_DIR}/conf/${CONFIG_FILE} 中用户和当前登录用户不同 ...... "
-        return 
-    fi
+    password=$(get_password)
     
     echo "    ******************************* 停止 MariaDB 相关进程 *******************************    "
-    echo "${password}" | sudo -S ps -aux | grep -v grep | grep -i "mysql|maria" | awk '{print $2}' | xargs kill -9
+    echo "${password}" | sudo -S systemctl stop mariadb.service  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    echo "${password}" | sudo -S systemctl stop mysqld.service   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    pid_list=$(echo "${password}" | sudo -S ps -aux | grep -v grep | grep -iE "mysql|maria" | awk '{print $2}')
+    for pid in ${pid_list}; 
+    do
+        echo "${password}" | sudo -S kill -9 "${pid}"
+    done
     
     echo "    ******************************* 检查系统自带 MariaDB *******************************    "
     # 获取系统安装的 MariaDB
-    software_list=$(echo "${password}" | sudo -S rpm -qa | grep -i "maria|mysql")
+    software_list=$(echo "${password}" | sudo -S rpm -qa | grep -iE "maria|mysql")
     if [ ${#software_list[@]} -eq 0 ]; then
         return
     fi
     
     echo "    ******************************* 卸载系统自带 MariaDB *******************************    "
     # 卸载系统安装的 MariaDB
-    for software in ${software_list}; 
+    for software in ${software_list}
     do
-         echo "${password}" | sudo -S rpm -e --nodeps "${software}"
+         echo "${password}" | sudo -S rpm -e --nodeps "${software}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done 
     
     echo "    ******************************* 删除 MariaDB 配置文件 *******************************    "
-    echo "${password}" | sudo -S rm -rf /etc/mysql/ /etc/my.cnf /var/lib/mysql                         # 删除配置文件
+    echo "${password}" | sudo -S rm -rf /etc/mysql/ /etc/my.cnf /etc/my.cnf.d/ /var/lib/mysql
 }
 
 
 # 修改 Mysql 的配置文件，创建必要的目录，添加启停脚本
 function mysql_modify_config()
 {
-    local password mysql_home_parent
-    
+    local mysql_home_parent 
     echo "    ******************************* 修改 Mysql 的配置文件 *******************************    "
     
     cp -fpr "${ROOT_DIR}/conf/my.cnf"         "${MYSQL_HOME}/support-files/"
@@ -202,30 +262,27 @@ function mysql_modify_config()
     chmod -R 777 "${MYSQL_HOME}/tmp/"                                       # 修改 临时文件目录 权限
     
     echo "    ******************************* 解决动态链接库缺失问 *******************************    "
-    password=$(get_param "server.password")
+    
     if [ ! -f /usr/lib64/libtinfo.so.5 ]; then
-        echo "${password}" | sudo -S ln -s /usr/lib64/libtinfo.so.6.2 /usr/lib64/libtinfo.so.5
+        get_password | sudo -S ln -s /usr/lib64/libtinfo.so.6.2 /usr/lib64/libtinfo.so.5
     fi
     
-    echo "    ******************************* 添加 Mysql 环境变量 *******************************    "
-    append_param "# ===================================== mysql-8.0.32 ====================================== #" /etc/profile.d/bigdata.sh
-    append_param "export MYSQL_HOME=${MYSQL_HOME}"          /etc/profile.d/bigdata.sh
-    append_param "export PATH=\${PATH}:\${MYSQL_HOME}/bin"  /etc/profile.d/bigdata.sh
-    source /etc/profile
+    append_env "mysql.home" "8.0.32"
     
     echo "    ******************************* 添加 Mysql 的启停脚本 *******************************    "
     cp -fpr "${ROOT_DIR}/script/database/mysql.sh"  "${MYSQL_HOME}/bin/"
+    chmod +x "${MYSQL_HOME}/bin/mysql.sh"
 }
 
 
 # 初始化 Msql，重置 root 密码，并创建用户，数据库
 function mysql_init()
 {
-    local temporary_password root_password set_sql alter_root_pass_sql alter_root_host_sql flush_sql mysql_user mysql_password database_list
+    local temporary_password root_password set_sql alter_root_pass_sql alter_root_host_sql flush_sql mysql_user mysql_password database_list database
     cd "${MYSQL_HOME}" || exit
     
     echo "    ******************************* Mysql 初始化 *******************************    "
-    # "${MYSQL_HOME}/bin/mysqld" --initialize --console >> "${MYSQL_HOME}/logs/init.log" 2>&1 
+    "${MYSQL_HOME}/bin/mysqld" --initialize --console >> "${MYSQL_HOME}/logs/init.log" 2>&1 
     
     # 获取临时密码
     temporary_password=$(grep -ni "password" "${MYSQL_HOME}/logs/init.log" | awk '{print $NF}') 
@@ -243,7 +300,7 @@ function mysql_init()
     flush_sql="flush privileges;"                                                                  # 刷新权限，使得修改生效
     # 执行 sql
     "${MYSQL_HOME}/bin/mysql" -h 127.0.0.1 -P 3306 -u root -p${temporary_password} -D mysql \
-                              -e "${alter_root_pass_sql} ${alter_root_host_sql} ${flush_sql} exit;" \
+                              -e "${alter_root_pass_sql} ${alter_root_host_sql} ${flush_sql}" \
                               --connect-expired-password
     
     echo "    ******************************* 创建 Mysql 用户 *******************************    "
@@ -267,47 +324,83 @@ function mysql_init()
 # 测试 Mysql 安装情况
 function mysql_test()
 {
+    echo "    ************************* 开始安装 Mysql *************************    "
     local mysql_user mysql_password create_sql show_sql insert_sql select_sql
+    
+    MYSQL_HOME=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
+    uninstall_mariadb                                                          # 卸载系统自带的 MariaDB
+    file_decompress "mysql.url" "${MYSQL_HOME}"                                # 解压 mysql 安装包
+    mysql_modify_config                                                        # 修改配置文件
+    mysql_init                                                                 # 初始化 mysql，并进行初始化，修改 root 密码
     
     mysql_user=$(get_param "mysql.user.name")
     mysql_password=$(get_param "mysql.user.password")
     
     create_sql="create table if not exists test(id int primary key, name varchar(64) not null default '', mark varchar(255) not null default '未知') engine = InnoDB;"  
-    "${MYSQL_HOME}/bin/mysql" -h master -P 3306 -u "${mysql_user}" -p"${mysql_password}" -D test \
-                              -e "${create_sql}"
+    "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${create_sql}"
     
     show_sql="show create table test;"
-    "${MYSQL_HOME}/bin/mysql" -h master -P 3306 -u "${mysql_user}" -p"${mysql_password}" -D test \
-                              -e "${show_sql}"
+    "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${show_sql}"
                               
     insert_sql="insert into test (id, name, mark) values (101, 'issac', 'qazwsx');"
-    "${MYSQL_HOME}/bin/mysql" -h master -P 3306 -u "${mysql_user}" -p"${mysql_password}" -D test \
-                              -e "${insert_sql}"
+    "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${insert_sql}"
                               
     select_sql="select * from test;"
-    "${MYSQL_HOME}/bin/mysql" -h master -P 3306 -u "${mysql_user}" -p"${mysql_password}" -D test \
-                              -e "${select_sql}"                          
+    "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${select_sql}"                          
 }
 
 
-function redis_compile()
+function resource_compile()
 {
-    echo "redis_compile"
+    local src_folder
+    src_folder=$(cd "$(ls -F "${ROOT_DIR}/package" | grep "/$")" || exit; pwd) # 获取源码目录
+    
+    echo "    ******************** 进行源码编译 ********************    "
+    cd "${src_folder}" || exit                                                 # 进入源码目录
+    make           >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                      # 编译源码  
+    make PREFIX="$1" install >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 # 安装到指定路径
+    
+    echo "    ******************** 创建必要的目录 ********************    "
+    mkdir -p "$1/data" "$1/conf" "$1/bin" "$1/logs"     # 创建必要的目录 
 }
 
 
-function redis_modify_config()
+function redis_install()
 {
-    echo "redis_modify_config"
+    echo "    ************************* 开始安装 Redis *************************    "
+    REDIS_HOME=$(get_param "redis.home")                                       # 获取 Redis 安装路径
+    file_decompress  "redis.url"                                               # 解压 redis 源码包
+    resource_compile "${REDIS_HOME}"                                           # 编译 Redis 源码
+    
+    echo "    ******************** 修改 Redis 配置文件 ********************    "
+    cp -fpr "${ROOT_DIR}/script/database/redis.sh"  "${REDIS_HOME}/bin/"       # 复制 Redis 启停脚本
+    chmod +x "${REDIS_HOME}/bin/redis.sh"                                      # 授予 Redis 启停脚本执行权限
+    cp -fpr "${ROOT_DIR}/conf/redis.conf"           "${REDIS_HOME}/conf/"      # 复制 Redis 的配置文件
+    
+    echo "    ******************** 添加启动 Redis 环境变量********************    "
+    append_env "redis.home" "6.2.12"
+    
+    echo "    ************************* 启动 Redis *************************    "
+    "${REDIS_HOME}/bin/redis.sh" start
 }
 
 
-
-function redis_test()
+function pgsql_install()
 {
-    echo "redis_test"
+    echo "    ************************* 开始安装 PostGreSQL *************************    "
 }
 
+
+function mongodb_install()
+{
+    echo "    ************************* 开始安装 MongoDB *************************    "
+}
+
+
+function oracle_install()
+{
+    echo "    ************************* 开始安装 Oracle *************************    "
+}
 
 
 printf "\n================================================================================\n"
@@ -315,39 +408,42 @@ mkdir -p "${ROOT_DIR}/logs"                                                    #
 
 # 匹配输入参数
 case "$1" in
-    # 1. 配置网卡
+    # 1. 安装 Mysql 并进行测试
     mysql | -m)
-        MYSQL_HOME=$(get_param "mysql.home")                                   # 获取 Mysql 安装路径
-        # file_decompress "mysql.url" "${MYSQL_HOME}"                            # 解压 mysql 安装包
-        # uninstall_mariadb                                                      # 卸载系统自带的 MariaDB
-        # mysql_modify_config "mysql.home"                                       # 修改配置文件
-        # mysql_init                                                             # 初始化 mysql，并进行初始化，修改 root 密码
-        mysql_test                                                             # 修改配置文件
+        mysql_test
     ;;
     
-    # 2. 设置主机名与 hosts 映射
+    # 2. 安装 Redis 
     redis | -r)
-        host_init
+        redis_install 
     ;;
     
-    # 3. 关闭防火墙 和 SELinux
+    # 3. 安装 PostGreSQL 并进行测试
     pgsql | -p)
-        stop_protect
+        pgsql_install
     ;;
     
-    # 4. 安装必要的软件包
+    # 4. 安装 MongoDB 并进行测试
     mongodb | -g)
-        network_init
+        mongodb_install
     ;;
     
-    # 4. 安装必要的软件包
+    # 4. 安装 Oracle 并进行测试
     oracle | -o)
-        network_init
+        oracle_install
     ;;
     
-    # 4. 安装必要的软件包
+    # 4. 安装 所有数据库软件
     all | -a)
-        install_rpm
+        mysql_test
+        sleep 1
+        redis_install
+        sleep 1
+        pgsql_install
+        sleep 1
+        mongodb_install
+        sleep 1
+        oracle_install
     ;;
     
     # 10. 其它情况
