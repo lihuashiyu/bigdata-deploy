@@ -232,8 +232,8 @@ function mysql_modify_config()
     local mysql_home_parent 
     echo "    ******************************* 修改 Mysql 的配置文件 *******************************    "
     
-    cp -fpr "${ROOT_DIR}/conf/my.cnf"         "${MYSQL_HOME}/support-files/"
-    sed -i "s|\${mysql.home}|${MYSQL_HOME}|g" "${MYSQL_HOME}/support-files/my.cnf"
+    cp -fpr "${ROOT_DIR}/conf/mysql-my.cnf"     "${MYSQL_HOME}/support-files/my.cnf"
+    sed -i  "s|\${mysql.home}|${MYSQL_HOME}|g"  "${MYSQL_HOME}/support-files/my.cnf"
     
     echo "    ******************************* 修改 Mysql 的执行脚本 *******************************    "
     # 修改 mysql.server
@@ -375,7 +375,11 @@ function redis_install()
     echo "    ******************** 修改 Redis 配置文件 ********************    "
     cp -fpr "${ROOT_DIR}/script/database/redis.sh"  "${REDIS_HOME}/bin/"       # 复制 Redis 启停脚本
     chmod +x "${REDIS_HOME}/bin/redis.sh"                                      # 授予 Redis 启停脚本执行权限
-    cp -fpr "${ROOT_DIR}/conf/redis.conf"           "${REDIS_HOME}/conf/"      # 复制 Redis 的配置文件
+    
+    cp -fpr "${ROOT_DIR}/conf/redis-redis.conf"    "${REDIS_HOME}/conf/redis.conf"       # 复制 Redis 的配置文件
+    cp -fpr "${ROOT_DIR}/conf/redis-sentinel.conf" "${REDIS_HOME}/conf/sentinel.conf"    # 复制 哨兵 的配置文件
+    sed -i "s|\${REDIS_HOME}|${REDIS_HOME}|g"      "${REDIS_HOME}/conf/redis.conf"       # 修改配置文件中的路径
+    sed -i "s|\${REDIS_HOME}|${REDIS_HOME}|g"      "${REDIS_HOME}/conf/sentinel.conf"    # 修改配置文件中的路径
     
     echo "    ******************** 添加启动 Redis 环境变量********************    "
     append_env "redis.home" "6.2.12"

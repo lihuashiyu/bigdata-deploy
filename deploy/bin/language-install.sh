@@ -227,7 +227,7 @@ function java_install()
 function python_install()
 {
     echo "    ************************* 开始安装 Python *************************    "
-
+    
 }
 
 
@@ -246,10 +246,10 @@ function maven_install()
     echo "    ************************* 开始安装 Maven *************************    "
     MAVEN_HOME=$(get_param "maven.home")                                       # 获取 Maven 安装路径
     file_decompress "maven.url" "${MAVEN_HOME}"                                # 解压 Maven 安装包
-    
-    # 修改配置文件
+     
+    echo "    ************************* 修改 Maven 为阿里云  *************************    "
     cp -fpr "${ROOT_DIR}/conf/maven-settings.xml" "${MAVEN_HOME}/conf/settings.xml"
-    sed -i "s|<localRepository>.*<\/localRepository>|<localRepository>${MAVEN_HOME}/data<\/localRepository>|g" "${MAVEN_HOME}/conf/settings.xml"
+    sed -i "s|\${MAVEN_HOME}|${MAVEN_HOME}|g"     "${MAVEN_HOME}/conf/settings.xml"
     
     append_env "maven.home" "3.8.8"                                            # 添加 Maven 到环境变量
     mvn -v                                                                     # 测试 Maven    
@@ -262,8 +262,10 @@ function gradle_install()
     GRADLE_HOME=$(get_param "gradle.home")                                     # 获取 Gradle 安装路径
     file_decompress "gradle.url" "${GRADLE_HOME}"                              # 解压 Gradle 安装包
     
-    # 修改配置文件
-    cp -fpr "${ROOT_DIR}/conf/maven-settings.xml" "${MAVEN_HOME}/conf/settings.xml"
+    echo "    ************************* 修改 Gradle 为阿里云  *************************    "
+    cp -fpr "${ROOT_DIR}/conf/gradle-gradle.properties" "${GRADLE_HOME}/gradle.properties"
+    cp -fpr "${ROOT_DIR}/conf/gradle-init.gradle"       "${GRADLE_HOME}/init.gradle"
+    cp -fpr "${ROOT_DIR}/conf/gradle-init.gradle"       "${GRADLE_HOME}/init.d/init.gradle"
     
     append_env "gradle.home" "2.12.18"                                         # 添加 Gradle 到环境变量
     scala  -version                                                            # 测试 Gradle
