@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # =========================================================================================
-#    FileName      ：  2-components-install
-#    CreateTime    ：  2023-07-06 23:03:45
+#    FileName      ：  database-install
+#    CreateTime    ：  2023-07-07 10:15:35
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
 #    Description   ：  安装数据库相关软件：Mysql、Redis
@@ -164,7 +164,7 @@ function file_decompress()
         elif [[ "${file_name}" =~ tar$ ]]; then
             tar -xvf "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ zip$ ]]; then
-            unzip -d "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            unzip "${ROOT_DIR}/package/${file_name}"          >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ xz$ ]]; then
             xz -dk "${ROOT_DIR}/package/${file_name}"         >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ gz$ ]]; then
@@ -440,29 +440,25 @@ case "$1" in
     # 4. 安装 所有数据库软件
     all | -a)
         mysql_test
-        sleep 1
         redis_install
-        sleep 1
         pgsql_install
-        sleep 1
         mongodb_install
-        sleep 1
         oracle_install
     ;;
     
     # 10. 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：   "
-        echo "        +----------+-------------+ "
-        echo "        |  参  数  |    描 述    |  "
-        echo "        +----------+-------------+ "
-        echo "        |    -m    |   mysql     | "
-        echo "        |    -r    |   redis     | "
-        echo "        |    -p    |   pgsql     | "
-        echo "        |    -g    |   mongodb   | "
-        echo "        |    -o    |   oracle    | "
-        echo "        |    -a    |   all       | "
-        echo "        +----------+-------------+ "
+        echo "        +----------+------------------+ "
+        echo "        |  参  数  |      描  述      |  "
+        echo "        +----------+------------------+ "
+        echo "        |    -m    |   安装 mysql     | "
+        echo "        |    -r    |   安装 redis     | "
+        echo "        |    -p    |   安装 pgsql     | "
+        echo "        |    -g    |   安装 mongodb   | "
+        echo "        |    -o    |   安装 oracle    | "
+        echo "        |    -a    |   安装 all       | "
+        echo "        +----------+------------------+ "
     ;;
 esac
 printf "================================================================================\n\n"
