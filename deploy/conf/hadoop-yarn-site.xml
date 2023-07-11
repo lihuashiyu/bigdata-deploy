@@ -1,0 +1,124 @@
+<?xml version="1.0"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<configuration>
+    <!-- 配置 ResourceManager 运行的机器地址 -->
+    <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>master</value>
+    </property>
+    <!-- Yarn WEB UI 地址 -->
+    <property>
+        <name>yarn.resourcemanager.webapp.address</name>
+        <value>0.0.0.0:8088</value>
+    </property>
+    <!-- 调度器地址 -->
+    <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>master:8098</value>
+    </property>
+
+    <!-- 配置 NodeManager 上运行的附属服务为 shuffle：需要配置成 mapreduce_shfffle，才可运行 MapReduce 程序默认值 -->
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+    <!-- 每个节点可用最小内存, 单位 MB, 默认 1024 MB -->
+    <property>
+        <name>yarn.scheduler.minimum-allocation-mb</name>
+        <value>512</value>
+    </property>
+    <!-- 每个节点可用最大内存, 单位 MB, 默认 8192 MB -->
+    <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>4096</value>
+    </property>
+    <!-- 容器允许管理的物理内存大小，单位 MB， 默认 4096 MB -->
+    <property>
+        <name>yarn.nodemanager.resource.memory-mb</name>
+        <value>10240</value>
+    </property>
+    <!-- 能够使用的虚拟内存默认为物理内存的2.1倍 -->
+    <property>
+        <name>yarn.nodemanager.vmem-pmem-ratio</name>
+        <value>2.1</value>
+    </property>
+    <!-- 关闭 yarn 对物理内存的限制检查 -->
+    <property>
+        <name>yarn.nodemanager.pmem-check-enabled</name>
+        <value>false</value>
+    </property>
+    <!-- 关闭 yarn 对虚拟内存的限制检查 -->
+    <property>
+        <name>yarn.nodemanager.vmem-check-enabled</name>
+        <value>false</value>
+    </property>
+    <!-- 可使用的 CPU Core -->
+    <property>
+      <name>yarn.nodemanager.resource.cpu-vcores</name>
+      <value>4</value>
+    </property>
+    
+    <!-- 开启日志聚集功能 -->
+    <property>      
+        <name>yarn.log-aggregation-enable</name>
+        <value>true</value>
+    </property>
+    <!-- 设置日志聚集服务器地址 -->
+    <property>
+        <name>yarn.log.server.url</name>
+        <value>http://master:19888/jobhistory/logs</value>
+    </property>
+    <!-- 配置聚合日志保留时间为 7 天 -->
+    <property>
+        <name>yarn.log-aggregation.retain-seconds</name>
+        <value>604800</value>
+    </property>
+    
+    <!-- 每个 MapReduce 初始化堆大小 -->
+    <property>
+        <name>mapreduce.child.java.opts</name>
+        <value>-Xmx512m</value>
+    </property>
+    <!-- Yarn 的 ClassPath -->
+    <property>
+        <name>yarn.application.classpath</name>
+        <value>/opt/apache/hadoop/etc/hadoop:/opt/apache/hadoop/share/hadoop/common/lib/*:/opt/apache/hadoop/share/hadoop/common/*:/opt/apache/hadoop/share/hadoop/hdfs:/opt/apache/hadoop/share/hadoop/hdfs/lib/*:/opt/apache/hadoop/share/hadoop/hdfs/*:/opt/apache/hadoop/share/hadoop/mapreduce/lib/*:/opt/apache/hadoop/share/hadoop/mapreduce/lib-examples/*:/opt/apache/hadoop/share/hadoop/mapreduce/*:/opt/apache/hadoop/share/hadoop/yarn:/opt/apache/hadoop/share/hadoop/yarn/lib/*:/opt/apache/hadoop/share/hadoop/yarn/*:/opt/apache/hadoop/share/hadoop/yarn/timelineservice/*</value>
+    </property>
+    
+    <!-- 配置使用公平调度器 -->
+    <!-- 
+    <property>
+        <name>yarn.resourcemanager.scheduler.class</name>
+        <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler</value>       
+    </property>
+     -->
+    <!-- 指明公平调度器队列分配配置文件 -->
+    <!-- 
+    <property>
+        <name>yarn.scheduler.fair.allocation.file</name>
+        <value>/opt/apache/hadoop/etc/hadoop/fair-scheduler.xml</value>
+    </property>
+     -->
+    <!-- 禁止队列间资源抢占 -->
+    <property>
+        <name>yarn.scheduler.fair.preemption</name>
+        <value>false</value>
+    </property>
+    <!-- ResourceManager 处理调度器请求的线程数量，默认 50；如果提交的任务数大于 50，可以增加该值 -->
+    <property>
+        <name>yarn.resourcemanager.scheduler.client.thread-count</name>
+        <value>50</value>
+    </property>
+</configuration>

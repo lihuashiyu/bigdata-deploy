@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+    <!-- Hadoop 的临时文件夹位置 -->
+    <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/opt/apache/hadoop/data/tmp</value>
+    </property>
+    <!-- 访问 HDFS 时的 host 和 port -->
+    <property>
+        <name>fs.default.name</name>
+        <value>hdfs://master:9000</value>
+    </property>
+    
+    <!-- 缓冲区大小，根据服务器性能动态调整 -->
+    <property>
+        <name>io.file.buffer.size</name>
+        <value>4096</value>
+    </property>
+    <!--  开启 HDFS 的垃圾桶机制，删除掉的数据可以从垃圾桶中回收，单位分钟 -->
+    <property>
+        <name>fs.trash.interval</name>
+        <value>10080</value>
+    </property>
+    <!-- 开启 HDFS 支持压缩 -->
+    <property>
+        <name>io.compression.codecs</name>
+        <value>org.apache.hadoop.io.compress.GzipCodec,org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.BZip2Codec,org.apache.hadoop.io.compress.SnappyCodec</value>
+    </property>
+    <!-- 开启 Map 阶段文件压缩 -->
+    <property>
+        <name>mapreduce.map.output.compress</name>
+        <value>true</value>
+    </property>
+    <!-- 设置 Map 阶段文件压缩编码 -->
+    <property>
+        <name>mapreduce.map.output.compress.codec</name>
+        <value>org.apache.hadoop.io.compress.GzipCodec</value>
+    </property>
+    <!-- 开启 MapReduce 输出文件压缩 -->
+    <property>
+        <name>mapreduce.output.fileoutputformat.compress</name>
+        <value>true</value>
+    </property>
+    <!-- 设置 MapReduce 输出文件压缩编码 -->
+    <property>
+        <name>mapreduce.output.fileoutputformat.compress.codec</name>
+        <value>org.apache.hadoop.io.compress.GzipCodec</value>
+    </property>
+    
+    <!-- 设置 root 账户在 Web 页面登录的代理 -->
+    <property>
+        <name>hadoop.proxyuser.root.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.root.groups</name>
+        <value>*</value>
+    </property>
+    
+    <!-- 设置 issac 账户在 Web 页面登录的代理 -->
+    <property>
+        <name>hadoop.proxyuser.issac.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.issac.groups</name>
+        <value>*</value>
+    </property>
+    
+    <!-- 高可用时，NameNode 访问 ZK 的地址 -->
+    <!-- 	
+    <property>
+        <name>ha.zookeeper.quorum</name>
+        <value>slaver1:2181,slaver2:2181,slaver3:2181</value>
+    </property>
+    -->
+</configuration>

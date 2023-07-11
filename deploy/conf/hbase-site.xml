@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<configuration>
+    <!-- 指定 HBase 在 HDFS 上存储的路径 -->
+    <property>
+        <name>hbase.rootdir</name>
+        <value>hdfs://master:9000/hbase</value>
+    </property>
+    <!-- 指定 HBase 是否分布式运行 -->
+    <property>
+        <name>hbase.cluster.distributed</name>
+        <value>true</value>
+    </property>
+    <!-- 在分布式的情况下一定要设置，不然容易出现 Hmaster 起不来的情况 -->
+    <property>
+        <name>hbase.unsafe.stream.capability.enforce</name>
+        <value>false</value>
+    </property>
+    <!-- 指定 zookeeper 的地址，多个用 "," 分割 -->
+    <property>
+        <name>hbase.zookeeper.quorum</name>
+        <value>slaver1:2181,slaver2:2181,slaver3:2181</value>
+    </property>
+    <!-- 指定在 zookeeper 的数据存储路径，与 zookeeper 配置相同 -->
+    <property>
+        <name>hbase.zookeeper.property.dataDir</name>
+        <value>/opt/apache/zookeeper/data</value>
+    </property>
+    <!-- 连接 zookeeper 的端口号 -->
+    <property>
+        <name>hbase.zookeeper.property.clientPort</name>
+        <value>2181</value>
+    </property>
+    <!-- 指定 HBase 管理页面 -->
+    <property>
+        <name>hbase.master.info.port</name>
+        <value>16010</value>
+    </property>
+    
+    <!-- 建立二级索引，将业务需要的数据联立建立索引，方便查询 -->
+    <property>
+        <name>hbase.regionserver.wal.codec</name>
+        <value>org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec</value>
+    </property>
+    
+    <!-- 如果使用了 hbase 中的自定义 namespace，不仅仅使用 default -->
+    <!-- 那么在 phoenix 中与之对应的是 schema 的概念，但是默认并没有开启，需要在增加以下配置项 -->
+    <property>
+        <name>phoenix.schema.isNamespaceMappingEnabled</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>phoenix.schema.mapSystemTablesToNamespace</name>
+        <value>true</value>
+    </property>
+    
+    <!-- 用户可以创建临时或永久的用户自定义函数 -->
+    <!-- 这些用户自定义函数可以像内置的 create、upsert、delete 一样被调用 -->
+    <property>
+        <name>phoenix.functions.allowUserDefinedFunctions</name>
+        <value>true</value>
+    </property>
+</configuration>

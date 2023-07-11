@@ -1,0 +1,143 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+    <!-- 配置 MapReduce 在 Yarn 集群上运行(默认本地运行) -->
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+    </property>
+    
+    <!-- 开启 MapReduce 的小任务模式：开启 uber 模式，使用 JVM 重用，默认关闭 -->
+    <property>
+        <name>mapreduce.job.ubertask.enable</name>
+        <value>true</value>
+    </property>
+    
+    <!-- Uber 模式中最大的 MapTask 数量，可向下修改  --> 
+    <property>
+        <name>mapreduce.job.ubertask.maxmaps</name>
+        <value>8</value>
+    </property>
+    
+    <!-- Uber 模式中最大的 Reduce 数量，可向下修改 -->
+    <property>
+        <name>mapreduce.job.ubertask.maxreduces</name>
+        <value>8</value>
+    </property>
+    
+    <!-- Uber 模式中最大的输入数据量，默认使用 dfs.blocksize 的值，可向下修改 -->
+    <property>
+        <name>mapreduce.job.ubertask.maxbytes</name>
+        <value>4194304</value>
+    </property>
+    
+    <!-- 环形缓冲区大小，默认 100M -->
+    <property>
+        <name>mapreduce.task.io.sort.mb</name>
+        <value>100</value>
+    </property>
+    
+    <!-- 环形缓冲区溢写阈值，默认 0.8 -->
+    <property>
+        <name>mapreduce.map.sort.spill.percent</name>
+        <value>0.80</value>
+    </property>
+    
+    <!-- Merge 合并次数，默认 10 个 -->
+    <property>
+        <name>mapreduce.task.io.sort.factor</name>
+        <value>10</value>
+    </property>
+    
+    <!-- MapTask 内存，默认 1g； MapTask 堆内存大小默认和该值大小一致 mapreduce.map.java.opts -->
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>-1</value>
+    </property>
+    
+    <!-- MapTask 的 CPU 核数，默认 1 个 -->
+    <property>
+        <name>mapreduce.map.cpu.vcores</name>
+        <value>1</value>
+    </property>
+    
+    <!-- MapTask 异常重试次数，默认 4 次 -->
+    <property>
+        <name>mapreduce.map.maxattempts</name>
+        <value>4</value>
+    </property>
+    
+    <!-- 每个 Reduce 去 Map 中拉取数据的并行数，默认值是 5 -->
+    <property>
+        <name>mapreduce.reduce.shuffle.parallelcopies</name>
+        <value>8</value>
+    </property>
+    
+    <!-- Buffer 大小占 Reduce 可用内存的比例，默认值 0.7 -->
+    <property>
+        <name>mapreduce.reduce.shuffle.input.buffer.percent</name>
+        <value>0.70</value>
+    </property>
+    
+    <!-- Buffer 中的数据达到多少比例开始写入磁盘，默认值 0.66 -->
+    <property>
+        <name>mapreduce.reduce.shuffle.merge.percent</name>
+        <value>0.66</value>
+    </property>
+    
+    <!-- ReduceTask 内存，默认 1g；ReduceTask 堆内存大小默认和该值大小一致 mapreduce.reduce.java.opts -->
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>-1</value>
+    </property>
+    
+    <!-- ReduceTask 的 CPU 核数，默认 1 个 -->
+    <property>
+        <name>mapreduce.reduce.cpu.vcores</name>
+        <value>1</value>
+    </property>
+    
+    <!-- ReduceTask 失败重试次数，默认 4 次 -->
+    <property>
+        <name>mapreduce.reduce.maxattempts</name>
+        <value>4</value>
+    </property>
+    
+    <!-- 当 MapTask 完成的比例达到该值后才会为 ReduceTask 申请资源，默认是 0.05 -->
+    <property>
+        <name>mapreduce.job.reduce.slowstart.completedmaps</name>
+        <value>0.05</value>
+    </property>
+    
+    <!-- 如果程序在规定的默认 10 分钟内没有读到数据，将强制超时退出 -->
+    <property>
+        <name>mapreduce.task.timeout</name>
+        <value>600000</value>
+    </property>
+    <!-- 配置 JobHistory 的访问路径和端口号，JobHistory 是执行完成的任务日志 -->
+    <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>master:10020</value>
+    </property>
+    <!-- 配置 JobHistory 的浏览器访问路径和端口号 -->
+    <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>0.0.0.0:19888</value>
+    </property>
+</configuration>

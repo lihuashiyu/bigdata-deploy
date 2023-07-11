@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <!-- 记录 Hive 中的元数据信息在 mysql 中 -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://master:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
+        <description>连接数据库用户名称</description>
+    </property>
+    <!-- jdbc mysql驱动 -->
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.cj.jdbc.Driver</value>
+        <description>连接数据库驱动</description>
+    </property>
+    <!-- mysql 的用户名和密码 -->
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>issac</value>
+        <description>连接数据库用户名称</description>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>111111</value>
+        <description>连接数据库用户密码</description>
+    </property>
+    
+    <!-- Hive 元数据存储版本的验证 -->
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    
+    <!-- 元数据读取不到  -->    
+    <property>
+        <name>metastore.storage.schema.reader.impl</name>
+        <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
+    </property>    
+     <!-- 元数据存储授权  -->
+    <property>
+        <name>hive.metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+    </property>
+    
+    <!-- 自动创建相关数据 -->
+    <property>
+        <name>datanucleus.fixedDatastore</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.readOnlyDatastore</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>datanucleus.autoCreateTables</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>datanucleus.autoCreateColumns</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.metastore.local</name>
+        <value>true</value>
+    </property>
+    <!-- 显示表的列名 -->
+    <property>
+        <name>hive.cli.print.header</name>
+        <value>true</value>
+        <description>客户端显示当前查询表的头信息</description>
+    </property>
+    <!-- 显示数据库名称 -->
+    <property>
+        <name>hive.cli.print.current.db</name>
+        <value>true</value>
+        <description>客户端显示当前数据库名称信息</description>
+    </property>
+    <!-- hdfs 位置 -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>/hive/data</value>
+        <description>hdfs 上 hive 数据存放位置</description>
+    </property>
+    
+    <property>
+        <name>hive.exec.scratchdir</name>
+        <value>/hive/tmp</value>
+        <description>Hive 作业的 HDFS 根目录位置</description>
+    </property>
+        
+    <property>
+        <name>hive.scratch.dir.permission</name>
+        <value>777</value>
+        <description>Hive 作业的 HDFS 根目录创建写权限</description>
+    </property>
+    
+    <!-- 日志目录 -->
+    <property>
+        <name>hive.querylog.location</name>
+        <value>/hive/logs</value>
+    </property>
+    
+    <!-- 设置 metastore 的节点信息 -->
+    <property>
+        <name>hive.metastore.uris</name>
+        <value>thrift://master:9083</value>
+        <description>主节点元数据服务</description>
+    </property>
+    
+    <!-- 客户端远程连接的端口 -->
+    <property> 
+        <name>hive.server2.thrift.port</name> 
+        <value>10000</value>
+    </property>
+    <property> 
+        <name>hive.server2.thrift.bind.host</name> 
+        <value>0.0.0.0</value>
+    </property>
+    <property>
+        <name>hive.server2.webui.host</name>
+        <value>0.0.0.0</value>
+    </property>
+    
+    <!-- hive 服务的页面的端口 -->
+    <property>
+        <name>hive.server2.webui.port</name>
+        <value>10002</value>
+    </property>
+     
+    <property> 
+        <name>hive.server2.long.polling.timeout</name> 
+        <value>5000</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.enable.doAs</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>datanucleus.autoCreateSchema</name>
+        <value>false</value>
+    </property>
+    
+    <property>
+        <name>datanucleus.fixedDatastore</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.thrift.client.user</name>
+        <value>issac</value>
+        <description>Username to use against thrift client</description>
+    </property>
+    <property>
+        <name>hive.server2.thrift.client.password</name>
+        <value>111111</value>
+        <description>Password to use against thrift client</description>
+    </property>
+    
+    <!-- Spark 依赖位置（注意：端口号 9000 必须和 namenode 的端口号一致） -->
+    <property>
+        <name>spark.yarn.jars</name>
+        <value>hdfs://master:9000/spark/jars/*</value>
+    </property>
+    
+    <!-- Hive 执行引擎 -->
+    <property>
+        <name>hive.execution.engine</name>
+        <value>spark</value>
+    </property>
+    <property>
+        <name>hive.enable.spark.execution.engine</name>
+        <value>true</value>
+    </property>
+    
+    <!-- 连接超时问题 -->
+    <property>
+        <name>hive.spark.client.connect.timeout</name>
+        <value>900000</value>
+    </property>
+    <property>
+        <name>hive.spark.client.server.connect.timeout</name>
+        <value>900000</value>
+    </property>
+    <property>
+        <name>hive.fetch.task.conversion</name>
+        <value>more</value>
+        <description>
+            0. none    : disable hive.fetch.task.conversion
+            1. minimal : SELECT STAR, FILTER on partition columns, LIMIT only
+            2. more    : SELECT, FILTER, LIMIT only (support TABLESAMPLE and virtual columns)
+        </description>
+    </property>
+    <!-- 
+    <property>
+        <name>hive.default.fileformat</name>
+        <value>parquet</value>
+    </property>
+    <property>
+        <name>hive.default.fileformat.managed</name>
+        <value>parquet</value>
+    </property>
+    -->
+    <property>
+        <name>hive.exec.compress.intermediate</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.intermediate.compression.codec</name>
+        <value>org.apache.hadoop.io.compress.GzipCodec</value>
+    </property>
+    <property>
+        <name>hive.intermediate.compression.type</name>
+        <value>BLOCK</value>
+    </property> 
+    <property>
+        <name>hive.exec.compress.output</name>
+        <value>true</value>
+    </property>
+    <!--
+    <property>
+        <name>hive.server2.authentication</name>
+        <value>NOSASL</value>
+    </property>
+    -->
+</configuration>
