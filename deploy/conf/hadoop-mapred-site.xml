@@ -110,7 +110,7 @@
     <!-- ReduceTask 的 CPU 核数，默认 1 个 -->
     <property>
         <name>mapreduce.reduce.cpu.vcores</name>
-        <value>1</value>
+        <value>4</value>
     </property>
     
     <!-- ReduceTask 失败重试次数，默认 4 次 -->

@@ -42,7 +42,7 @@
     <!-- 每个节点可用最大内存, 单位 MB, 默认 8192 MB -->
     <property>
         <name>yarn.scheduler.maximum-allocation-mb</name>
-        <value>4096</value>
+        <value>2048</value>
     </property>
     <!-- 容器允许管理的物理内存大小，单位 MB， 默认 4096 MB -->
     <property>
@@ -119,6 +119,6 @@
     <!-- ResourceManager 处理调度器请求的线程数量，默认 50；如果提交的任务数大于 50，可以增加该值 -->
     <property>
         <name>yarn.resourcemanager.scheduler.client.thread-count</name>
-        <value>50</value>
+        <value>16</value>
     </property>
 </configuration>

@@ -30,10 +30,10 @@
 # automatically configure the host name based on the hostname of the node where the
 # JobManager runs.
 
+# jobManager 的 IP 地址
 jobmanager.rpc.address: master
 
-# The RPC port where the JobManager is reachable.
-
+# JobManager 的端口号
 jobmanager.rpc.port: 6123
 
 # The host interface the JobManager will bind to. My default, this is localhost, and will prevent
@@ -46,11 +46,7 @@ jobmanager.rpc.port: 6123
 
 jobmanager.bind-host: 0.0.0.0
 
-
-# The total process memory size for the JobManager.
-#
-# Note this accounts for all memory usage within the JobManager process, including JVM metaspace and other overhead.
-
+# JobManager JVM heap 内存大小
 jobmanager.memory.process.size: 2048m
 
 # The host interface the TaskManager will bind to. By default, this is localhost, and will prevent
@@ -75,10 +71,7 @@ taskmanager.bind-host: 0.0.0.0
 
 taskmanager.host: master
 
-# The total process memory size for the TaskManager.
-#
-# Note this accounts for all memory usage within the TaskManager process, including JVM metaspace and other overhead.
-
+# TaskManager JVM heap 内存大小
 taskmanager.memory.process.size: 2048m
 
 # To exclude JVM metaspace and overhead, please, use total Flink memory size instead of 'taskmanager.memory.process.size'.
@@ -86,22 +79,14 @@ taskmanager.memory.process.size: 2048m
 #
 taskmanager.memory.flink.size: 2048m
 
-# The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
+# 每个 TaskManager 提供的任务 Slots 数量，建议与 cpu 核数一致
+taskmanager.numberOfTaskSlots: 8
 
-taskmanager.numberOfTaskSlots: 4
-
-# The parallelism used for programs that did not specify and other parallelism.
-
+# 程序默认并行计算的个数
 parallelism.default: 4
 
-# The default file system scheme and authority.
-# 
-# By default file paths without scheme are interpreted relative to the local
-# root file system 'file:///'. Use this to override the default and interpret
-# relative paths relative to a different file system,
-# for example 'hdfs://mynamenode:12345'
-#
-fs.default-scheme: hdfs://master:9000
+# 文件系统来源
+fs.default-scheme: hdfs://master:9870
 
 #==============================================================================
 # High Availability
@@ -114,34 +99,21 @@ fs.default-scheme: hdfs://master:9000
 # The path where metadata for master recovery is persisted. While ZooKeeper stores
 # the small ground truth for checkpoint and leader election, this location stores
 # the larger objects, like persisted dataflow graphs.
-# 
-# Must be a durable file system that is accessible from all nodes
-# (like HDFS, S3, Ceph, nfs, ...) 
-#
-# high-availability.storageDir: hdfs:///flink/ha/
 
-# The list of ZooKeeper quorum peers that coordinate the high-availability
-# setup. This must be a list of the form:
-# "host1:clientPort,host2:clientPort,..." (default clientPort: 2181)
-#
-# high-availability.zookeeper.quorum: localhost:2181
+# 文件系统路径，让 Flink 在高可用性设置中持久保存元数据
+# high-availability.storageDir: hdfs://master:9000/flink/ha/
+
+# zookeeper 集群中仲裁者的机器 ip 和 port 端口号("host1:clientPort,host2:clientPort,...")
+# high-availability.zookeeper.quorum: slaver1:2181,slaver2:2181,slaver3:2181
 
 
-# ACL options are based on https://zookeeper.apache.org/doc/r3.1.2/zookeeperProgrammers.html#sc_BuiltinACLSchemes
-# It can be either "creator" (ZOO_CREATE_ALL_ACL) or "open" (ZOO_OPEN_ACL_UNSAFE)
-# The default value is "open" and it can be changed to "creator" if ZK security is enabled
-#
+# 默认是 open，如果 zookeeper security 启用了该值会更改成 creator
 # high-availability.zookeeper.client.acl: open
 
 #==============================================================================
 # Fault tolerance and checkpointing
 #==============================================================================
 
-# The backend that will be used to store operator state checkpoints if
-# checkpointing is enabled. Checkpointing is enabled when execution.checkpointing.interval > 0.
-#
-# Execution checkpointing related parameters. Please refer to CheckpointConfig and ExecutionCheckpointingOptions for more details.
-#
 # execution.checkpointing.interval: 3min
 # execution.checkpointing.externalized-checkpoint-retention: [DELETE_ON_CANCELLATION, RETAIN_ON_CANCELLATION]
 # execution.checkpointing.max-concurrent-checkpoints: 1
@@ -150,24 +122,18 @@ fs.default-scheme: hdfs://master:9000
 # execution.checkpointing.timeout: 10min
 # execution.checkpointing.tolerable-failed-checkpoints: 0
 # execution.checkpointing.unaligned: false
-#
-# Supported backends are 'hashmap', 'rocksdb', or the
-# <class-name-of-factory>.
-#
-state.backend: hashmap
 
-# Directory for checkpoints filesystem, when using any of the default bundled
-# state backends.
-state.checkpoints.dir: hdfs://master:9000/flink/checkpoints
+# 用于存储和检查点状态（hashmap、rocksdb、class-name-of-factory）
+state.backend: rocksdb
 
-# Default target directory for savepoints, optional.
-#
-state.savepoints.dir: hdfs://master:9000/flink/savepoints
+# 存储检查点的数据文件和元数据的默认目录
+state.checkpoints.dir: hdfs://master:9870/flink/checkpoints
 
-# Flag to enable/disable incremental checkpoints for backends that
-# support incremental checkpoints (like the RocksDB state backend). 
-#
-# state.backend.incremental: false
+# SavePoints 的默认目标目录(可选)
+state.savepoints.dir: hdfs://master:9870/flink/savepoints
+
+# 用于启用/禁用增量 checkpoints 的标志
+state.backend.incremental: true
 
 # The failover strategy, i.e., how the job computation recovers from task failures.
 # Only restart tasks that may have been affected by the task failure, which typically includes
@@ -179,37 +145,23 @@ jobmanager.execution.failover-strategy: region
 # Rest & web frontend
 #==============================================================================
 
-# The port to which the REST client connects to. If rest.bind-port has
-# not been specified, then the server will bind to this port as well.
-#
-rest.port: 8081
+# Web UI 运行时监视器端口
+rest.port: 8083
 
-# The address to which the REST client will connect to
-#
-rest.address: master
+# 基于 Web 的运行时监视器侦听的地址：master
+rest.address: 0.0.0.0
 
-# Port range for the REST and web server to bind to.
-#
-rest.bind-port: 8081
+# Web 访问端口
+rest.bind-port: 8084
 
-# The address that the REST & web server binds to
-# By default, this is localhost, which prevents the REST & web server from
-# being able to communicate outside of the machine/container it is running on.
-#
-# To enable this, set the bind address to one that has access to outside-facing
-# network interface, such as 0.0.0.0.
-#
+# WebUI 绑定地址
 rest.bind-address: 0.0.0.0
 
-# Flag to specify whether job submission is enabled from the web-based
-# runtime monitor. Uncomment to disable.
+# 是否从基于 Web 的 JobManager 启用作业提交
+web.submit.enable: true
 
-#web.submit.enable: false
-
-# Flag to specify whether job cancellation is enabled from the web-based
-# runtime monitor. Uncomment to disable.
-
-#web.cancel.enable: false
+# 是否从在 Web 页面取消作业
+web.cancel.enable: true
 
 #==============================================================================
 # Advanced
@@ -229,79 +181,71 @@ rest.bind-address: 0.0.0.0
 # thread. You can include the same directory multiple times in order to create
 # multiple I/O threads against that directory. This is for example relevant for
 # high-throughput RAIDs.
-#
-# io.tmp.dirs: /tmp
 
-# The classloading resolve order. Possible values are 'child-first' (Flink's default)
-# and 'parent-first' (Java's default).
-#
-# Child first classloading allows users to use different dependency/library
-# versions in their application than those in the classpath. Switching back
-# to 'parent-first' may help with debugging dependency issues.
-#
+# 暂存的临时文件路径
+io.tmp.dirs: ${FLINK_HOME}/data/tmp
+
+# 日志文件路径
+env.log.dir: ${FLINK_HOME}/logs
+
+# 是否应在 TaskManager 启动时预先分配 TaskManager 管理的内存
+# taskmanager.memory.preallocate: false
+
+# 类加载解析顺序，是先检查用户代码 jar（“child-first”）还是应用程序类路径（parent-first），默认设置指示首先从用户代码 jar 加载类
+# classloader.resolve-order: child-first
+classloader.check-leaked-classloader: false
 # classloader.resolve-order: child-first
 
-# The amount of memory going to the network stack. These numbers usually need 
-# no tuning. Adjusting them may be necessary in case of an "Insufficient number
-# of network buffers" error. The default min is 64MB, the default max is 1GB.
-# 
-# taskmanager.memory.network.fraction: 0.1
-# taskmanager.memory.network.min: 64mb
-# taskmanager.memory.network.max: 1gb
+# 用于网络缓冲区的 JVM 内存的分数：决定 TaskManager 可以同时拥有多少流数据交换通道以及通道缓冲的程度。 如果作业被拒绝或者您收到系统没有足够缓冲区的警告，请增加此值或下面的最小/最大值。 另请注意，“taskmanager.network.memory.min”和“taskmanager.network.memory.max”可能会覆盖此分数 
+taskmanager.memory.network.fraction: 0.1
+taskmanager.memory.network.min: 256mb
+taskmanager.memory.network.max: 2gb
+
+# fs.hdfs.hadoop.conf: ${HADOOP_HOME}/etc/hadoop
 
 #==============================================================================
 # Flink Cluster Security Configuration
 #==============================================================================
 
-# Kerberos authentication for various components - Hadoop, ZooKeeper, and connectors -
-# may be enabled in four steps:
-# 1. configure the local krb5.conf file
-# 2. provide Kerberos credentials (either a keytab or a ticket cache w/ kinit)
-# 3. make the credentials available to various JAAS login contexts
-# 4. configure the connector to use JAAS/SASL
-
-# The below configure how Kerberos credentials are provided. A keytab will be used instead of
-# a ticket cache if the keytab path and principal are set.
-
+# 指示是否从 Kerberos ticket 缓存中读取
 # security.kerberos.login.use-ticket-cache: true
+
+# 包含用户凭据的 Kerberos 密钥表文件的绝对路径
 # security.kerberos.login.keytab: /path/to/kerberos/keytab
+
+# 与 keytab 关联的 Kerberos 主体名称
 # security.kerberos.login.principal: flink-user
 
-# The configuration below defines which JAAS login contexts
-
+#  以逗号分隔的登录上下文列表，用于提供 Kerberos 凭据（例如，`Client，KafkaClient`使用凭证进行 ZooKeeper 身份验证和 Kafka 身份验证）
 # security.kerberos.login.contexts: Client,KafkaClient
 
 #==============================================================================
 # ZK Security Configuration
 #==============================================================================
 
-# Below configurations are applicable if ZK ensemble is configured for security
-
-# Override below configuration to provide custom ZK service name if configured
+# 覆盖以下配置以提供自定义 ZK 服务名称
 # zookeeper.sasl.service-name: zookeeper
 
-# The configuration below must match one of the values set in "security.kerberos.login.contexts"
+# # 该配置必须匹配 "security.kerberos.login.contexts" 中的列表（含有一个）
 # zookeeper.sasl.login-context-name: Client
 
 #==============================================================================
 # HistoryServer
 #==============================================================================
 
-# The HistoryServer is started and stopped via bin/historyserver.sh (start|stop)
+# 通过 bin/historyserver.sh (start|stop) 命令启动和关闭 HistoryServer
 
-# Directory to upload completed jobs to. Add this directory to the list of
-# monitored directories of the HistoryServer as well (see below).
-#jobmanager.archive.fs.dir: hdfs:///completed-jobs/
+# 将已完成的作业上传到的目录
+jobmanager.archive.fs.dir: hdfs://master:9870/flink/completed/
 
-# The address under which the web-based HistoryServer listens.
+# 基于 Web 的 HistoryServer 的地址
 historyserver.web.address: 0.0.0.0
 
-# The port under which the web-based HistoryServer listens.
+# 基于 Web 的 HistoryServer 的端口号
 historyserver.web.port: 8082
 
-# Comma separated list of directories to monitor for completed jobs.
-historyserver.archive.fs.dir: hdfs:///flink/history/
+# 以逗号分隔的目录列表，用于监视已完成的作业
+historyserver.archive.fs.dir: hdfs://master:9870/flink/history/
 
-# Interval in milliseconds for refreshing the monitored directories.
+# 刷新受监控目录的时间间隔（以毫秒为单位）
 historyserver.archive.fs.refresh-interval: 10000
-

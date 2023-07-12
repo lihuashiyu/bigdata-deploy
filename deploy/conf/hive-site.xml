@@ -24,14 +24,14 @@
         <value>111111</value>
         <description>连接数据库用户密码</description>
     </property>
-    
+    X
     <!-- Hive 元数据存储版本的验证 -->
     <property>
         <name>hive.metastore.schema.verification</name>
         <value>false</value>
     </property>
     
-    <!-- 元数据读取不到  -->    
+    <!-- 元数据读取不到 -->    
     <property>
         <name>metastore.storage.schema.reader.impl</name>
         <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>

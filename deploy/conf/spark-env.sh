@@ -79,7 +79,7 @@ export SPARK_HOME=/opt/apache/spark
 
 export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
 export YARN_CONF_DIR=${HADOOP_HOME}/etc/hadoop
-export SPARK_MASTER_HOST=issac
+export SPARK_MASTER_HOST=master
 export SPARK_CONF_DIR=${SPARK_HOME}/conf
 
 export SPARK_HISTORY_OPTS="
@@ -95,7 +95,7 @@ export SPARK_DIST_CLASSPATH=$(${HADOOP_HOME}/bin/hadoop classpath)
 # export SPARK_MASTER_HOST=spark-master
 # export SPARK_MASTER_PORT=7077
 # 定义 master 的地址 slave 节点使用
-# export SPARK_MASTER_IP=issac
+# export SPARK_MASTER_IP=master
 # 定义 work 节点的管理端口 work 节点使用
 # export SPARK_WORKER_WEBUI_PORT=8088
 # 每个 worker 节点能够最大分配给 exectors 的内存大小 
