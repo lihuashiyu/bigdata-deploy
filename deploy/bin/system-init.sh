@@ -189,7 +189,7 @@ function add_user()
     fi
     chmod u-w /etc/sudoers                                                     # 取消可编辑权限
     
-    touch /etc/profile.d/issac.sh                                              # 为用户添加环境配置变量
+    touch "/etc/profile.d/${user}.sh"                                          # 为用户添加环境配置变量
     chown -R "${user}:${user}" "/etc/profile.d/${user}.sh"                     # 将文件的权限授予新添加的用户
 }
 

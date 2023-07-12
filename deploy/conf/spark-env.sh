@@ -72,10 +72,10 @@
 # - MKL_NUM_THREADS=1        Disable multi-threading of Intel MKL
 # - OPENBLAS_NUM_THREADS=1   Disable multi-threading of OpenBLAS
 
-export JAVA_HOME=/opt/java/jdk-08
-export SCALA_HOME=/opt/java/scala-212
-export HADOOP_HOME=/opt/apache/hadoop
-export SPARK_HOME=/opt/apache/spark
+export JAVA_HOME=${JAVA_HOME}
+export SCALA_HOME=${SCALA_HOME}
+export HADOOP_HOME=${HADOOP_HOME}
+export SPARK_HOME=${SPARK_HOME}
 
 export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
 export YARN_CONF_DIR=${HADOOP_HOME}/etc/hadoop

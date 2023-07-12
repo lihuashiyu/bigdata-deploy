@@ -43,7 +43,7 @@
     <!-- 指定在 zookeeper 的数据存储路径，与 zookeeper 配置相同 -->
     <property>
         <name>hbase.zookeeper.property.dataDir</name>
-        <value>/opt/apache/zookeeper/data</value>
+        <value>${ZOOKEEPER_HOME}/data</value>
     </property>
     <!-- 连接 zookeeper 的端口号 -->
     <property>

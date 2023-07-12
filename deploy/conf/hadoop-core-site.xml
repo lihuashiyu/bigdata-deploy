@@ -14,13 +14,11 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 
-<!-- Put site-specific property overrides in this file. -->
-
 <configuration>
     <!-- Hadoop 的临时文件夹位置 -->
     <property>
         <name>hadoop.tmp.dir</name>
-        <value>/opt/apache/hadoop/data/tmp</value>
+        <value>${HADOOP_HOME}/data/tmp</value>
     </property>
     <!-- 访问 HDFS 时的 host 和 port -->
     <property>

@@ -94,7 +94,7 @@
     <!-- Yarn 的 ClassPath -->
     <property>
         <name>yarn.application.classpath</name>
-        <value>/opt/apache/hadoop/etc/hadoop:/opt/apache/hadoop/share/hadoop/common/lib/*:/opt/apache/hadoop/share/hadoop/common/*:/opt/apache/hadoop/share/hadoop/hdfs:/opt/apache/hadoop/share/hadoop/hdfs/lib/*:/opt/apache/hadoop/share/hadoop/hdfs/*:/opt/apache/hadoop/share/hadoop/mapreduce/lib/*:/opt/apache/hadoop/share/hadoop/mapreduce/lib-examples/*:/opt/apache/hadoop/share/hadoop/mapreduce/*:/opt/apache/hadoop/share/hadoop/yarn:/opt/apache/hadoop/share/hadoop/yarn/lib/*:/opt/apache/hadoop/share/hadoop/yarn/*:/opt/apache/hadoop/share/hadoop/yarn/timelineservice/*</value>
+        <value>${HADOOP_HOME}/etc/hadoop:${HADOOP_HOME}/share/hadoop/common/lib/*:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/hdfs:${HADOOP_HOME}/share/hadoop/hdfs/lib/*:${HADOOP_HOME}/share/hadoop/hdfs/*:${HADOOP_HOME}/share/hadoop/mapreduce/lib/*:${HADOOP_HOME}/share/hadoop/mapreduce/lib-examples/*:${HADOOP_HOME}/share/hadoop/mapreduce/*:${HADOOP_HOME}/share/hadoop/yarn:${HADOOP_HOME}/share/hadoop/yarn/lib/*:${HADOOP_HOME}/share/hadoop/yarn/*:${HADOOP_HOME}/share/hadoop/yarn/timelineservice/*</value>
     </property>
     
     <!-- 配置使用公平调度器 -->
@@ -108,7 +108,7 @@
     <!-- 
     <property>
         <name>yarn.scheduler.fair.allocation.file</name>
-        <value>/opt/apache/hadoop/etc/hadoop/fair-scheduler.xml</value>
+        <value>${HADOOP_HOME}/etc/hadoop/fair-scheduler.xml</value>
     </property>
      -->
     <!-- 禁止队列间资源抢占 -->

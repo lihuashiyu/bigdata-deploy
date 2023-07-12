@@ -161,7 +161,6 @@ function service_stop()
 }
     
     
-# beeline -u jdbc:hive2://issac:10000 -n issac
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
 start_time=$(date +"%Y-%m-%d %H:%M:%S")

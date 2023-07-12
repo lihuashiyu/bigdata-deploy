@@ -21,37 +21,37 @@
     <!--
     <property>
         <name>dfs.hosts</name>
-        <value>/opt/apache/hadoop/etc/hadoop/accept-host</value>
+        <value>${HADOOP_HOME}/etc/hadoop/accept-host</value>
     </property>
     <property>
         <name>dfs.hosts.exclude</name>
-        <value>/opt/apache/hadoop/etc/hadoop/deny-host</value>
+        <value>${HADOOP_HOME}/etc/hadoop/deny-host</value>
     </property>
     -->
     <!-- 配置 NameNode 的存放位置 -->
     <property>
         <name>dfs.namenode.name.dir</name>
-        <value>/opt/apache/hadoop/data/namenode</value>
+        <value>${HADOOP_HOME}/data/namenode</value>
     </property>
     <!-- 定义 DataNode 数据存储的节点位置，一般先确定磁盘的挂载目录，然后多个目录用，进行分割 -->
     <property>
         <name>dfs.datanode.data.dir</name>
-        <value>/opt/apache/hadoop/data/datanode</value>
+        <value>${HADOOP_HOME}/data/datanode</value>
     </property>
     <!-- Edits 的存储位置 -->
     <property>
         <name>dfs.namenode.edits.dir</name>
-        <value>/opt/apache/hadoop/data/edits</value>
+        <value>${HADOOP_HOME}/data/edits</value>
     </property>
     <!-- 元数据信息检查点的存储位置 -->
     <property>
         <name>dfs.namenode.checkpoint.dir</name>
-        <value>/opt/apache/hadoop/data/metapoint</value>
+        <value>${HADOOP_HOME}/data/metapoint</value>
     </property>
     <!-- Edits 的检查点的存储位置 -->
     <property>
         <name>dfs.namenode.checkpoint.edits.dir</name>
-        <value>/opt/apache/hadoop/data/editpoint</value>
+        <value>${HADOOP_HOME}/data/editpoint</value>
     </property>
     <!-- 副本数量 -->
     <property>

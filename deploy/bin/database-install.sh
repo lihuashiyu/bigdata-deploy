@@ -341,7 +341,7 @@ function mysql_test()
     show_sql="show create table test;"
     "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${show_sql}"
                               
-    insert_sql="insert into test (id, name, mark) values (101, 'issac', 'qazwsx');"
+    insert_sql="insert into test (id, name, mark) values (101, 'XiaoWang', 'qazwsx');"
     "${MYSQL_HOME}/bin/mysql" -u "${mysql_user}" -p"${mysql_password}" -D test -e "${insert_sql}"
                               
     select_sql="select * from test;"
