@@ -201,7 +201,7 @@ function uninstall_mariadb()
     echo "${password}" | sudo -S systemctl stop mariadb.service  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     echo "${password}" | sudo -S systemctl stop mysqld.service   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    pid_list=$(echo "${password}" | sudo -S ps -aux | grep -v grep | grep -iE "mysql|maria" | awk '{print $2}')
+    pid_list=$(echo "${password}" | sudo -S ps -aux | grep -vE "grep|$0" | grep -iE "mysql|maria" | awk '{print $2}')
     for pid in ${pid_list}; 
     do
         echo "${password}" | sudo -S kill -9 "${pid}"
@@ -232,19 +232,18 @@ function mysql_modify_config()
     local mysql_home_parent 
     echo "    ******************************* 修改 Mysql 的配置文件 *******************************    "
     
-    cp -fpr "${ROOT_DIR}/conf/mysql-my.cnf"     "${MYSQL_HOME}/support-files/my.cnf"
-    sed -i  "s|\${mysql.home}|${MYSQL_HOME}|g"  "${MYSQL_HOME}/support-files/my.cnf"
+    cp -fpr "${ROOT_DIR}/conf/mysql-my.cnf"     "${MYSQL_HOME}/my.cnf"
+    sed -i  "s|\${mysql.home}|${MYSQL_HOME}|g"  "${MYSQL_HOME}/my.cnf"
     
     echo "    ******************************* 修改 Mysql 的执行脚本 *******************************    "
     # 修改 mysql.server
-    sed -i "s|^basedir=$|basedir=${MYSQL_HOME}|g"                         "${MYSQL_HOME}/support-files/mysql.server"
-    sed -i "s|^datadir=$|datadir=${MYSQL_HOME}\/data|g"                   "${MYSQL_HOME}/support-files/mysql.server"
-    sed -i "s|sbindir=$|basedir\/sbin/sbindir=\$basedir\/bin|g"           "${MYSQL_HOME}/support-files/mysql.server"
-    sed -i "s|libexecdir=\$basedir\/libexec|libexecdir=\$basedir\/bin|g"  "${MYSQL_HOME}/support-files/mysql.server"
-    sed -i "s|^mysqld_pid_file_path=$|mysqld_pid_file_path=${MYSQL_HOME}\/tmp\/mysqld.pid|g" "${MYSQL_HOME}/support-files/mysql.server"
-    
     mysql_home_parent=$(cd "${MYSQL_HOME}/../" || exit; pwd)
-    sed -i "s|usr\/local|${mysql_home_parent}|g"                          "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|^basedir=$|basedir=${MYSQL_HOME}|g"        "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|^datadir=$|datadir=${MYSQL_HOME}\/data|g"  "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|basedir\/sbin|basedir\/bin|g"              "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|basedir\/libexec|basedir\/bin|g"           "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|\/etc/my.cnf|\$basedir\/my.cnf|g"          "${MYSQL_HOME}/support-files/mysql.server"
+    sed -i "s|\/usr\/local|${mysql_home_parent}|g"       "${MYSQL_HOME}/support-files/mysql.server"
     
     # 修改 mysqld_multi.server
     sed -i "s/usr\/local/opt\/db/g"  "${MYSQL_HOME}/support-files/mysqld_multi.server"
@@ -285,7 +284,7 @@ function mysql_init()
     "${MYSQL_HOME}/bin/mysqld" --initialize --console >> "${MYSQL_HOME}/logs/init.log" 2>&1 
     
     # 获取临时密码
-    temporary_password=$(grep -ni "password" "${MYSQL_HOME}/logs/init.log" | awk '{print $NF}') 
+    temporary_password=$(grep -ni "password" "${MYSQL_HOME}/logs/error.log" | awk '{print $NF}') 
     
     # 启动 Mysql 服务
     "${MYSQL_HOME}/support-files/mysql.server" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
@@ -299,7 +298,7 @@ function mysql_init()
     alter_root_host_sql="update mysql.user set host = '%' where user = 'root';"                    # 使 root 能在任何 host 访问
     flush_sql="flush privileges;"                                                                  # 刷新权限，使得修改生效
     # 执行 sql
-    "${MYSQL_HOME}/bin/mysql" -h 127.0.0.1 -P 3306 -u root -p${temporary_password} -D mysql \
+    "${MYSQL_HOME}/bin/mysql" -h localhost -P 3306 -u root -p${temporary_password} -D mysql    \
                               -e "${alter_root_pass_sql} ${alter_root_host_sql} ${flush_sql}" \
                               --connect-expired-password
     

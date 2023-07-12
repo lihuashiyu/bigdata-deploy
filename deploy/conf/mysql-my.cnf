@@ -23,7 +23,7 @@ port                               = 3306
 # Mysql服务的唯一编号 每个 mysql 服务 Id 需唯一
 server-id                          = 1
 
-basedir                            = 1
+basedir                            = ${mysql.home}
 datadir                            = ${mysql.home}/data
 pid-file                           = ${mysql.home}/tmp/mysqld.pid
 socket                             = ${mysql.home}/tmp/mysql.sock
