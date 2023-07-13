@@ -14,6 +14,8 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
+JAVA_HOME="/opt/java/jdk"                                                      # Java   默认安装路径  
+SCALA_HOME="/opt/java/scala"                                                   # Scala  默认安装路径  
 HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop 默认安装路径 
 SPARK_HOME="/opt/apache/spark"                                                 # Spark  默认安装路径 
 FLINK_HOME="/opt/apache/flink"                                                 # Flink  默认安装路径 
@@ -213,15 +215,94 @@ function get_version()
 }
 
 
+# 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
+function distribute_file()
+{
+    echo "    *********************** 分发到其它节点 *************************    "
+    local password
+    password=$(get_password)
+    
+    if [ -d "$HOME/.ssh" ]; then
+        "${ROOT_DIR}/script/other/xync.sh"  "$1"
+        echo "${password}" | sudo -S "${ROOT_DIR}/script/other/xync.sh"  "/etc/profile.d/${USER}.sh"
+        
+        "${ROOT_DIR}/script/other/xcall.sh"  "source /etc/profile"
+    else
+        echo "    需要提前手动配置节点间免密登录 ...... "
+        exit 1
+    fi
+}
+
+
 # 安装并初始化 Hadoop
 function hadoop_install()
 {
     echo "    ************************ 开始安装 Hadoop *************************    "
+    local host_list user version password host host_name
+    
+    JAVA_HOME=$(get_param "java.home")                                     # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
     file_decompress "hadoop.url" "${HADOOP_HOME}"                          # 解压 Hadoop 安装包
     
     echo "    ********************* 修改 Hadoop 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/script/apache/hadoop.sh"     "${HADOOP_HOME}/bin/"
     
+    cp -fpr "${ROOT_DIR}/conf/hadoop-core-site.xml"   "${HADOOP_HOME}/etc/hadoop/core-site.xml"
+    cp -fpr "${ROOT_DIR}/conf/hadoop-hdfs-site.xml"   "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"
+    cp -fpr "${ROOT_DIR}/conf/hadoop-mapred-site.xml" "${HADOOP_HOME}/etc/hadoop/mapred-site.xml"
+    cp -fpr "${ROOT_DIR}/conf/hadoop-yarn-site.xml"   "${HADOOP_HOME}/etc/hadoop/yarn-site.xml"
+    
+    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                           "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|# export JAVA_HOME=|export JAVA_HOME=${JAVA_HOME}|g"        "${HADOOP_HOME}"/etc/hadoop/hadoop-env.sh
+    sed -i "s|# export HADOOP_HOME=|export HADOOP_HOME=${HADOOP_HOME}|g"  "${HADOOP_HOME}"/etc/hadoop/hadoop-env.sh
+    
+    append_param "JAVA_HOME=${JAVA_HOME}"     "${HADOOP_HOME}/etc/hadoop/yarn-env.sh"
+    rm -rf "${HADOOP_HOME}/etc/hadoop/workers"
+    touch  "${HADOOP_HOME}/etc/hadoop/workers"
+    
+    host_list=$(get_param "server.hosts" | tr ',' ' ')
+    for host in ${host_list}
+    do
+        host_name=$(echo "${host}" | awk -F ':' '{print $2}')
+        if [[ "${host_name}" =~ slave ]]; then
+            append_param "${host_name}" "${HADOOP_HOME}/etc/hadoop/workers"
+        fi
+    done    
+    
+    echo "    *********************** 创建数据存储目录 *************************    "
+    mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"
+    
+    user=$(get_param "server.user")
+    version=$(get_version "hadoop.url")
+    append_env "hadoop.home" "${version}"
+    
+    password=$(get_password)
+    echo "${password}" | sudo -S sed -i "s|\${HADOOP_HOME}\/bin|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${user}.sh"
+    append_param "export HADOOP_CLASSPATH=\$(hadoop classpath)"                  "/etc/profile.d/${user}.sh"
+    append_param "                                            "                  "/etc/profile.d/${user}.sh"
+    
+    distribute_file "${HADOOP_HOME}/"                                          # 分发文件到其它节点
+        
+    echo "    *********************** 格式化 NameNode *************************    "
+    "${HADOOP_HOME}/bin/hadoop" namenode -format > "${HADOOP_HOME}/logs/format.log" 2>&1
+    grep -ni "formatted"  "${HADOOP_HOME}/logs/format.log"
+    
+    echo "    *********************** 启动 Hadoop 集群 *************************    "
+    "${HADOOP_HOME}/sbin/start-all.sh"                                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+    "${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh" start historyserver >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    sleep 20
+    
+    echo "    *********************** 测试 Hadoop 集群 *************************    "
+    # 计算 pi 
+    "${HADOOP_HOME}/bin/hadoop" jar "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${version}.jar" pi 10 10 >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    # 计算 wc 
+    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /hadoop/test/wc/input
+    "${HADOOP_HOME}/bin/hadoop" fs -put      "${HADOOP_HOME}/*.txt" /hadoop/test/wc/input
+    "${HADOOP_HOME}/bin/hadoop" jar          "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${version}.jar" \
+                                             wordcount /hadoop/test/wc/input /hadoop/test/wc/output \
+                                             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "${HADOOP_HOME}/bin/hadoop" fs -cat      /hadoop/test/wc/output/part-r-00000
 }
 
 
@@ -229,7 +310,88 @@ function hadoop_install()
 function spark_install()
 {
     echo "    ************************* 开始安装 Spark *************************    "
+    local hadoop_version spark_version folder host_list host host_name
     
+    JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
+    SCALA_HOME=$(get_param "scala.home")                                       # 获取 java   安装路径
+    HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
+    SPARK_HOME=$(get_param "spark.home")                                       # 获取 Hadoop 安装路径
+    file_decompress "spark.resource.url"                                       # 解压 Hadoop 源码包
+    hadoop_version=$(get_version "hadoop.url")
+    spark_version=$(get_version "spark.url")
+    
+    echo "    ************************* 编译 Spark-${spark_version} *************************    "
+    folder=$(ls -F | grep "/$")                                                # 获取解压目录
+    sed -i "s|<hadoop.version>3.3.1</hadoop.version>|<hadoop.version>${hadoop_version}</hadoop.version>|g" "${folder}/pom.xml"
+    cd "${folder}" || exit                                                     # 进入目录开始编译
+    ./dev/make-distribution.sh --name build --tgz -Phive-3.1 -Phive-thriftserver -Phadoop-3.2 -Phadoop-provided -Pyarn -Pscala-2.12 "-Dhadoop.version=${hadoop_version}" -DskipTests
+    cp -fpr "spark-${spark_version}-bin-build.tgz" "${ROOT_DIR}/package"
+    
+    echo "    ************************* 解压安装 Spark *************************    "
+    tar -zxvf "spark-${spark_version}-bin-build.tgz"                           # 解压 Spark 安装包
+    mkdir -p "${SPARK_HOME}"
+    mv "spark-${spark_version}-bin-build/*" "${SPARK_HOME}"
+    
+    echo "    *************************修改 Spark 配置文件 *************************    "
+    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"        "${SPARK_HOME}/conf"
+    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf" "${SPARK_HOME}/conf"
+    sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"        "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${SCALA_HOME}|${SCALA_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"    "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${SPARK_HOME}|${SPARK_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
+    
+    host_list=$(get_param "server.hosts" | tr ',' ' ')
+    for host in ${host_list}
+    do
+        host_name=$(echo "${host}" | awk -F ':' '{print $2}')
+        if [[ "${host_name}" =~ slave ]]; then
+            append_param "${host_name}" "${SPARK_HOME}/conf/workers"
+        fi
+    done
+    
+    echo "    *********************** 分发到其它节点 *************************    "
+    distribute_file "${SPARK_HOME}/"
+    
+    echo "    *********************** 测试 Spark 集群 *************************    "
+    file_decompress "spark.nohadoop.url"                                       # 解压不带 Hadoop 的Spark 包
+    folder=$(ls -F | grep "/$")
+    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /spark/jars /spark/logs /spark/history
+    "${HADOOP_HOME}/bin/hadoop" fs -put "${ROOT_DIR}/package/${folder}/jars/*" /spark/jars/
+    
+    "${SPARK_HOME}/sbin/start-all.sh"                                          # 启动 master 和 worker 节点
+    "${SPARK_HOME}/sbin/start-history-server.sh"                               # 启动历史服务器
+    
+        
+    # 计算 pi 
+    "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
+                                     --master local[*] "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
+                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
+    "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
+                                     --master spark://master:7077 \
+                                     --deploy-mode cluster "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
+                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    grep -ni "exception" "${ROOT_DIR}/logs/${LOG_FILE}"
+    "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
+                                     --master yarn \
+                                     --deploy-mode cluster \
+                                     --driver-memory 1G \
+                                     --executor-memory 1G \
+                                     --num-executors 3 \
+                                     --executor-cores 2 \
+                                     "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
+                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
+    "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
+                                     --master yarn \
+                                     --deploy-mode client  \
+                                     --driver-memory 1G \
+                                     --executor-memory 1G \
+                                     --num-executors 3 \
+                                     --executor-cores 2 \
+                                     "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
+                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    grep -ni "exception" "${ROOT_DIR}/logs/${LOG_FILE}"
 }
 
 
@@ -368,9 +530,9 @@ case "$1" in
     
     # 10. 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：   "
+        echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
-        echo "        |  参  数  |         描   述         |  "
+        echo "        |  参  数  |         描   述         | "
         echo "        +----------+-------------------------+ "
         echo "        |    -h    |  安装 apache hadoop     | "
         echo "        |    -s    |  安装 apache spark      | "
