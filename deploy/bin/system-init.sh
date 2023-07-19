@@ -316,19 +316,12 @@ case "$1" in
     # 9. 安装必要的软件包
     all | -a)
         network_init
-        sleep 1
         host_init
-        sleep 1
         stop_protect
-        sleep 1
         unlock_limit
-        sleep 1
         kernel_optimize
-        sleep 1
         add_user
-        sleep 1
         dnf_mirror
-        sleep 1
         install_rpm
     ;;
     
