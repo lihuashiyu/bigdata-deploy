@@ -82,15 +82,22 @@ function network_init()
 {
     echo "    ****************************** 配置网卡信息 ******************************    "
     # 定义局部变量
-    local ip dns gateway
+    local ip dns gateway network_type
     
     ip=$(get_param  "server.ip")
     dns=$(get_param "server.dns" "," ";" ";")
     gateway=$(get_param "server.gateway")
     
     # 替换网卡配置文件中的参数：ipv4地址、网关、DNS
-    sed -i "s|^address1=.*|address1=${ip},${gateway}|g" /etc/NetworkManager/system-connections/ens160.nmconnection
-    sed -i "s|^dns=.*|dns=${dns}|g"                     /etc/NetworkManager/system-connections/ens160.nmconnection
+    # network_type=$(grep -Pozin "\[ipv4\]\nmethod=auto" /etc/NetworkManager/system-connections/ens160.nmconnection | wc -l)
+    network_type=$(grep -Pozin "\[ipv4\]\nmethod=auto" /home/issac/ens160.nmconnection | wc -l)
+     
+    if [[ "${network_type}" -gt 0  ]]; then
+        sed -i ":label;N;s|\[ipv4\]\nmethod=auto|\[ipv4\]\nmethod=manual\naddress1=${ip},${gateway}\ndns=${dns}|g;t label" /home/issac/ens160.nmconnection
+    else
+        sed -i "s|^address1=.*|address1=${ip},${gateway}|g" /home/issac/ens160.nmconnection
+        sed -i "s|^dns=.*|dns=${dns}|g"                     /home/issac/ens160.nmconnection
+    fi
     
     { nmcli connection reload; nmcli connection down ens160; nmcli connection up ens160; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
@@ -173,7 +180,7 @@ function add_user()
 {
     echo "    ******************************** 添加用户 ********************************    "
     # 定义变量
-    local user password exist
+    local user password exist software_home
     
     user=$(get_param "server.user")                                            # 用户名
     useradd -m "${user}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1               # 添加用户，并指定密码
@@ -191,6 +198,14 @@ function add_user()
     
     touch "/etc/profile.d/${user}.sh"                                          # 为用户添加环境配置变量
     chown -R "${user}:${user}" "/etc/profile.d/${user}.sh"                     # 将文件的权限授予新添加的用户
+    
+    software_home=$(get_param "software.home")
+    chown -R "${user}:${user}" "${software_home}"                              # 将软件安装路径的权限授予新添加的用户
+    
+    cp -fpr  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/                    # 添加 集群文件同步 脚本
+    cp -fpr  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/                    # 添加 集群命令     脚本
+    
+    { echo ""; echo "set number"; echo ""; }  >> /etc/vimrc                    # 添加 vim 显示行号配置
 }
 
 
@@ -234,14 +249,27 @@ function install_rpm()
     rpm_list=$(get_param "dnf.rpm" "," " ")
     for rpm in ${rpm_list}
     do
-        echo "    +++++++++++++++++++++++++ 安装 ${rpm} +++++++++++++++++++++++++    "
+        echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${rpm}    "
         dnf install "${rpm}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done    
 }
 
 
+# 给 Shell 脚本添加可执行权限
+function add_execute()
+{
+    echo "    ***************************** 添加可执行权限 *****************************    "
+    find "${ROOT_DIR}" -iname "*.sh" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    find "${ROOT_DIR}" -iname "*.sh" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    cp -frp  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/
+    cp -frp  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/
+}
+
+
 printf "\n================================================================================\n"
 mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
+add_execute                                                                    # 给脚本添加可执行权限
 
 # 匹配输入参数
 case "$1" in
@@ -324,6 +352,6 @@ case "$1" in
 esac
 
 # 重启服务器
-shutdown -r 60 >> "${ROOT_DIR}/los/${LOG_FILE}"
+shutdown -r 60     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 printf "================================================================================\n\n"
 exit 0
