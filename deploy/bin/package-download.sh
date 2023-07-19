@@ -14,7 +14,7 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="package-download-$(date +%F).log"                                    # 程序操作日志文件
 # 定义所需要的下载的软件包地址
-software_list=(mysql.url redis.url java.url python.url scala.url maven.url gradle.url)
+software_list=(mysql.url redis.url java.url python.url scala.url maven.url gradle.url hadoop.url spark.nohadoop.url)
 
 
 # 读取配置文件，获取配置参数
