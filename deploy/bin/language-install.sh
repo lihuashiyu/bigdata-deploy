@@ -217,7 +217,7 @@ function uninstall_open_jdk()
 {
     local password software_list software
     password=$(get_password)
-    echo "password = ${password}"
+    
     echo "    ******************************* 检查系统自带 OpenJdk *******************************    "
     # 获取系统安装的 OpenJdk
     software_list=$(echo "${password}" | sudo -S rpm -qa | grep -iE "java|jdk")
@@ -312,6 +312,7 @@ function pip_config()
     append_param "trusted-host=mirrors.aliyun.com"                      "${HOME}/.pip/pip.conf"  
     
     echo "${password}" | sudo -S cp -frp "${HOME}/.pip" /root/
+    echo "${password}" | sudo -S pip install mycli  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
 
