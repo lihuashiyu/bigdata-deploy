@@ -1,0 +1,62 @@
+diff --git a/dev/make-distribution.sh b/dev/make-distribution.sh
+index 571059be6fd..552f1de925e 100755
+--- a/dev/make-distribution.sh
++++ b/dev/make-distribution.sh
+@@ -36,7 +36,7 @@ MAKE_TGZ=false
+ MAKE_PIP=false
+ MAKE_R=false
+ NAME=none
+-MVN="$SPARK_HOME/build/mvn"
++MVN="${MAVEN_HOME}/bin/mvn"
+ 
+ function exit_with_usage {
+   set +x
+diff --git a/pom.xml b/pom.xml
+index 4b4ca77ef17..e156ac343ca 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -120,7 +120,7 @@
+     <sbt.project.name>spark</sbt.project.name>
+     <slf4j.version>1.7.30</slf4j.version>
+     <log4j.version>1.2.17</log4j.version>
+-    <hadoop.version>3.3.1</hadoop.version>
++    <hadoop.version>3.2.4</hadoop.version>
+     <!-- SPARK-42188: When updating `protobuf.version`, also need to update `protoVersion` in `SparkBuild.scala` -->
+     <protobuf.version>2.5.0</protobuf.version>
+     <yarn.version>${hadoop.version}</yarn.version>
+@@ -293,7 +293,7 @@
+         See https://storage-download.googleapis.com/maven-central/index.html
+       -->
+       <name>GCS Maven Central mirror</name>
+-      <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
++      <url>https://maven.aliyun.com/repository/public</url>
+       <releases>
+         <enabled>true</enabled>
+       </releases>
+@@ -307,7 +307,7 @@
+       -->
+       <id>central</id>
+       <name>Maven Repository</name>
+-      <url>https://repo.maven.apache.org/maven2</url>
++      <url>https://maven.aliyun.com/repository/public</url>
+       <releases>
+         <enabled>true</enabled>
+       </releases>
+@@ -324,7 +324,7 @@
+         See https://storage-download.googleapis.com/maven-central/index.html
+       -->
+       <name>GCS Maven Central mirror</name>
+-      <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
++      <url>https://maven.aliyun.com/repository/public</url>
+       <releases>
+         <enabled>true</enabled>
+       </releases>
+@@ -334,7 +334,7 @@
+     </pluginRepository>
+     <pluginRepository>
+       <id>central</id>
+-      <url>https://repo.maven.apache.org/maven2</url>
++      <url>https://maven.aliyun.com/repository/public</url>
+       <releases>
+         <enabled>true</enabled>
+       </releases>
