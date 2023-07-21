@@ -4,7 +4,7 @@
     <!-- 记录 Hive 中的元数据信息在 mysql 中 -->
     <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://master:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
+        <value>jdbc:mysql://${hive_host}:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
         <description>连接数据库用户名称</description>
     </property>
     <!-- jdbc mysql驱动 -->
@@ -16,12 +16,12 @@
     <!-- mysql 的用户名和密码 -->
     <property>
         <name>javax.jdo.option.ConnectionUserName</name>
-        <value>issac</value>
+        <value>${user}</value>
         <description>连接数据库用户名称</description>
     </property>
     <property>
         <name>javax.jdo.option.ConnectionPassword</name>
-        <value>111111</value>
+        <value>${password}</value>
         <description>连接数据库用户密码</description>
     </property>
     X
@@ -111,7 +111,7 @@
     <!-- 设置 metastore 的节点信息 -->
     <property>
         <name>hive.metastore.uris</name>
-        <value>thrift://master:9083</value>
+        <value>thrift://${metastore_host}:9083</value>
         <description>主节点元数据服务</description>
     </property>
     
@@ -157,19 +157,19 @@
     
     <property>
         <name>hive.server2.thrift.client.user</name>
-        <value>issac</value>
+        <value>${user}</value>
         <description>Username to use against thrift client</description>
     </property>
     <property>
         <name>hive.server2.thrift.client.password</name>
-        <value>111111</value>
+        <value>${password}</value>
         <description>Password to use against thrift client</description>
     </property>
     
     <!-- Spark 依赖位置（注意：端口号 9000 必须和 namenode 的端口号一致） -->
     <property>
         <name>spark.yarn.jars</name>
-        <value>hdfs://master:9000/spark/jars/*</value>
+        <value>hdfs://${namenode_host_port}/spark/jars/*</value>
     </property>
     
     <!-- Hive 执行引擎 -->
