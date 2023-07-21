@@ -90,7 +90,7 @@ function append_param()
 # 添加到环境变量（$1：配置文件中变量的 key，$1：，$2：软件版本号，$3：是否为系统环境变量）
 function append_env()
 {
-    echo "    ******************************* 添加环境变量 *******************************    "
+    echo "    ************************** 添加环境变量 ***************************    "
     local software_name variate_key variate_value password env_file exist
     
     software_name=$(echo "$1" | awk -F '.' '{print $1}')
@@ -277,7 +277,7 @@ function hadoop_install()
     append_env "hadoop.home" "${hadoop_version}"
     
     password=$(get_password)
-    echo "${password}" | sudo -S sed -i "s|\${HADOOP_HOME}\/bin|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${user}.sh"
+    echo "${password}" | sudo -S sed -i "s|\${HADOOP_HOME}\/bin$|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${user}.sh"
     append_param "export HADOOP_CLASSPATH=\$(hadoop classpath)"                  "/etc/profile.d/${user}.sh"
     append_param "                                            "                  "/etc/profile.d/${user}.sh"
     
@@ -312,7 +312,7 @@ function hadoop_install()
 function spark_install()
 {
     echo "    ************************* 开始安装 Spark *************************    "
-    local hadoop_version spark_version spark_src_url folder host_list host host_name name
+    local hadoop_version spark_version spark_src_url folder host_list host host_name password name
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     SCALA_HOME=$(get_param "scala.home")                                       # 获取 java   安装路径
@@ -336,10 +336,11 @@ function spark_install()
     { git checkout "v${spark_version}"; mvn clean; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     
     # 应用补丁，包含 commit 内容
-    # git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/../patch/spark-${spark_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/../patch/spark-${spark_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     # git am "${ROOT_DIR}/../patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
     
     echo "    ************************ 编译 Spark-${spark_version} ************************    "
+    rm -rf "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"
     ./dev/make-distribution.sh --name build --tgz                               \
                                -Phive-3.1 -Phive-thriftserver -Phadoop-3.2      \
                                -Phadoop-provided -Pyarn -Pscala-2.12            \
@@ -351,7 +352,7 @@ function spark_install()
     cp -fpr "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"  "${ROOT_DIR}/package/${name}"
     file_decompress "spark.url" "${SPARK_HOME}"
     
-    echo "    ************************* 修改 Spark 配置文件 *************************    "
+    echo "    *********************** 修改 Spark 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/conf/spark-env.sh"        "${SPARK_HOME}/conf/"
     cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf" "${SPARK_HOME}/conf/"
     sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"        "${SPARK_HOME}/conf/spark-env.sh"
@@ -369,19 +370,24 @@ function spark_install()
         fi
     done
     
+    password=$(get_password)
+    append_env "spark.home" "${spark_version}"                                 # 添加环境变量
+    echo "${password}" | sudo -S sed -i "s|\${SPARK_HOME}\/bin$|\${SPARK_HOME}\/bin:\${SPARK_HOME}\/sbin|g" "/etc/profile.d/${USER}.sh"
     distribute_file "${SPARK_HOME}/"                                           # 将 Spark 目录同步到其它节点
     
-    echo "    ******************* 上传 Spark 依赖 到 HDFS *********************    "
+    echo "    ******************** 上传 Spark 依赖 到 HDFS *********************    "
     file_decompress "spark.nohadoop.url"                                       # 解压不带 Hadoop 的Spark 包
     folder=$(ls -F | grep "/$")
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /spark/jars /spark/logs /spark/history
     "${HADOOP_HOME}/bin/hadoop" fs -put   -f  "${ROOT_DIR}/package/${folder}jars"/* /spark/jars/
     
-    echo "    *********************** 启动 Spark 集群 *************************    "
+    echo "    ************************ 启动 Spark 集群 *************************    "
+    cp -fpr "${ROOT_DIR}/script/apache/spark.sh"  "${SPARK_HOME}/bin/"         # 复制 Spark 脚本
+     
     # 启动 Spark 集群和历史服务器
     { "${SPARK_HOME}/sbin/start-all.sh"; "${SPARK_HOME}/sbin/start-history-server.sh"; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
     
-    echo "    ****************** 测试 Spark Standalone 集群 ********************    "
+    echo "    ******************* 测试 Spark Standalone 集群 *******************    "
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
                                      --master local[*]                         \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
@@ -389,34 +395,34 @@ function spark_install()
     grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
     
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
-                                     --master spark://master:7077              \
+                                     --master      spark://master:7077         \
                                      --deploy-mode cluster                     \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "exception" "${ROOT_DIR}/logs/${LOG_FILE}"
+    grep -ni "caused by" "${ROOT_DIR}/logs/${LOG_FILE}"
     
-    echo "    ********************* 测试 Spark Yarn 集群 ***********************    "
+    echo "    ********************** 测试 Spark Yarn 集群 **********************    "
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
-                                     --master yarn                             \
-                                     --deploy-mode cluster                     \
-                                     --driver-memory 1G                        \
+                                     --master          yarn                    \
+                                     --deploy-mode     cluster                 \
+                                     --driver-memory   1G                      \
                                      --executor-memory 1G                      \
-                                     --num-executors 3                         \
-                                     --executor-cores 2                        \
+                                     --num-executors   3                       \
+                                     --executor-cores  2                       \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
     
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
-                                     --master yarn                             \
-                                     --deploy-mode client                      \
-                                     --driver-memory 1G                        \
+                                     --master          yarn                    \
+                                     --deploy-mode     client                  \
+                                     --driver-memory   1G                      \
                                      --executor-memory 1G                      \
-                                     --num-executors 3                         \
-                                     --executor-cores 2                        \
+                                     --num-executors   3                       \
+                                     --executor-cores  2                       \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "exception" "${ROOT_DIR}/logs/${LOG_FILE}"
+    grep -ni "caused by" "${ROOT_DIR}/logs/${LOG_FILE}"
 }
 
 
@@ -448,7 +454,7 @@ function kafka_install()
 function hive_install()
 {
     echo "    ************************* 开始安装 Hive **************************    "
-    local hadoop_version spark_version hive_version folder host_list host host_name
+    local hadoop_version spark_version hive_version hive_src_url host_list host host_name
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
@@ -457,29 +463,32 @@ function hive_install()
     hadoop_version=$(get_version "hadoop.url")
     hive_version=$(get_version "hive.url")
     
-    echo "    ************************* 编译 Hive *************************    "
+    echo "    ******************* 获取 Hive 的源码并应用补丁 *******************    "
     mkdir -p "${ROOT_DIR}/src"                                                 # 创建源码保存目录
     cd "${ROOT_DIR}/src" || exit                                               # 进入目录
     
     hive_src_url=$(read_param "hive.resource.url")                             # 获取 Hive 源码路径
-    cd spark || exit                                                           # 进入 Hive 源码路径
-    git clone    "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1    # 将 Hive 源码克隆到本地
+    cd hive || exit                                                            # 进入 Hive 源码路径
+    git clone  "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1    # 将 Hive 源码克隆到本地
     git checkout "rel/release-${hive_version}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 切换到 需要的分支
     git am "${ROOT_DIR}/../patch/hive-${hive_version}.patch"                             # 应用补丁
+    
+    echo "    *************************** 编译 Hive ****************************    "
     mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
     
-    echo "    ************************* 解压安装 Hive *************************    "
-    tar -zxvf "spark-${spark_version}-bin-build.tgz"                           # 解压 Spark 安装包
-    mkdir -p "${SPARK_HOME}"
-    mv "spark-${spark_version}-bin-build/*" "${SPARK_HOME}"
+    echo "    ************************* 解压安装 Hive **************************    "
+    cp -fpr "${ROOT_DIR}/src/hive/"  "${ROOT_DIR}/package/"        
+    file_decompress "hive.url"  "${HIVE_HOME}"                                           # 解压 Hive 包
     
-    echo "    *************************修改 Spark 配置文件 *************************    "
-    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"        "${SPARK_HOME}/conf"
-    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf" "${SPARK_HOME}/conf"
-    sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"        "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${SCALA_HOME}|${SCALA_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"    "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${SPARK_HOME}|${SPARK_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
+    echo "    *********************** 修改 Hive 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/conf/hive-beeline-site.xml"  "${HIVE_HOME}/conf/beeline-site.xml"
+    cp -fpr "${ROOT_DIR}/conf/hive-site.xml"          "${HIVE_HOME}/conf/"
+    
+    sed -i "s|\${hive2_host_port}|${hive2_host_port}|g" "${HIVE_HOME}/conf/beeline-site.xml"
+    sed -i "s|\${hive2_host_port}|${hive2_host_port}|g" "${HIVE_HOME}/conf/beeline-site.xml"
+    
+    cp -fpr "${ROOT_DIR}/conf/hive-site.xml"          "${SPARK_HOME}/conf/"
+    cp -fpr "${SPARK_HOME}/conf/spark-defaults.conf"  "${HIVE_HOME}/conf/"    
     
     host_list=$(get_param "server.hosts" | tr ',' ' ')
     for host in ${host_list}
@@ -490,10 +499,10 @@ function hive_install()
         fi
     done
     
-    echo "    *********************** 分发到其它节点 *************************    "
+    echo "    ************************ 分发到其它节点 **************************    "
     distribute_file "${SPARK_HOME}/"
     
-    echo "    *********************** 测试 Spark 集群 *************************    "
+    echo "    ************************ 测试 Spark 集群 *************************    "
     file_decompress "spark.nohadoop.url"                                       # 解压不带 Hadoop 的Spark 包
     folder=$(ls -F | grep "/$")
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /spark/jars /spark/logs /spark/history
