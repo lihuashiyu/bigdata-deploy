@@ -4,10 +4,10 @@
     <!-- 记录 Hive 中的元数据信息在 mysql 中 -->
     <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://${hive_host}:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
+        <value>jdbc:mysql://${hive_mysql_host}:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
         <description>连接数据库用户名称</description>
     </property>
-    <!-- jdbc mysql驱动 -->
+    <!-- jdbc mysql 驱动 -->
     <property>
         <name>javax.jdo.option.ConnectionDriverName</name>
         <value>com.mysql.cj.jdbc.Driver</value>
@@ -16,15 +16,15 @@
     <!-- mysql 的用户名和密码 -->
     <property>
         <name>javax.jdo.option.ConnectionUserName</name>
-        <value>${user}</value>
+        <value>${mysql_user}</value>
         <description>连接数据库用户名称</description>
     </property>
     <property>
         <name>javax.jdo.option.ConnectionPassword</name>
-        <value>${password}</value>
+        <value>${mysql_password}</value>
         <description>连接数据库用户密码</description>
     </property>
-    X
+    
     <!-- Hive 元数据存储版本的验证 -->
     <property>
         <name>hive.metastore.schema.verification</name>
@@ -111,7 +111,7 @@
     <!-- 设置 metastore 的节点信息 -->
     <property>
         <name>hive.metastore.uris</name>
-        <value>thrift://${metastore_host}:9083</value>
+        <value>thrift://${metastore_host_port}</value>
         <description>主节点元数据服务</description>
     </property>
     
@@ -157,12 +157,12 @@
     
     <property>
         <name>hive.server2.thrift.client.user</name>
-        <value>${user}</value>
+        <value>${hive_user}</value>
         <description>Username to use against thrift client</description>
     </property>
     <property>
         <name>hive.server2.thrift.client.password</name>
-        <value>${password}</value>
+        <value>${hive_password}</value>
         <description>Password to use against thrift client</description>
     </property>
     

@@ -3,11 +3,11 @@
 <configuration>
     <property>
         <name>beeline.hs2.jdbc.url.tcpUrl</name>
-        <value>jdbc:hive2://${hive2_host_port}/default;user=${user};password=${password}</value>
+        <value>jdbc:hive2://${server2_host_port}/default;user=${hive_user};password=${hive_password}</value>
     </property>
     <property>
         <name>beeline.hs2.jdbc.url.httpUrl</name>
-        <value>jdbc:hive2://${hive2_host_port}/default;user=${user};password=${password};transportMode=http;httpPath=cliservice</value>
+        <value>jdbc:hive2://${server2_host_port}/default;user=${hive_user};password=${hive_password};transportMode=http;httpPath=cliservice</value>
     </property>
     <property>
         <name>beeline.hs2.jdbc.url.default</name>
