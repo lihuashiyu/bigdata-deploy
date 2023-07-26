@@ -23,6 +23,7 @@ ZOOKEEPER_HOME="/opt/apache/zookeeper"                                         #
 KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka  默认安装路径 
 HIVE_HOME="/opt/apache/hive"                                                   # Hive   默认安装路径 
 DORIS_HOME="/opt/apache/doris"                                                 # Doris  默认安装路径 
+FLUME_HOME="/opt/apache/flume"                                                 # Flume  默认安装路径 
 
 
 # 读取配置文件，获取配置参数
@@ -215,10 +216,10 @@ function get_version()
 }
 
 
-# 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
+# 分发文件到其它节点（$1：需要分发的文件路径）
 function distribute_file()
 {
-    echo "    *********************** 分发到其它节点 *************************    "
+    echo "    ************************ 分发到其它节点 **************************    "
     local password
     password=$(get_password)
     
@@ -438,7 +439,42 @@ function flink_install()
 function zookeeper_install()
 {
     echo "    *********************** 开始安装 Zookeeper ***********************    "
+    local zookeeper_version host_list host id
     
+    ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装路径
+    file_decompress "zookeeper.url" "${ZOOKEEPER_HOME}"                        # 解压 Zookeeper 安装包
+    mkdir -p "${ZOOKEEPER_HOME}/data" "${ZOOKEEPER_HOME}/logs"                 # 创建必要的目录
+    
+    echo "    ******************** 修改 zookeeper 配置文件 *********************    "
+    cp -fpr "${ROOT_DIR}/script/apache/zookeeper.sh"         "${ZOOKEEPER_HOME}/bin"               # 复制启停脚本
+    cp -fpr "${ROOT_DIR}/conf/zookeeper-zoo.cfg"             "${ZOOKEEPER_HOME}/conf/zoo.cfg"      # 复制配置文件
+    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"        "${ZOOKEEPER_HOME}/conf/zoo.cfg"      # 修改配置文件中的参数
+    
+    host_list=$(get_param "zookeeper.hosts" | tr ',' ' ')
+    
+    # 添加 Zookeeper 服务器唯一标识
+    id=1
+    for host in ${host_list}
+    do
+        append_param "server.${id}=${host}:2888:3888" "${ZOOKEEPER_HOME}/conf/zoo.cfg"
+        id=$((id + 1))
+    done
+    
+    zookeeper_version=$(get_version "zookeeper.url")                           # 获取 zookeeper 的版本
+    append_env "zookeeper.home" "${zookeeper_version}"                         # 添加环境变量
+    distribute_file "${ZOOKEEPER_HOME}"                                        # 分发到其它节点
+    
+    echo "    ******************** 修改 zookeeper 唯一标识 *********************    "
+    id=1
+    for host in ${host_list}
+    do
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|${host}:2888:3888|0.0.0.0:2888:3888|g' '${ZOOKEEPER_HOME}/conf/zoo.cfg' "
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; echo '${id}' > ${ZOOKEEPER_HOME}/data/myid"
+        id=$((id + 1))
+    done
+    
+    echo "    ********************** 启动 zookeeper 集群 ***********************    "
+    "${ZOOKEEPER_HOME}/bin/zookeeper.sh" start
 }
 
 
@@ -446,7 +482,44 @@ function zookeeper_install()
 function kafka_install()
 {
     echo "    ************************* 开始安装 Kafka *************************    "
+    local kafka_version host_list host id kafka_zookeeper_node bootstrap_servers
     
+    KAFKA_HOME=$(get_param "kafka.home")                                       # 获取 Kafka 安装路径
+    file_decompress "kafka.url" "${KAFKA_HOME}"                                # 解压 Kafka 安装包
+    mkdir -p "${KAFKA_HOME}/data" "${KAFKA_HOME}/logs"                         # 创建必要的目录
+    
+    echo "    ********************** 修改 kafka 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/script/apache/kafka.sh"       "${KAFKA_HOME}/bin/"                        # 复制启停脚本
+    cp -fpr "${ROOT_DIR}/conf/kafka-server.properties" "${KAFKA_HOME}/config/server.properties"    # 复制配置文件
+    
+    # 修改 Producer 参数
+    bootstrap_servers=$(get_param "kafka.hosts" | awk '{gsub(/,/,":9092,");print $0}')
+    sed -i "s|bootstrap.servers=.*|bootstrap.servers=${bootstrap_servers}|g" "${KAFKA_HOME}/config/producer.properties"
+    sed -i "s|compression.type=.*|compression.type=gzip|g"                   "${KAFKA_HOME}/config/producer.properties"
+    
+    # 修改配 Broker 置文件参数
+    kafka_zookeeper_node=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
+    sed -i "s|\${KAFKA_HOME}|${KAFKA_HOME}|g"                     "${KAFKA_HOME}/config/server.properties"
+    sed -i "s|\${kafka_zookeeper_node}|${kafka_zookeeper_node}|g" "${KAFKA_HOME}/config/server.properties"
+    
+    # 修改 Consumer 参数
+    sed -i "s|bootstrap.servers=.*|bootstrap.servers=${bootstrap_servers}|g" "${KAFKA_HOME}/config/consumer.properties"
+    
+    kafka_version=$(get_version "kafka.url")                                   # 获取 Kafka 的版本
+    append_env "kafka.home" "${kafka_version}"                                 # 添加环境变量
+    distribute_file "${KAFKA_HOME}"                                            # 分发到其它节点
+    
+    echo "    ********************** 修改 Kafka 唯一标识 ***********************    "
+    host_list=$(get_param "kafka.hosts" | tr ',' ' ')
+    id=1
+    for host in ${host_list}
+    do
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|\${id}|${id}|g' '${KAFKA_HOME}/config/server.properties'"
+        id=$((id + 1))
+    done
+    
+    echo "    ************************ 启动 Kafka 集群 *************************    "
+    "${KAFKA_HOME}/bin/kafka.sh" start
 }
 
 
@@ -614,7 +687,29 @@ function phoenix_install()
 function flume_install()
 {
     echo "    ************************* 开始安装 Flume *************************    "
+    local flume_version 
     
+    FLUME_HOME=$(get_param "flume.home")                                       # 获取 Flume 安装路径
+    file_decompress "flume.url" "${FLUME_HOME}"                                # 解压 Flume 安装包
+    mkdir -p "${FLUME_HOME}/logs"                                              # 创建必要的目录
+    
+    echo "    ********************** 修改 Flume 配置文件 ***********************    "
+    touch "${FLUME_HOME}/conf/flume-env.sh"
+    append_param "export JAVA_HOME=${JAVA_HOME}"                                          "${FLUME_HOME}/conf/flume-env.sh"
+    append_param "export JAVA_OPTS=\"-Xms256m -Xmx512m -Dcom.sun.management.jmxremote\""  "${FLUME_HOME}/conf/flume-env.sh"
+    sed -i "s|^JAVA_OPTS=.*|JAVA_OPTS=\"-Xms256m -Xmx512m\"|g"                            "${FLUME_HOME}/bin/flume-ng"
+    sed -i "s|>.<|>${FLUME_HOME}/logs<|g"                                                 "${FLUME_HOME}/conf/log4j2.xml"
+    
+    echo "    ****************** 解决 Flume 与 Hadoop 兼容性 *******************    "
+    # 删除 flume 旧版本的 guava，和 hadoop 保持一致
+    rm "${FLUME_HOME}/lib/guava-11.0.2.jar"
+    cp -fpr "${HADOOP_HOME}/share/hadoop/common/lib/guava-27.0-jre.jar" "${FLUME_HOME}/lib/" 
+    cp -fpr "${HADOOP_HOME}/etc/hadoop/core-site.xml"      "${FLUME_HOME}/conf/"
+    cp -fpr "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"      "${FLUME_HOME}/conf/"
+    
+    flume_version=$(get_version "flume.url")                                   # 获取 Kafka 的版本
+    append_env "flume.home" "${flume_version}"                                 # 添加环境变量
+    distribute_file "${FLUME_HOME}"                                            # 分发到其它节点
 }
 
 
