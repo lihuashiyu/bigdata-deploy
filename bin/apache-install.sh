@@ -360,8 +360,8 @@ function spark_install()
     { git checkout "v${spark_version}"; mvn clean; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     
     # 应用补丁，包含 commit 内容
-    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/../patch/spark-${spark_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    # git am "${ROOT_DIR}/../patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
+    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/spark-${spark_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # git am "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
     
     echo "    ************************ 编译 Spark-${spark_version} ************************    "
     rm -rf "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"
@@ -644,7 +644,7 @@ function hive_install()
     
     cd hive || exit                                                            # 进入 Hive 源码路径
     git checkout "rel/release-${hive_version}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                  # 切换到 需要的分支
-    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/../patch/hive-${hive_version}.patch"  # 应用补丁
+    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/hive-${hive_version}.patch"  # 应用补丁
     
     echo "    *************************** 编译 Hive ****************************    "
     mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
