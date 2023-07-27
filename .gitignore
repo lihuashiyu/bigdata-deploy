@@ -24,7 +24,7 @@
 hs_err_pid*
 .idea
 *.iml
-/*/logs
+/logs
 .gitignore
 /shell/test/
-/deploy/test/
+/test/
