@@ -14,16 +14,18 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
-JAVA_HOME="/opt/java/jdk"                                                      # Java   默认安装路径  
-SCALA_HOME="/opt/java/scala"                                                   # Scala  默认安装路径  
-HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop 默认安装路径 
-SPARK_HOME="/opt/apache/spark"                                                 # Spark  默认安装路径 
-FLINK_HOME="/opt/apache/flink"                                                 # Flink  默认安装路径 
+JAVA_HOME="/opt/java/jdk"                                                      # Java     默认安装路径  
+SCALA_HOME="/opt/java/scala"                                                   # Scala    默认安装路径  
+HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop   默认安装路径 
+SPARK_HOME="/opt/apache/spark"                                                 # Spark    默认安装路径 
+FLINK_HOME="/opt/apache/flink"                                                 # Flink    默认安装路径 
 ZOOKEEPER_HOME="/opt/apache/zookeeper"                                         # Zookeeper  默认安装路径 
-KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka  默认安装路径 
-HIVE_HOME="/opt/apache/hive"                                                   # Hive   默认安装路径 
-DORIS_HOME="/opt/apache/doris"                                                 # Doris  默认安装路径 
-FLUME_HOME="/opt/apache/flume"                                                 # Flume  默认安装路径 
+KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka    默认安装路径 
+HIVE_HOME="/opt/apache/hive"                                                   # Hive     默认安装路径 
+DORIS_HOME="/opt/apache/doris"                                                 # Doris    默认安装路径 
+FLUME_HOME="/opt/apache/flume"                                                 # Flume    默认安装路径 
+HBASE_HOME="/opt/apache/hbase"                                                 # HBase    默认安装路径 
+PHOENIX_HOME="/opt/apache/phoenix"                                             # Phoenix  默认安装路径 
 
 
 # 读取配置文件，获取配置参数
@@ -235,6 +237,27 @@ function distribute_file()
 }
 
 
+# 获取 cpu 超线程数
+function get_cpu_thread()
+{
+    local physical_count core_count processor_count thread 
+    
+    # 查看物理 CPU 个数
+    physical_count=$(grep -i "physical id" /proc/cpuinfo | sort | uniq | wc -l)
+    
+    # 查看每个物理 CPU 中 core 的个数(即核数)
+    core_count=$(grep -i "cpu cores" /proc/cpuinfo | uniq | awk '{print $NF}')
+    
+    # 查看逻辑 CPU 的个数
+    processor_count=$(grep -ci "processor" /proc/cpuinfo)
+    
+    # 总逻辑 CPU 数 = 物理 CPU 个数 X 每颗物理 CPU 的核数 X 超线程数
+    thread=$(( physical_count * core_count * processor_count ))
+    
+    echo "${thread}"
+}
+
+
 # 安装并初始化 Hadoop
 function hadoop_install()
 {
@@ -431,6 +454,79 @@ function spark_install()
 function flink_install()
 {
     echo "    ************************* 开始安装 Flink *************************    "
+    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list folder
+    
+    FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
+    file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
+    
+    # 创建必要的目录
+    mkdir -p "${FLINK_HOME}/data/execute-tmp" "${FLINK_HOME}/data/web-tmp" "${FLINK_HOME}/logs" 
+    
+    echo "    ********************** 修改 Flink 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/script/apache/flink.sh"  "${FLINK_HOME}/bin"          # 复制启停脚本
+    cp -fpr "${ROOT_DIR}/conf/flink-conf.yaml"    "${FLINK_HOME}/conf/"        # 复制配置文件
+    
+    JAVA_HOME=$(get_param "java.home")                                         # 获取 Java     安装目录
+    HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop   安装目录
+    cpu_thread=$(get_cpu_thread)                                               # 获取 CPU      线程数
+    namenode_host_port=$(get_param "namenode.host.port")                       # 获取 NameNode 地址
+    zookeeper_hosts=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
+    
+    sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"                    "${FLINK_HOME}/conf/flink-conf.yaml" 
+    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                "${FLINK_HOME}/conf/flink-conf.yaml" 
+    sed -i "s|\${FLINK_HOME}|${FLINK_HOME}|g"                  "${FLINK_HOME}/conf/flink-conf.yaml" 
+    sed -i "s|\${cpu_thread}|${cpu_thread}|g"                  "${FLINK_HOME}/conf/flink-conf.yaml" 
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${FLINK_HOME}/conf/flink-conf.yaml" 
+    sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"        "${FLINK_HOME}/conf/flink-conf.yaml" 
+    
+    master_list=$(get_param "flink.job.managers"  | tr ',' ' ')
+    worker_list=$(get_param "flink.task.managers" | tr ',' ' ')
+    
+    # 修改 masters 
+    cat /dev/null > "${FLINK_HOME}/conf/masters"
+    for host in ${master_list}
+    do
+        append_param "${host}:8083" "${FLINK_HOME}/conf/masters"
+    done
+     
+    # 修改 workers 
+    cat /dev/null > "${FLINK_HOME}/conf/workers"
+    for host in ${worker_list}
+    do
+        append_param "${host}" "${FLINK_HOME}/conf/workers"
+    done
+    
+    flink_version=$(get_version "flink.url")                                   # 获取 Flink 的版本
+    append_env "flink.home" "${flink_version}"                                 # 添加环境变量
+    distribute_file "${FLINK_HOME}"                                            # 分发到其它节点
+    
+    echo "    ********************* 修改 TaskManager 参数 **********************    "
+    host_list=$(get_param "flink.hosts" | tr ',' ' ')
+    for host in ${host_list}
+    do
+         ssh "${USER}@${host}" "sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
+    done
+    
+    echo "    ************************ 上传依赖到 HDFS *************************    "
+    # 在 HDFS 上创建必要的目录
+    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/check-point  /flink/save-point    /flink/completed  \
+                                              /flink/history      /flink/ha            /flink/libs/lib   \
+                                              /flink/libs/opt     /flink/libs/plugins  /flink/libs/custom     
+    # 将依赖 jar 上传到 HDFS
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/lib/*.jar        /flink/libs/lib
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/opt/*.jar        /flink/libs/opt
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/plugins/*/*.jar  /flink/libs/plugins
+    
+    echo "    ************************ 启动 Flink 集群 *************************    "
+    "${FLINK_HOME}/bin/start-cluster.sh"
+    # "${FLINK_HOME}/bin/flink.sh" start
+    
+    echo "    ********************** 测试 Standalone 集群 **********************    "
+    "${FLINK_HOME}/bin/flink" run "${FLINK_HOME}/examples/batch/WordCount.jar"      \
+                                   --input  "hdfs://${namenode_host_port}/flink/test/wc/input"  \
+                                   --output "hdfs://${namenode_host_port}/flink/test/wc/output"
+    
+    echo "    ************************* 测试 Yarn 集群 *************************    "
     
 }
 
@@ -671,6 +767,34 @@ function doris_install()
 function hbase_install()
 {
     echo "    ************************* 开始安装 HBase *************************    "
+    local namenode_host_port zookeeper_hosts hbase_version master_list worker_list host host_list
+    
+    HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
+    file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
+    mkdir -p "${HBASE_HOME}/data" "${HBASE_HOME}/logs"                         # 创建必要的目录 
+    
+    echo "    ********************** 修改 HBase 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/script/apache/hbase.sh"  "${HBASE_HOME}/bin"          # 复制启停脚本
+    cp -fpr "${ROOT_DIR}/conf/hbase-site.xml"     "${HBASE_HOME}/conf/"        # 复制配置文件
+
+    JAVA_HOME=$(get_param "java.home")                                         # 获取 Java      安装目录
+    HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop    安装目录    
+    ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装目录    
+    append_param "export JAVA_HOME=${JAVA_HOME}"           "${HBASE_HOME}/conf/hbase-env.sh"
+    append_param "export HBASE_HEAPSIZE=4G"                "${HBASE_HOME}/conf/hbase-env.sh"
+    append_param "export HBASE_LOG_DIR=${HBASE_HOME}/logs" "${HBASE_HOME}/conf/hbase-env.sh"
+    append_param "export HBASE_PID_DIR=${HBASE_HOME}/data" "${HBASE_HOME}/conf/hbase-env.sh"
+    append_param "export HBASE_MANAGES_ZK=false"           "${HBASE_HOME}/conf/hbase-env.sh"
+    
+    zookeeper_hosts=$(get_param "zookeeper.hosts")
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g" "${HBASE_HOME}/conf/hbase-site.xml"
+    sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"       "${HBASE_HOME}/conf/hbase-site.xml"
+    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"         "${HBASE_HOME}/conf/hbase-site.xml"
+    
+        
+    hbase_version=$(get_version "hbase.url")                                   # 获取 zookeeper 的版本
+    append_env "hbase.home" "${hbase_version}"                                 # 添加环境变量
+    distribute_file "${HBASE_HOME}"                                            # 分发到其它节点
     
 }
 
@@ -687,13 +811,16 @@ function phoenix_install()
 function flume_install()
 {
     echo "    ************************* 开始安装 Flume *************************    "
-    local flume_version 
+    local flume_version number count
     
     FLUME_HOME=$(get_param "flume.home")                                       # 获取 Flume 安装路径
     file_decompress "flume.url" "${FLUME_HOME}"                                # 解压 Flume 安装包
     mkdir -p "${FLUME_HOME}/logs"                                              # 创建必要的目录
     
     echo "    ********************** 修改 Flume 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/conf/flume-file-console.properties"  "${FLUME_HOME}/conf/"
+    sed -i "s|\${FLUME_HOME}|${FLUME_HOME}|g"                 "${FLUME_HOME}/conf/file-console.properties"
+    
     touch "${FLUME_HOME}/conf/flume-env.sh"
     append_param "export JAVA_HOME=${JAVA_HOME}"                                          "${FLUME_HOME}/conf/flume-env.sh"
     append_param "export JAVA_OPTS=\"-Xms256m -Xmx512m -Dcom.sun.management.jmxremote\""  "${FLUME_HOME}/conf/flume-env.sh"
@@ -710,6 +837,31 @@ function flume_install()
     flume_version=$(get_version "flume.url")                                   # 获取 Kafka 的版本
     append_env "flume.home" "${flume_version}"                                 # 添加环境变量
     distribute_file "${FLUME_HOME}"                                            # 分发到其它节点
+    
+    echo "    *************************** 测试 Flume ***************************    "
+    touch "${FLUME_HOME}/logs/file-console.log"
+    nohup "${FLUME_HOME}/bin/flume-ng" agent -c conf                                         \
+                                             -f "${FLUME_HOME}/conf/file-console.properties" \
+                                             -n a1 -Dflume.root.logger=INFO,console          \
+                                             > /dev/null 2>&1 &
+    number=10
+    while [[ "${number}" -gt 0 ]] 
+    do
+        echo "Test whether the software is working"  >> "${FLUME_HOME}/logs/file-console.log"
+        number=$((number - 1))
+    done
+    
+    sleep 1
+    ps -aux | grep -i "${USER}" | grep -i "${FLUME_HOME}/conf/file-console.properties" | grep -viE "grep|$0" | awk '{print $2}'  | xargs kill
+    sleep 1
+    
+    count=$(grep -cin "Test whether the software is working" "${FLUME_HOME}/logs/file-console.log")
+    
+    if [[ ${count} -eq 10 ]]; then
+        echo "    ************************* Flume 测试完成 *************************    "
+    else
+        echo "    ************************* Flume 测试失败 *************************    "
+    fi
 }
 
 
