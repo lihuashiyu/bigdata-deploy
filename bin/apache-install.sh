@@ -649,7 +649,8 @@ function hive_install()
     echo "    *************************** 编译 Hive ****************************    "
     mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
     
-    cp -fpr "${ROOT_DIR}/src/hive/"  "${ROOT_DIR}/package/"                              # 复制 Hive 安装包        
+    # 复制 Hive 安装包
+    cp -fpr "${ROOT_DIR}/src/hive/packaging/target/apache-hive-3.1.3-bin.tar.gz"  "${ROOT_DIR}/package/"        
     file_decompress "hive.url"  "${HIVE_HOME}"                                           # 解压 Hive 并安装
     
     echo "    *********************** 修改 Hive 配置文件 ***********************    "
