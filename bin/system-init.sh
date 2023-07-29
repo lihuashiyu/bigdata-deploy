@@ -259,11 +259,29 @@ function install_rpm()
 function add_execute()
 {
     echo "    ***************************** 添加可执行权限 *****************************    "
-    find "${ROOT_DIR}" -iname "*.sh" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    find "${ROOT_DIR}" -iname "*.sh" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # 定义变量
+    local item server_hosts=" "
     
-    cp -frp  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/
-    cp -frp  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/
+    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    # 获取所有主机名
+    for item in $(get_param "server.hosts" "," " ")
+    do
+        server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
+    done
+    
+    # 将 集群间查看命令 脚本复制到系统路径
+    if [ ! -e /usr/bin/xcall.sh ]; then
+        cp -frp  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/
+        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/other/xcall.sh"
+    fi
+    
+    # 将 集群之间进行文件同步 脚本复制到系统路径
+    if [ ! -e /usr/bin/xcall.sh ]; then
+        cp -frp  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/
+        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/other/xync.sh"
+    fi
 }
 
 

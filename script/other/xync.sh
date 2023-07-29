@@ -9,9 +9,10 @@
 # =========================================================================================
 
 
-HOST_LIST=(master slaver1 slaver2 slaver3)                 # 集群主机
+HOST_LIST=(${server_hosts})               # 集群主机
 TARGET_PATH=$(pwd)/                                        # 目标路径
 USER=$(whoami)                                             # 获取当前登录用户
+ENABLE_LOGGING=true                                        # 是否开启日志记录
 
 # 1. 判断输入的参数个数，以及是文件夹还是文件
 if [ "$#" -gt 1 ]; then
@@ -23,7 +24,7 @@ elif [ -d "$1" ]; then
     TARGET_PATH=$(cd -P "$1" || exit; pwd)/
     echo "    文件夹：${TARGET_PATH} "
 elif [ -f "$1" ]; then
-    TARGET_PATH=$(cd -P $(dirname "$1") || exit; pwd)/$(basename "$1")
+    TARGET_PATH=$(cd -P "$(dirname "$1")" || exit; pwd)/$(basename "$1")
     echo "    文件：${TARGET_PATH} "
 else
     echo "    输入的路径（$1）不存在 ......   "
@@ -33,12 +34,21 @@ fi
 # 2. 遍历循环读取主机 ${HOST_LIST[@]}
 for host_name in "${HOST_LIST[@]}"
 do
-    printf "\n=================================== 向主机（${host_name}）同步数据 ===================================\n"    
-    # rsync -rvl --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
+    start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+    printf "\n================================== 向主机（%s）同步数据 ==================================\n" "${host_name}"
     
-    # 执行同步
-    rsync -zav --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
+    # 3. 执行同步
+    # rsync -rvl --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
+    if ${ENABLE_LOGGING}; then
+        rsync -zav --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
+    else
+        rsync -zav --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}" > /dev/null 2>&1
+    fi
+    
+    end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+    echo ""
+    echo "    向主机（%s）同步数据共消耗：$(( end - start ))s ...... "
 done
-
+    
 printf "\n======================================== 数据同步结束 ========================================\n\n"
 exit 0
