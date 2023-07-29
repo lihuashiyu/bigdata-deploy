@@ -257,10 +257,21 @@ function add_execute()
 {
     echo "    ***************************** 添加可执行权限 *****************************    "
     # 定义变量
-    local item server_hosts=" "
+    local file file_list dos_line_feed_count item server_hosts=" "
     
-    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    file_list=$(find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py")             # 获取所有需要修改的文件
+    for file in ${file_list}
+    do
+        dos_line_feed_count=$(grep -cin "\r\n" "${file}")                      # 获取文件 Windows 换行符数量 
+        if [ "${dos_line_feed_count}" -gt 1 ]; then
+            dos2unix "${file}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1         # 将换行符改为 UNIX 格式
+            echo "${dos_line_feed_count} =================> ${file}"
+        fi
+        
+        if [ ! -x "${file}" ]; then
+            chmod +x "${file}" "${ROOT_DIR}/logs"                              # 给文件添加可执行权限
+        fi
+    done
     
     # 获取所有主机名
     for item in $(get_param "server.hosts" "," " ")
