@@ -257,21 +257,13 @@ function add_execute()
 {
     echo "    ***************************** 添加可执行权限 *****************************    "
     # 定义变量
-    local file file_list dos_line_feed_count item server_hosts=" "
+    local item server_hosts=" "
     
-    file_list=$(find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py")             # 获取所有需要修改的文件
-    for file in ${file_list}
-    do
-        dos_line_feed_count=$(grep -cin "\r\n" "${file}")                      # 获取文件 Windows 换行符数量 
-        if [ "${dos_line_feed_count}" -gt 1 ]; then
-            dos2unix "${file}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1         # 将换行符改为 UNIX 格式
-            echo "${dos_line_feed_count} =================> ${file}"
-        fi
-        
-        if [ ! -x "${file}" ]; then
-            chmod +x "${file}" "${ROOT_DIR}/logs"                              # 给文件添加可执行权限
-        fi
-    done
+    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 将文件 Windows 换行符改为 UNIX 格式
+    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 给脚本添加可执行权限
+    
+    cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/bin/                   # 将 集群间查看命令 脚本复制到系统路径
+    cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/bin/                   # 将 集群之间进行文件同步 脚本复制到系统路径
     
     # 获取所有主机名
     for item in $(get_param "server.hosts" "," " ")
@@ -279,17 +271,8 @@ function add_execute()
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
     
-    # 将 集群间查看命令 脚本复制到系统路径
-    if [ ! -e /usr/bin/xcall.sh ]; then
-        cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/bin/
-        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/system/xcall.sh"
-    fi
-    
-    # 将 集群之间进行文件同步 脚本复制到系统路径
-    if [ ! -e /usr/bin/xcall.sh ]; then
-        cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/bin/
-        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/system/xync.sh"
-    fi
+    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xcall.sh           # 修改集群 主机列表
+    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xync.sh            # 修改集群 主机列表
 }
 
 
