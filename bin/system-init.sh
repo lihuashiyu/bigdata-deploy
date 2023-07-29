@@ -202,9 +202,6 @@ function add_user()
     software_home=$(get_param "software.software.home")                        # 获取软件安装根路径
     chown -R "${user}:${user}" "${software_home}"                              # 将软件安装路径的权限授予新添加的用户
     
-    cp -fpr  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/                    # 添加 集群文件同步 脚本
-    cp -fpr  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/                    # 添加 集群命令     脚本
-    
     { echo ""; echo "set number"; echo ""; }  >> /etc/vimrc                    # 添加 vim 显示行号配置
 }
 
@@ -273,14 +270,14 @@ function add_execute()
     
     # 将 集群间查看命令 脚本复制到系统路径
     if [ ! -e /usr/bin/xcall.sh ]; then
-        cp -frp  "${ROOT_DIR}/script/other/xcall.sh"  /usr/bin/
-        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/other/xcall.sh"
+        cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/bin/
+        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/system/xcall.sh"
     fi
     
     # 将 集群之间进行文件同步 脚本复制到系统路径
     if [ ! -e /usr/bin/xcall.sh ]; then
-        cp -frp  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/
-        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/other/xync.sh"
+        cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/bin/
+        sed -i "s|\${server_hosts}|${server_hosts}|g" "${ROOT_DIR}/script/system/xync.sh"
     fi
 }
 
