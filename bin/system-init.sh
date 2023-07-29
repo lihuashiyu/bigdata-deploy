@@ -199,7 +199,7 @@ function add_user()
     touch "/etc/profile.d/${user}.sh"                                          # 为用户添加环境配置变量
     chown -R "${user}:${user}" "/etc/profile.d/${user}.sh"                     # 将文件的权限授予新添加的用户
     
-    software_home=$(get_param "software.home")
+    software_home=$(get_param "software.software.home")                        # 获取软件安装根路径
     chown -R "${user}:${user}" "${software_home}"                              # 将软件安装路径的权限授予新添加的用户
     
     cp -fpr  "${ROOT_DIR}/script/other/xync.sh"   /usr/bin/                    # 添加 集群文件同步 脚本
