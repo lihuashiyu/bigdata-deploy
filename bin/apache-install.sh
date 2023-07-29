@@ -348,7 +348,7 @@ function hadoop_install()
 function spark_install()
 {
     echo "    ************************* 开始安装 Spark *************************    "
-    local hadoop_version spark_version spark_src_url folder host_list host host_name password name
+    local hadoop_version spark_version spark_src_url folder host_list host host_name password name master_hosts namenode_host_port
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     SCALA_HOME=$(get_param "scala.home")                                       # 获取 java   安装路径
@@ -389,12 +389,18 @@ function spark_install()
     file_decompress "spark.url" "${SPARK_HOME}"
     
     echo "    *********************** 修改 Spark 配置文件 ***********************    "
-    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"        "${SPARK_HOME}/conf/"
-    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf" "${SPARK_HOME}/conf/"
-    sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"        "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${SCALA_HOME}|${SCALA_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"    "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${SPARK_HOME}|${SPARK_HOME}|g"      "${SPARK_HOME}/conf/spark-env.sh"
+    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"                    "${SPARK_HOME}/conf/"
+    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf"             "${SPARK_HOME}/conf/"
+    
+    master_hosts=$(get_param "spark.master.hosts")
+    namenode_host_port=$(get_param "namenode.host.port")
+    sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"                    "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${SCALA_HOME}|${SCALA_HOME}|g"                  "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${SPARK_HOME}|${SPARK_HOME}|g"                  "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${spark_master_hosts}|${master_hosts}|g"        "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${SPARK_HOME}/conf/spark-defaults.conf"
     
     touch "${SPARK_HOME}/conf/workers"
     host_list=$(get_param "server.hosts" | tr ',' ' ')
