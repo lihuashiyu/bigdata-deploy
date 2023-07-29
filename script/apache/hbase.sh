@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)
+SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)
 SERVICE_NAME=HBase
 JUDGE_NAME=org.apache.hadoop.hbase
 

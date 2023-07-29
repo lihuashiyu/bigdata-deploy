@@ -10,7 +10,7 @@
 # =========================================================================================
     
     
-SPARK_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)                  # Spark 安装目录
+SPARK_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)            # Spark 安装目录
 ALIAS_NAME=Spark                                                     # 服务别名
 
 MASTER_PORT=7077                                                     # Master 端口号

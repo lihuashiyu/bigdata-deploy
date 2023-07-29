@@ -10,7 +10,7 @@
 # =========================================================================================
 
 
-HADOOP_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)                           # Hadoop 安装目录
+HADOOP_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)                     # Hadoop 安装目录
 ALIAS_NAME=Hadoop                                                              # 服务别名
 
 NAME_NODE_PORT=9870                                                            # NameNode 外部访问端口号

@@ -9,7 +9,7 @@
 # =========================================================================================
     
     
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)       # 程序路径
+SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序路径
 SERVICE_NAME=mysql                                         # 程序主进程名称
 ALIAS_NAME=Mysql                                           # 程序别名
 MYSQL_SAFE=mysqld_safe                                     # 用于启动 mysqld 服务，把信息记录到 error

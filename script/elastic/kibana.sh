@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")"/../ || exit; pwd)
+SERVICE_DIR=$(cd -P "$(dirname "$0")"/../ || exit; pwd -P)
 SERVICE_NAME=kibana
 SERVICE_PORT=5601
 JUDGE_NAME=/node/bin/node

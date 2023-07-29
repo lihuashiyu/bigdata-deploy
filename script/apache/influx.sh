@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)       # 程序位置
+SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序位置
 SERVICE_NAME=influxd                                       # 程序名称
 ALIAS_NAME=InfluxDB                                        # 程序别名
 SERVICE_PORT=8086                                          # 服务占用端口号

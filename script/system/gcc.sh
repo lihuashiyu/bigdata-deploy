@@ -8,8 +8,8 @@
 #    Description   ：  编译安装 gcc、git、htop、
 # ==================================================================================================
 
-SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # Shell 脚本目录
-RESOURCE_DIR="${HOME}/compile"                                                 # 
+SERVICE_DIR=$(cd "$(dirname "$0")"      || exit; pwd -P)                       # Shell 脚本目录
+ROOT_DIR=$(cd -P "${SERVICE_DIR}../../" || exit; pwd -P)                       # 项目根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="compile-install-$(date +%F).log"                                     # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
@@ -72,14 +72,14 @@ function gcc_install()
 
 
 # 安装并配置 git
-function gcc_install()
+function git_install()
 {
     echo "    ************************ 开始安装 git ************************    "
     
 }
 
 # 安装并配置 htop
-function gcc_install()
+function htop_install()
 {
     echo "    *********************** 开始安装 htop ************************    "
     

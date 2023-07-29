@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
     
     
-SERVICE_DIR=$(cd "$(dirname "$0")/../" || exit; pwd)       # 程序路径
+SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序路径
 SERVICE_NAME=nginx                                         # 程序名称
 ALIAS_NAME=Nginx                                           # 程序别名
 CONFIG_FILE=conf/nginx.conf                                # 配置文件

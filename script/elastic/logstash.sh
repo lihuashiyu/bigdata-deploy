@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+SERVICE_DIR=$(cd -P "$(dirname "$0")" || exit; pwd -P)
 SERVICE_NAME=elasticsearch
 SERVICE_PORT=9200
 JUDGE_NAME=org.elasticsearch.bootstrap.Elasticsearch

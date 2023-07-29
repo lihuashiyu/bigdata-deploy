@@ -9,8 +9,8 @@
 # =========================================================================================
 
 
-SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)                               # Shell 脚本目录
-ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 组件安装根目录
+SERVICE_DIR=$(cd -P "$(dirname "$0")" || exit; pwd -P)                         # Shell 脚本目录
+ROOT_DIR=$(cd -P "${SERVICE_DIR}/../" || exit; pwd -P)                         # 组件安装根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="database-install-$(date +%F).log"                                    # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户

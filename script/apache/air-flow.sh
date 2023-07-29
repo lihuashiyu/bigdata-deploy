@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
     
     
-SERVICE_DIR=$(cd "$(dirname "$0")" || exit; pwd)           # 服务位置
+SERVICE_DIR=$(cd -P "$(dirname "$0")" || exit; pwd -P)     # 服务位置
 SCHEDULER_NAME=scheduler                                   # 服务名称
 WEB_NAME=webserver                                         # 服务名称
 SERVICE_NAME=Air-Flow                                      # 服务别名

@@ -10,7 +10,7 @@
 # =========================================================================================
     
     
-HIVE_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)                   # Hive 安装目录
+HIVE_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)             # Hive 安装目录
 ALIAS_NAME=Hive                                                      # 服务别名
     
 HiveServer2_PORT=10002                                               # HiveServer2 端口号

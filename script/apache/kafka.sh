@@ -10,7 +10,7 @@
 # =========================================================================================
     
     
-KAFKA_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)        # Kafka 安装目录
+KAFKA_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)  # Kafka 安装目录
 ALIAS_NAME=Kafka                                           # 服务别名
 SERVICE_NAME=kafka.Kafka                                   # Kafka 进程名称
 CONF_FILE=config/server.properties                         # Kafka 配置文件

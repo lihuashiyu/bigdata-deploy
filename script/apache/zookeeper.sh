@@ -10,7 +10,7 @@
 # =========================================================================================
     
     
-ZOOKEEPER_HOME=$(cd "$(dirname "$0")/../" || exit; pwd)              # Zookeeper 安装目录
+ZOOKEEPER_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)        # Zookeeper 安装目录
 ALIAS_NAME=Zookeeper                                                 # 服务别名
 SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain       # Zookeeper 进程名称
 
