@@ -94,11 +94,4 @@
         <name>dfs.webhdfs.enabled</name>
         <value>true</value>
     </property>
-    <!-- Zookeeper -->
-    <!--
-    <property>
-        <name>ha.zookeeper.quorum</name>
-        <value>slaver1:2181,slaver2:2181,slaver3:2181</value>
-    </property>
-    -->
 </configuration>

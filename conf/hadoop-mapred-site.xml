@@ -133,7 +133,7 @@
     <!-- 配置 JobHistory 的访问路径和端口号，JobHistory 是执行完成的任务日志 -->
     <property>
         <name>mapreduce.jobhistory.address</name>
-        <value>master:10020</value>
+        <value>${hadoop_history_hosts}:10020</value>
     </property>
     <!-- 配置 JobHistory 的浏览器访问路径和端口号 -->
     <property>

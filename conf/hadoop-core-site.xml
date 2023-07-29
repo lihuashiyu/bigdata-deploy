@@ -23,7 +23,7 @@
     <!-- 访问 HDFS 时的 host 和 port -->
     <property>
         <name>fs.default.name</name>
-        <value>hdfs://master:9000</value>
+        <value>hdfs://${namenode_host_port}</value>
     </property>
     
     <!-- 缓冲区大小，根据服务器性能动态调整 -->
@@ -86,7 +86,7 @@
     <!-- 	
     <property>
         <name>ha.zookeeper.quorum</name>
-        <value>slaver1:2181,slaver2:2181,slaver3:2181</value>
+        <value>${zookeeper_host_port}</value>
     </property>
     -->
 </configuration>

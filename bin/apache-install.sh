@@ -262,7 +262,8 @@ function get_cpu_thread()
 function hadoop_install()
 {
     echo "    ************************ 开始安装 Hadoop *************************    "
-    local host_list user hadoop_version password host host_name
+    local host_list user hadoop_version password host host_name zookeeper_host_port namenode_host_port 
+    local history_hosts resource_manager_hosts cpu_thread
     
     JAVA_HOME=$(get_param "java.home")                                     # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
@@ -276,9 +277,20 @@ function hadoop_install()
     cp -fpr "${ROOT_DIR}/conf/hadoop-mapred-site.xml" "${HADOOP_HOME}/etc/hadoop/mapred-site.xml"
     cp -fpr "${ROOT_DIR}/conf/hadoop-yarn-site.xml"   "${HADOOP_HOME}/etc/hadoop/yarn-site.xml"
     
+    namenode_host_port=$(get_param "namenode.host.port")                       # NameNode Web UI 主机和端口号
+    zookeeper_host_port=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
+    cpu_thread=$(get_cpu_thread)                                               # 获取 CPU 线程数
+    history_hosts=$(get_param "hadoop.history.hosts")                          # 历史服务器所在的节点
+    resource_manager_hosts=$(get_param "hadoop.yarn.resource.manager.hosts")   # Yarn ResourceManager 所在的节点
+    
+    sed -i "s|# export JAVA_HOME=|export JAVA_HOME=${JAVA_HOME}|g"        "${HADOOP_HOME}"/etc/hadoop/*-env.sh
+    sed -i "s|# export HADOOP_HOME=|export HADOOP_HOME=${HADOOP_HOME}|g"  "${HADOOP_HOME}"/etc/hadoop/*-env.sh
     sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                           "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|# export JAVA_HOME=|export JAVA_HOME=${JAVA_HOME}|g"        "${HADOOP_HOME}"/etc/hadoop/hadoop-env.sh
-    sed -i "s|# export HADOOP_HOME=|export HADOOP_HOME=${HADOOP_HOME}|g"  "${HADOOP_HOME}"/etc/hadoop/hadoop-env.sh
+    sed -i "s|\${zookeeper_host_port}|${zookeeper_host_port}|g"           "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${cpu_thread}|${cpu_thread}|g"                             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${hadoop_history_hosts}|${history_hosts}|g"                "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${resource_manager_hosts}|${resource_manager_hosts}|g"     "${HADOOP_HOME}"/etc/hadoop/*-site.xml
     
     append_param "JAVA_HOME=${JAVA_HOME}"     "${HADOOP_HOME}/etc/hadoop/yarn-env.sh"
     rm -rf "${HADOOP_HOME}/etc/hadoop/workers"

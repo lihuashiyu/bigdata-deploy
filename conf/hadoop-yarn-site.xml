@@ -16,7 +16,7 @@
     <!-- 配置 ResourceManager 运行的机器地址 -->
     <property>
         <name>yarn.resourcemanager.hostname</name>
-        <value>master</value>
+        <value>${resource_manager_hosts}</value>
     </property>
     <!-- Yarn WEB UI 地址 -->
     <property>
@@ -26,9 +26,9 @@
     <!-- 调度器地址 -->
     <property>
         <name>yarn.resourcemanager.scheduler.address</name>
-        <value>master:8098</value>
+        <value>${resource_manager_hosts}:8098</value>
     </property>
-
+    
     <!-- 配置 NodeManager 上运行的附属服务为 shuffle：需要配置成 mapreduce_shfffle，才可运行 MapReduce 程序默认值 -->
     <property>
         <name>yarn.nodemanager.aux-services</name>
@@ -67,7 +67,7 @@
     <!-- 可使用的 CPU Core -->
     <property>
       <name>yarn.nodemanager.resource.cpu-vcores</name>
-      <value>4</value>
+      <value>${cpu_thread}</value>
     </property>
     
     <!-- 开启日志聚集功能 -->
@@ -78,7 +78,7 @@
     <!-- 设置日志聚集服务器地址 -->
     <property>
         <name>yarn.log.server.url</name>
-        <value>http://master:19888/jobhistory/logs</value>
+        <value>http://${hadoop_history_hosts}:19888/jobhistory/logs</value>
     </property>
     <!-- 配置聚合日志保留时间为 7 天 -->
     <property>
@@ -121,4 +121,11 @@
         <name>yarn.resourcemanager.scheduler.client.thread-count</name>
         <value>16</value>
     </property>
+    <!-- 配置高可用 -->
+    <!--
+    <property>
+        <name>hadoop.registry.zk.quorum</name>
+        <value>${zookeeper_host_port}</value>
+    </property>
+    -->
 </configuration>
