@@ -105,7 +105,7 @@ if [ "$#" -eq 0 ]; then
 else    
     for file in "$@"
     do
-        download "${file}"
+        download "${file}.url"
     done
 fi
 printf "================================================================================\n\n"
