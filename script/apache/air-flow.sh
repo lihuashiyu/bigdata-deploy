@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
     
     
-SERVICE_DIR=$(cd -P "$(dirname "$0")" || exit; pwd -P)     # 服务位置
-SCHEDULER_NAME=scheduler                                   # 服务名称
-WEB_NAME=webserver                                         # 服务名称
-SERVICE_NAME=Air-Flow                                      # 服务别名
-SERVICE_PORT=19950                                         # 服务端口号
-
-LOG_FILE=mock-db-$(date +%F).log                           # 程序运行日志文件
-RUN_STATUS=1                                               # 服务运行状态
-STOP_STATUS=0                                              # 服务停止状态
-FAIL_STATUS="-1"                                           # 服务运行错误
+SERVICE_DIR=$(cd -P "$(dirname "$(readlink -e "$0")")" || exit; pwd -P)        # 服务位置
+SCHEDULER_NAME=scheduler                                                       # 服务名称
+WEB_NAME=webserver                                                             # 服务名称
+SERVICE_NAME=Air-Flow                                                          # 服务别名
+SERVICE_PORT=19950                                                             # 服务端口号
+                    
+LOG_FILE=mock-db-$(date +%F).log                                               # 程序运行日志文件
+RUN_STATUS=1                                                                   # 服务运行状态
+STOP_STATUS=0                                                                  # 服务停止状态
+FAIL_STATUS="-1"                                                               # 服务运行错误
 
 
 # 服务状态检测

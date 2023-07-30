@@ -10,17 +10,17 @@
 # =========================================================================================
     
     
-KAFKA_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)  # Kafka 安装目录
-ALIAS_NAME=Kafka                                           # 服务别名
-SERVICE_NAME=kafka.Kafka                                   # Kafka 进程名称
-CONF_FILE=config/server.properties                         # Kafka 配置文件
-
-SERVICE_PORT=9092                                          # Kafka 端口号
-
-KAFKA_LIST=(slaver1 slaver2 slaver3)                       # kafka 集群的主机名
-USER=$(whoami)                                             # 获取当前登录用户
-RUNNING=1                                                  # 服务运行状态码
-STOP=0                                                     # 服务停止状态码
+KAFKA_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)     # Kafka 安装目录
+ALIAS_NAME=Kafka                                                               # 服务别名
+SERVICE_NAME=kafka.Kafka                                                       # Kafka 进程名称
+CONF_FILE=config/server.properties                                             # Kafka 配置文件
+                    
+SERVICE_PORT=9092                                                              # Kafka 端口号
+                    
+KAFKA_LIST=(slaver1 slaver2 slaver3)                                           # kafka 集群的主机名
+USER=$(whoami)                                                                 # 获取当前登录用户
+RUNNING=1                                                                      # 服务运行状态码
+STOP=0                                                                         # 服务停止状态码
 
 
 # 服务状态检测

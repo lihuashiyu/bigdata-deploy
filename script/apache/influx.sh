@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 
-SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序位置
-SERVICE_NAME=influxd                                       # 程序名称
-ALIAS_NAME=InfluxDB                                        # 程序别名
-SERVICE_PORT=8086                                          # 服务占用端口号
-LOG_FILE=mock-db-$(date +%F).log                           # 程序运行日志文件
-
-USER=$(whoami)                                             # 服务运行用户
-RUN_STATUS=1                                               # 服务运行状态
-STOP_STATUS=0                                              # 服务停止状态
+SERVICE_DIR=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)    # 程序位置
+SERVICE_NAME=influxd                                                           # 程序名称
+ALIAS_NAME=InfluxDB                                                            # 程序别名
+SERVICE_PORT=8086                                                              # 服务占用端口号
+LOG_FILE=mock-db-$(date +%F).log                                               # 程序运行日志文件
+                    
+USER=$(whoami)                                                                 # 服务运行用户
+RUN_STATUS=1                                                                   # 服务运行状态
+STOP_STATUS=0                                                                  # 服务停止状态
 
 
 # 服务状态检测

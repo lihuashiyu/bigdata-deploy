@@ -9,16 +9,16 @@
 # =========================================================================================
     
     
-SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序路径
-SERVICE_NAME=mysql                                         # 程序主进程名称
-ALIAS_NAME=Mysql                                           # 程序别名
-MYSQL_SAFE=mysqld_safe                                     # 用于启动 mysqld 服务，把信息记录到 error
-MYSQLD=mysqld                                              # 守护进程名称
-    
-SERVICE_PORT=3306                                          # 服务监控端口
-MYSQLD_PORT=33060                                          # MySQL X 协议端口
-RUNNING=1                                                  # 运行状态
-STOP=0                                                     # 停止状态
+SERVICE_DIR=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)    # 程序路径
+SERVICE_NAME=mysql                                                             # 程序主进程名称
+ALIAS_NAME=Mysql                                                               # 程序别名
+MYSQL_SAFE=mysqld_safe                                                         # 用于启动 mysqld 服务，把信息记录到 error
+MYSQLD=mysqld                                                                  # 守护进程名称
+                        
+SERVICE_PORT=3306                                                              # 服务监控端口
+MYSQLD_PORT=33060                                                              # MySQL X 协议端口
+RUNNING=1                                                                      # 运行状态
+STOP=0                                                                         # 停止状态
     
     
 # 服务状态检测

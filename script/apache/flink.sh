@@ -10,7 +10,7 @@
 # =========================================================================================
     
     
-FLINK_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)                      # Flink 安装目录
+FLINK_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)     # Flink 安装目录
 SERVICE_NAME=org.apache.flink
 ALIAS_NAME=Flink                                                               # 服务别名
 

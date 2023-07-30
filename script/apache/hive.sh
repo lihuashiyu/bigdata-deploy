@@ -10,20 +10,20 @@
 # =========================================================================================
     
     
-HIVE_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)             # Hive 安装目录
-ALIAS_NAME=Hive                                                      # 服务别名
+HIVE_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)      # Hive 安装目录
+ALIAS_NAME=Hive                                                                # 服务别名
+        
+HiveServer2_PORT=10002                                                         # HiveServer2 端口号
+BEELINE_PORT=10000                                                             # Beeline 客户端端口
+HIVE_SERVER_2=org.apache.hive.service.server.HiveServer2                       # HiveServer2 进程名称
+HIVE_META_STORE=org.apache.hadoop.hive.metastore.HiveMetaStore                 # NameNode 进程名称
     
-HiveServer2_PORT=10002                                               # HiveServer2 端口号
-BEELINE_PORT=10000                                                   # Beeline 客户端端口
-HIVE_SERVER_2=org.apache.hive.service.server.HiveServer2             # HiveServer2 进程名称
-HIVE_META_STORE=org.apache.hadoop.hive.metastore.HiveMetaStore       # NameNode 进程名称
-
-LOG_FILE=hive-$(date +%F).log                                        # 程序操作日志文件    
-SERVER_2_LIST=(master)                                               # HiveServer2 主机主机名
-META_STORE_LIST=(master)                                             # HiveMetaStore 集群主机名
-USER=$(whoami)                                                       # 获取当前登录用户
-RUNNING=1                                                            # 服务运行状态码
-STOP=0                                                               # 服务停止状态码
+LOG_FILE=hive-$(date +%F).log                                                  # 程序操作日志文件    
+SERVER_2_LIST=(master)                                                         # HiveServer2 主机主机名
+META_STORE_LIST=(master)                                                       # HiveMetaStore 集群主机名
+USER=$(whoami)                                                                 # 获取当前登录用户
+RUNNING=1                                                                      # 服务运行状态码
+STOP=0                                                                         # 服务停止状态码
 
 
 # 服务状态检测

@@ -10,20 +10,20 @@
 # =========================================================================================
     
     
-ZOOKEEPER_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)        # Zookeeper 安装目录
-ALIAS_NAME=Zookeeper                                                 # 服务别名
-SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain       # Zookeeper 进程名称
-
-ZOOKEEPER_PORT=2181                                                  # Zookeeper 端口号
-ZOOKEEPER_UI_PORT=8180                                               # Zookeeper Web 端口号
-
-ZOOKEEPER_LIST=(slaver1 slaver2 slaver3)                             # zookeeper 集群的主机名
-USER=$(whoami)                                                       # 获取当前登录用户
-RUNNING=1                                                            # 服务运行状态码
-STOP=0                                                               # 服务停止状态码
-LEADER_STATUS=leader                                                 # 节点的 leader 状态 
-FLOWER_STATUS=flower                                                 # 节点的 flower 状态 
-LOCAL_STATUS=standalone                                              # 节点的 standalone 状态 
+ZOOKEEPER_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P) # Zookeeper 安装目录
+ALIAS_NAME=Zookeeper                                                           # 服务别名
+SERVICE_NAME=org.apache.zookeeper.server.quorum.QuorumPeerMain                 # Zookeeper 进程名称
+          
+ZOOKEEPER_PORT=2181                                                            # Zookeeper 端口号
+ZOOKEEPER_UI_PORT=8180                                                         # Zookeeper Web 端口号
+          
+ZOOKEEPER_LIST=(slaver1 slaver2 slaver3)                                       # zookeeper 集群的主机名
+USER=$(whoami)                                                                 # 获取当前登录用户
+RUNNING=1                                                                      # 服务运行状态码
+STOP=0                                                                         # 服务停止状态码
+LEADER_STATUS=leader                                                           # 节点的 leader 状态 
+FLOWER_STATUS=flower                                                           # 节点的 flower 状态 
+LOCAL_STATUS=standalone                                                        # 节点的 standalone 状态 
 
 
 # 服务状态检测

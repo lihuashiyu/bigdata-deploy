@@ -10,25 +10,25 @@
 # =========================================================================================
     
     
-SPARK_HOME=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)            # Spark 安装目录
-ALIAS_NAME=Spark                                                     # 服务别名
-
-MASTER_PORT=7077                                                     # Master 端口号
-MASTER_UI_PORT=8080                                                  # Master 外部访问端口号
-WORKER_PORT=8081                                                     # Worker 端口号
-WORKER_RPC_PORT=34003                                                # Worker 与 Master 的 RPC 通信端口号
-HISTORY_SERVER_PORT=18080                                            # 历史服务器端口号
-
-MASTER_NODE=org.apache.spark.deploy.master.Master                    # Master 进程名称
-WORKER_NODE=org.apache.spark.deploy.worker.Worker                    # Worker 进程名称
-HISTORY_SERVER=org.apache.spark.deploy.history.HistoryServer         # 历史服务器 进程名称
-
-LOG_FILE=spark-$(date +%F).log                                       # 程序操作日志文件
-MASTER_LIST=(master)                                                 # master 主机主机名
-SLAVER_LIST=(slaver1 slaver2 slaver3)                                # slaver 集群主机名
-USER=$(whoami)                                                       # 获取当前登录用户
-RUNNING=1                                                            # 服务运行状态码
-STOP=0                                                               # 服务停止状态码
+SPARK_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)     # Spark 安装目录
+ALIAS_NAME=Spark                                                               # 服务别名
+          
+MASTER_PORT=7077                                                               # Master 端口号
+MASTER_UI_PORT=8080                                                            # Master 外部访问端口号
+WORKER_PORT=8081                                                               # Worker 端口号
+WORKER_RPC_PORT=34003                                                          # Worker 与 Master 的 RPC 通信端口号
+HISTORY_SERVER_PORT=18080                                                      # 历史服务器端口号
+          
+MASTER_NODE=org.apache.spark.deploy.master.Master                              # Master 进程名称
+WORKER_NODE=org.apache.spark.deploy.worker.Worker                              # Worker 进程名称
+HISTORY_SERVER=org.apache.spark.deploy.history.HistoryServer                   # 历史服务器 进程名称
+          
+LOG_FILE=spark-$(date +%F).log                                                 # 程序操作日志文件
+MASTER_LIST=(master)                                                           # master 主机主机名
+SLAVER_LIST=(slaver1 slaver2 slaver3)                                          # slaver 集群主机名
+USER=$(whoami)                                                                 # 获取当前登录用户
+RUNNING=1                                                                      # 服务运行状态码
+STOP=0                                                                         # 服务停止状态码
 
 
 # 服务状态检测

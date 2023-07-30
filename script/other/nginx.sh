@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
     
     
-SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P) # 程序路径
-SERVICE_NAME=nginx                                         # 程序名称
-ALIAS_NAME=Nginx                                           # 程序别名
-CONFIG_FILE=conf/nginx.conf                                # 配置文件
-LOG_FILE=nginx-$(date +%F).log                             # 程序运行日志文件
-    
-NGINX_PORT=47722                                           # Nginx 前端静态资源监控端口
-SERVICE_PORT2=10800                                        # 后台服务
+SERVICE_DIR=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)    # 程序路径
+SERVICE_NAME=nginx                                                             # 程序名称
+ALIAS_NAME=Nginx                                                               # 程序别名
+CONFIG_FILE=conf/nginx.conf                                                    # 配置文件
+LOG_FILE=nginx-$(date +%F).log                                                 # 程序运行日志文件
+                        
+NGINX_PORT=47722                                                               # Nginx 前端静态资源监控端口
+SERVICE_PORT2=10800                                                            # 后台服务
 MASTER="nginx: master process"
 WORKER="nginx: worker process"
 RUNNING=1

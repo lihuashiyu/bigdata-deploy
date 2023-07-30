@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-SERVICE_DIR=$(cd -P "$(dirname "$0")/../" || exit; pwd -P)
+SERVICE_DIR=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)
 SERVICE_NAME=Flume
 SERVICE_PORT=44444
 JUDGE_NAME=org.apache.flume.node.Application

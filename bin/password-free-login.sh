@@ -8,8 +8,8 @@
 #    Description   ：  实现节点间免密登录
 # ==================================================================================================
 
-SERVICE_DIR=$(cd -P "$(dirname "$0")" || exit; pwd -P)                         # shell 脚本目录
-ROOT_DIR=$(cd -P "${SERVICE_DIR}/../" || exit; pwd -P)                         # 项目根目录
+SERVICE_DIR=$(dirname "$(readlink -e "$0")")                                   # Shell 脚本目录
+ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 项目根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="password-free-login-$(date +%F).log"                                 # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前使用的用户
