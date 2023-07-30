@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==================================================================================================
-#    FileName      ：  gcc.sh
+#    FileName      ：  gnu.sh
 #    CreateTime    ：  2023-07-29 21:34
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
@@ -178,10 +178,10 @@ function gcc_install()
     
     echo "    ************************ $(date '+%T')：测试 hello ************************    "
     cd "${folder}" || exit                                                     # 进入源码包
-    { echo "#include <stdio.h>"; echo "int main()";  echo "{"; echo "    printf(\"Hello World\nHello World\nHello World\");"; echo "    return 0;"; echo "}"; echo ""; } > hello.c
+    { echo "#include <stdio.h>"; echo "int main()";  echo "{"; echo "    printf(\"Hello World\nHello World\nHello World\n\");"; echo "    return 0;"; echo "}"; echo ""; } > "${folder}/hello.c"
     
     # 用 gcc 编译：-Wall，编译后显示所有警告；-o，输出参数，输出名字的参数，如果不加 -o，会生成 a.out 的可执行文件
-    "gcc${gcc_version}" -Wall hello.c -o hello  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "gcc${gcc_version}" -Wall "${folder}/hello.c" -o "${folder}/hello"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     count=$("${folder}/hello" | grep -ciw "Hello World")    # 运行编译结果
     if [[ "${count}" -eq 3 ]]; then
@@ -198,6 +198,7 @@ function git_install()
     echo "    ************************ 开始安装 git ************************    "
     
 }
+
 
 # 安装并配置 htop
 function htop_install()
