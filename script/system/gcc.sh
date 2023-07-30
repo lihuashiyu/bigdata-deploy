@@ -80,8 +80,8 @@ function file_decompress()
         fi
         
         # 先删除已经存在的目录
-        find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print -exec rm -rf {} +
-        cd "${ROOT_DIR}/package" || exit                                       # 进入解压目录
+        find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print -exec rm -rf {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        cd "${ROOT_DIR}/package/" || exit                                       # 进入解压目录
         
         # 对压缩包进行解压
         if [[ "${file_name}" =~ tar.xz$ ]]; then
@@ -116,6 +116,7 @@ function file_decompress()
         fi
     else
         echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
+        exit 1
     fi
 }
 

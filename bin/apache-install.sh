@@ -372,16 +372,18 @@ function spark_install()
     { git checkout "v${spark_version}"; mvn clean; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     
     # 应用补丁，包含 commit 内容
-    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/spark-${spark_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    git apply --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     # git am "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
     
     echo "    ************************ 编译 Spark-${spark_version} ************************    "
     rm -rf "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"
-    ./dev/make-distribution.sh --name build --tgz                               \
-                               -Phive-3.1 -Phive-thriftserver -Phadoop-3.2      \
-                               -Phadoop-provided -Pyarn -Pscala-2.12            \
-                               "-Dhadoop.version=${hadoop_version}" -DskipTests \
-                               >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    source /etc/profile                                                        # 生效当前环境变量
+    "${ROOT_DIR}/src/spark/dev/make-distribution.sh" --name build --tgz                               \
+                                                     -Phive-3.1 -Phive-thriftserver -Phadoop-3.2      \
+                                                     -Phadoop-provided -Pyarn -Pscala-2.12            \
+                                                     "-Dhadoop.version=${hadoop_version}" -DskipTests \
+                                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ************************* 解压安装 Spark *************************    "
     name=$(get_name "spark.url")
