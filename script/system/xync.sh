@@ -10,7 +10,7 @@
 
 
 HOST_LIST=(${server_hosts})               # 集群主机
-TARGET_PATH=$(pwd -P)/                                     # 目标路径
+TARGET_PATH=$(pwd)/                                        # 目标路径
 USER=$(whoami)                                             # 获取当前登录用户
 ENABLE_LOGGING=true                                        # 是否开启日志记录
 
@@ -21,10 +21,10 @@ if [ "$#" -gt 1 ]; then
 elif [ "$#" -lt 1 ]; then
     echo "    没有输入参数，将同步当前文件夹中所有的文件夹和文件 ......   "
 elif [ -d "$1" ]; then 
-    TARGET_PATH=$(cd -P "$1" || exit; pwd -P)/
+    TARGET_PATH=$(cd "$1" || exit; pwd)/
     echo "    文件夹：${TARGET_PATH} "
 elif [ -f "$1" ]; then
-    TARGET_PATH=$(cd -P "$(dirname "$1")" || exit; pwd -P)/$(basename "$1")
+    TARGET_PATH=$(cd "$(dirname "$1")" || exit; pwd)/$(basename "$1")
     echo "    文件：${TARGET_PATH} "
 else
     echo "    输入的路径（$1）不存在 ......   "
