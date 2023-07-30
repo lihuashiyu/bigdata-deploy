@@ -258,6 +258,24 @@ function get_cpu_thread()
 }
 
 
+# 离线安装 maven jar （$1：jar 文件名，$2：Maven 坐标 GroupId 值，$3：Maven 坐标 ArtifactId 值，$4：Maven 坐标 Version 值）
+function maven_jar_install()
+{
+    local file_name 
+    
+    file_name=$(echo "$1" | awk -F '--' '{print $NF}')                         # 切割文件名
+    cp -fpr  "${ROOT_DIR}/lib/$1" "${ROOT_DIR}/package/${file_name}"           # 复制到指定路径
+    echo "====================> $file_name"
+    mvn install:install-file -DgroupId="$2"                             \
+                             -DartifactId="$3"                          \
+                             -Dversion="$4"                             \
+                             -Dpackaging=jar                            \
+                             -Dfile="${ROOT_DIR}/package/${file_name}"  \
+                             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    echo "    jar：${file_name} 安装完成 ...... "
+}
+
+
 # 安装并初始化 Hadoop
 function hadoop_install()
 {
@@ -643,8 +661,8 @@ function kafka_install()
 function hive_install()
 {
     echo "    ************************* 开始安装 Hive **************************    "
-    local hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port
-    local namenode_host_port mysql_home mysql_user mysql_password root_password sql hive_sql
+    local spark_version hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port
+    local namenode_host_port mysql_home mysql_user mysql_password root_password sql hive_sql hive_mysql_host
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
@@ -657,14 +675,26 @@ function hive_install()
     hive_version=$(get_version "hive.url")
     
     # 将 Spark 源码克隆到本地
-    hive_src_url=$(read_param "hive.resource.url")                             # 获取 Hive 源码路径
+    hive_src_url=$(get_param "hive.resource.url")                              # 获取 Hive 源码路径
     if [ ! -e "${ROOT_DIR}/src/spark/.git" ]; then
         git clone "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     fi 
     
-    cd hive || exit                                                            # 进入 Hive 源码路径
-    git checkout "rel/release-${hive_version}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                  # 切换到 需要的分支
-    git am --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/hive-${hive_version}.patch"  # 应用补丁
+    cd "${ROOT_DIR}/src/hive" || exit                                          # 进入 Hive 源码路径
+    spark_version=$(get_version "spark.nohadoop.url")                          # 获取 Spark 版本
+    
+    # 更新代码，应用补丁
+    { git fetch --all; git reset --hard; git pull; }   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    sleep 5
+    { git checkout "rel/release-${hive_version}"; git fetch --all; git reset --hard; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    cp -fpr "${ROOT_DIR}/patch/ColumnsStatsUtils.java" "${ROOT_DIR}/src/hive/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/"
+    git apply --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/hive-${hive_version}-spark-${spark_version}.patch" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
+    
+    echo "    ************************** 离线安装依赖 **************************    "
+    source /etc/profile                                                        # 生效当前环境变量
+    maven_jar_install "pentaho-aggdesigner--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar"           "org.pentaho" "pentaho-aggdesigner"           "5.1.5-jhyde"
+    maven_jar_install "pentaho-aggdesigner-algorithm--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar" "org.pentaho" "pentaho-aggdesigner-algorithm" "5.1.5-jhyde"
     
     echo "    *************************** 编译 Hive ****************************    "
     mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
@@ -686,10 +716,12 @@ function hive_install()
     sed -i "s|\${hive_password}|${hive_password}|g"         "${HIVE_HOME}/conf/beeline-site.xml"
     
     # 修改 hive-site.xml 配置
+    hive_mysql_host=$(get_param "hive.mysql.host")
     mysql_user=$(get_param "mysql.user.name")
     mysql_password=$(get_param "mysql.root.password")
     metastore_host_port=$(get_param "hive.metastore.host.port")
     namenode_host_port=$(get_param "namenode.host.port")
+    sed -i "s|\${hive_mysql_host}|${hive_mysql_host}|g"         "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_user}|${mysql_user}|g"                   "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_password}|${mysql_password}|g"           "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${metastore_host_port}|${metastore_host_port}|g" "${HIVE_HOME}/conf/hive-site.xml"
@@ -702,6 +734,7 @@ function hive_install()
     cp -fpr "${ROOT_DIR}/script/apache/hive.sh"       "${HIVE_HOME}/bin/"      # 用于 Hive 的启停
     
     # 添加 Hive 相关环境信息
+    touch "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HADOOP_HEAPSIZE=4096"                "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HADOOP_HOME=${HADOOP_HOME}"          "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HIVE_CONF_DIR=${HIVE_HOME}/conf"     "${HIVE_HOME}/conf/hive-env.sh"
@@ -715,7 +748,7 @@ function hive_install()
     distribute_file "${HIVE_HOME}/"                                            # 分发目录
     
     echo "    ************************** 初始化 Hive ***************************    "
-    cp -fpr "${ROOT_DIR}/conf/mysql-connector-java-8.0.32.jar"  "${HIVE_HOME}/lib"
+    cp -fpr "${ROOT_DIR}/lib/mysql-connector-java-8.0.32.jar"  "${HIVE_HOME}/lib"
     
     mysql_home=$(get_param "mysql.home") 
     root_password=$(get_param "mysql.root.password")
@@ -725,14 +758,16 @@ function hive_install()
     "${HIVE_HOME}/bin/schematool" -dbType mysql -initSchema -verbose >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 初始化元数据
     
     # 修改字段注释字符集
-    sql="${sql} alter table hive.columns_v2       modify column comment             varchar(2048)  character set utf8mb4;"
-    sql="${sql} alter table hive.table_params     modify column param_value         varchar(4096)  character set utf8mb4;"
-    sql="${sql} alter table hive.partition_params modify column param_value         varchar(4096)  character set utf8mb4;"
-    sql="${sql} alter table hive.partition_keys   modify column pkey_comment        varchar(4096)  character set utf8mb4;"
-    sql="${sql} alter table hive.index_params     modify column param_value         varchar(4096)  character set utf8mb4;"
-    sql="${sql} alter table hive.tbls             modify column view_expanded_text  mediumtext     character set utf8mb4;"
-    sql="${sql} alter table hive.tbls             modify column view_original_text  mediumtext     character set utf8mb4;"
-    sql="${sql} flush privileges;"
+    sql=" 
+        alter table hive.columns_v2       modify column comment             varchar(2048)  character set utf8mb4;
+        alter table hive.table_params     modify column param_value         varchar(4096)  character set utf8mb4;
+        alter table hive.partition_params modify column param_value         varchar(4096)  character set utf8mb4;
+        alter table hive.partition_keys   modify column pkey_comment        varchar(4096)  character set utf8mb4;
+        alter table hive.index_params     modify column param_value         varchar(4096)  character set utf8mb4;
+        alter table hive.tbls             modify column view_expanded_text  mediumtext     character set utf8mb4;
+        alter table hive.tbls             modify column view_original_text  mediumtext     character set utf8mb4;
+        flush privileges;
+    "
     "${mysql_home}/bin/mysql" -h 127.0.0.1 -P 3306 -u "${mysql_user}" -p"${mysql_password}" -e "${sql}"
     
     echo "    *************************** 测试 Hive ****************************    "

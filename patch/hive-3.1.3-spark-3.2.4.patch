@@ -137,7 +137,7 @@ index 82179645da..de4a27d426 100644
        registry.start();
        registry.registerStateChangeListener(new NodeStateChangeListener());
 diff --git a/pom.xml b/pom.xml
-index cb54806ef5..963104399f 100644
+index cb54806ef5..113d1a9f57 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -12,1533 +12,1545 @@
@@ -569,7 +569,7 @@ index cb54806ef5..963104399f 100644
 +        <repository>
 +            <id>central</id>
 +            <name>central</name>
-+            <url>https://repo.maven.apache.org/maven2</url>
++            <url>https://maven.aliyun.com/repository/public</url>
 +            <layout>default</layout>
 +            <releases>
 +                <enabled>true</enabled>
