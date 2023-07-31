@@ -823,7 +823,7 @@ function doris_install()
 function hbase_install()
 {
     echo "    ************************* 开始安装 HBase *************************    "
-    local namenode_host_port zookeeper_hosts hbase_version master_list worker_list host host_list
+    local namenode_host_port zookeeper_hosts hbase_version master_list master region_list region backup_list backup
     
     HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
     file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
@@ -832,7 +832,7 @@ function hbase_install()
     echo "    ********************** 修改 HBase 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/script/apache/hbase.sh"  "${HBASE_HOME}/bin"          # 复制启停脚本
     cp -fpr "${ROOT_DIR}/conf/hbase-site.xml"     "${HBASE_HOME}/conf/"        # 复制配置文件
-
+    
     JAVA_HOME=$(get_param "java.home")                                         # 获取 Java      安装目录
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop    安装目录    
     ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装目录    
@@ -842,15 +842,44 @@ function hbase_install()
     append_param "export HBASE_PID_DIR=${HBASE_HOME}/data" "${HBASE_HOME}/conf/hbase-env.sh"
     append_param "export HBASE_MANAGES_ZK=false"           "${HBASE_HOME}/conf/hbase-env.sh"
     
-    zookeeper_hosts=$(get_param "zookeeper.hosts")
-    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g" "${HBASE_HOME}/conf/hbase-site.xml"
-    sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"       "${HBASE_HOME}/conf/hbase-site.xml"
-    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"         "${HBASE_HOME}/conf/hbase-site.xml"
+    # zookeeper 集群
+    zookeeper_hosts=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}') 
+    region_list=$(get_param "hbase.hregion.hosts" | tr ',' ' ')                # 获取 region 节点
+    backup_list=$(get_param "hbase.backup.host"   | tr ',' ' ')                # 获取 backup 备份节点
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"       "${HBASE_HOME}/conf/hbase-site.xml"
+    sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"             "${HBASE_HOME}/conf/hbase-site.xml"
+    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"               "${HBASE_HOME}/conf/hbase-site.xml"
+    sed -i "s|hbase.log.dir=.*|hbase.log.dir=${HBASE_HOME}/logs|g"  "${HBASE_HOME}/conf/log4j.properties"
     
-        
-    hbase_version=$(get_version "hbase.url")                                   # 获取 zookeeper 的版本
+    # 修改修改 RegionServer 节点配置
+    for region in ${region_list}
+    do 
+        append_param "${region}"  "${HBASE_HOME}/conf/regionservers"
+    done    
+    
+    # 修改修改 HMaster Backup 节点配置
+    if [ -z "${backup_list}" ]; then
+        for backup in $(echo "${backup_list}" | tr ',' ' ')
+        do
+            append_param "${backup}"  "${HBASE_HOME}/conf/backup-masters"
+        done    
+    fi
+    
+    echo "    *********************** 解决与 Hadoop 依赖 ***********************    "
+    rm -rf   "${HBASE_HOME}/lib/guava-11.0.2.jar"                               # 删除 hbase 旧版本的 guava
+    cp -fpr  "${HADOOP_HOME}/share/hadoop/common/lib/guava-27.0-jre.jar" "${HBASE_HOME}/lib/"      # 和 hadoop 保持一致
+    cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml"                   "${HBASE_HOME}/conf/"     # 获取 NameNode 配置
+    cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"                   "${HBASE_HOME}/conf/"     # 获取 HDFS     配置
+    
+    hbase_version=$(get_version "hbase.url")                                   # 获取 HBase 的版本
     append_env "hbase.home" "${hbase_version}"                                 # 添加环境变量
     distribute_file "${HBASE_HOME}"                                            # 分发到其它节点
+    
+    echo "    **************************** 启动集群 ****************************    "
+    "${HBASE_HOME}/bin/start-habse.sh"                                         # 启动集群的 HMaster 和所有的 HRegionServer
+    "${HBASE_HOME}/bin/habse.sh" status                                        # 查看集群信息
+    
+    echo "    **************************** 测试集群 ****************************    "
     
 }
 
@@ -859,7 +888,23 @@ function hbase_install()
 function phoenix_install()
 {
     echo "    ************************ 开始安装 Phoenix ************************    "
+    local hbase_version phoenix_version
     
+    PHOENIX_HOME=$(get_param "phoenix.home")                                   # 获取 Phoenix 安装路径
+    file_decompress "phoenix.url" "${PHOENIX_HOME}"                            # 解压 Phoenix 安装包
+    
+    echo "    ********************* 修改 Phoenix 配置文件 **********************    "
+    HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase   安装路径
+    hbase_version=$(get_version "hbase.url")                                   # 获取 HBase   的版本
+    phoenix_version=$(get_version "phoenix.url")                               # 获取 Phoenix 的版本
+    
+    cp -fpr  "${HBASE_HOME}/conf/hbase-site.xml"       "${PHOENIX_HOME}/bin/"  # 复制 HBase 配置文件到 Phoenix 
+    cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 core 配置文件到 Phoenix 
+    cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 hdfs 配置文件到 Phoenix    
+    
+    cp -fpr  "${PHOENIX_HOME}/phoenix-server-hbase-${phoenix_version}-${hbase_version}.jar" "${HBASE_HOME}/lib/"       # 复制 驱动
+    
+    echo "    ********************* 修改 Phoenix 配置文件 **********************    "
 }
 
 
