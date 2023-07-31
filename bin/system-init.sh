@@ -277,8 +277,10 @@ function add_execute()
 
 
 printf "\n================================================================================\n"
-mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
-add_execute                                                                    # 给脚本添加可执行权限
+if [ "$#" -gt 0 ]; then
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    add_execute                                                                # 给脚本添加可执行权限    
+fi
 
 # 匹配输入参数
 case "$1" in
@@ -353,7 +355,11 @@ case "$1" in
     ;;
 esac
 
-# 重启服务器
-shutdown -r 60 
+if [ "$#" -gt 0 ]; then
+    echo ""
+    echo "    部分配置必须重启才能生效，可运行以下命令："
+    echo "        shutdown -r 5"    
+fi
+
 printf "================================================================================\n\n"
 exit 0
