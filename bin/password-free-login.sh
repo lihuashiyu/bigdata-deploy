@@ -15,70 +15,6 @@ LOG_FILE="password-free-login-$(date +%F).log"                                 #
 USER=$(whoami)                                                                 # 当前使用的用户
 
 
-# 读取配置文件，获取配置参数
-function read_param()
-{
-    # 1. 定义局部变量
-    local line string param_list=()
-
-    # 2. 读取配置文件
-    while read -r line; do
-        # 3. 去除 行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
-
-        # 4. 判断是否为注释文字，是否为空行
-        if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
-
-            # 6. 将参数添加到参数列表
-            param_list[${#param_list[@]}]="${param}"
-        fi
-    done < "$1"
-
-    # 将参数列表进行返回
-    echo "${param_list[@]}"
-}
-
-# 获取参数（$1：参数键值，$2：待替换的字符，$3：需要替换的字符，$4：后缀字符）
-function get_param()
-{
-    # 定义局部变量
-    local param_list value
-
-    # 获取参数，并进行遍历
-    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
-    for param in ${param_list}; do
-        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换
-        if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
-        fi
-    done
-
-    # 返回结果
-    echo "${value}"
-}
-
-# 读取配置文件，获取配置参数
-function get_host_list()
-{
-    # 1. 定义局部变量
-    local line params host host_list=()
-
-    # 2. 读取配置文件，获取 server.hosts
-    params=$(get_param "server.hosts" | tr ',' ' ')
-
-    # 3. 切分 ip 和 host，只取 ip，并将 ip 封装保存
-    for param in ${params}; do
-        host=$(echo "${param}" | awk -F ':' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
-        host_list[${#host_list[@]}]="${host}"
-    done
-
-    # 4. 将参数列表进行返回
-    echo "${host_list[@]}"
-}
-
-
 # 创建秘钥（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码）
 function create_keygen()
 {
@@ -164,9 +100,13 @@ function sync_keygen()
 }
 
 
-printf "\n================================================================================\n"
-mkdir -p "${ROOT_DIR}/logs" # 创建日志目录
+if [ "$#" -gt 0 ]; then
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    # shellcheck source=./common.sh
+    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数    
+fi
 
+printf "\n================================================================================\n"
 # 判断脚本是否传入参数，未传入会使用自定义参数
 if [ "$#" -eq 0 ]; then
     HOST_LIST=$(get_host_list)

@@ -21,185 +21,6 @@ MAVEN_HOME="/opt/apache/maven"                                                 #
 GRADLE_HOME="/opt/apache/gradle"                                               # Gradle 默认安装路径 
 
 
-# 读取配置文件，获取配置参数
-function read_param()
-{
-    # 1. 定义局部变量
-    local line string param_list=()
-    
-    # 2. 读取配置文件
-    while read -r line
-    do
-        # 3. 去除 行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
-        
-        # 4. 判断是否为注释文字，是否为空行
-        if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
-            
-            # 6. 将参数添加到参数列表
-            param_list[${#param_list[@]}]="${param}"
-        fi
-    done < "$1"
-    
-    # 将参数列表进行返回
-    echo "${param_list[@]}"
-}
-
-
-# 获取参数（$1：参数键值，$2：待替换的字符，$3：需要替换的字符，$4：后缀字符）
-function get_param()
-{
-    # 定义局部变量
-    local param_list value
-    
-    # 获取参数，并进行遍历
-    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
-    for param in ${param_list}
-    do
-        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
-        if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
-        fi
-    done
-    
-    # 返回结果
-    echo "${value}$4"
-}
-
-
-# 判断文件中参数是否存在，不存在就文件末尾追加（$1：待追加的参数，$2：文件绝对路径）
-function append_param()
-{
-    # 定义参数
-    local exist
-    
-    # 根据文件获取该文件中，是否存在某参数，不存在就追加到文件末尾
-    exist=$(grep -ni "$1" "$2")
-    if [ -z "${exist}" ]; then 
-        echo "$1" >> "$2"
-    fi
-}
-
-
-# 添加到环境变量（$1：配置文件中变量的 key，$1：，$2：软件版本号，$3：是否为系统环境变量）
-function append_env()
-{
-    echo "    ******************************* 添加环境变量 *******************************    "
-    local software_name variate_key variate_value password env_file exist
-    
-    software_name=$(echo "$1" | awk -F '.' '{print $1}')
-    variate_key=$(echo "${1^^}" | tr '.' '_')
-    variate_value=$(get_param "$1")
-    password=$(get_password)
-    
-    if [[ -z "$3" ]]; then
-        env_file="/etc/profile.d/${USER}.sh"
-    else
-        env_file="${HOME}/.bashrc"
-    fi
-    
-    exist=$(grep -ni "${variate_key}" "${env_file}")
-    if [ -z "${exist}" ]; then 
-        echo "${password}" | sudo -S echo "# ===================================== ${software_name}-$2 ====================================== #" >> "${env_file}"
-        echo "${password}" | sudo -S echo "export ${variate_key}=${variate_value}"      >> "${env_file}"
-        echo "${password}" | sudo -S echo "export PATH=\${PATH}:\${${variate_key}}/bin" >> "${env_file}"
-        echo "${password}" | sudo -S echo ""                                            >> "${env_file}"
-    fi
-    
-    # 刷新环境变量
-    source "${env_file}"
-    source /etc/profile
-}
-
-
-# 获取配置文件中主机的密码
-function get_password()
-{
-    local user password
-    
-    # 判断当前登录用户和配置文件中的用户是否相同
-    user=$(get_param "server.user")
-    
-    if [ "${USER}" = "${user}" ]; then
-        password=$(get_param "server.password")
-    else
-        echo "    配置文件：${ROOT_DIR}/conf/${CONFIG_FILE} 中用户和当前登录用户不同 ...... "
-        exit 1
-    fi
-    
-    echo "${password}"
-}
-
-
-# 解压缩文件到临时路径（$1：下载软件包 url 的 key，$2：软件包安装路径）
-function file_decompress()
-{
-    # 定义参数
-    local file_name folder
-    
-    file_name=$(get_param "$1" | sed 's/.*\/\([^\/]*\)$/\1/')
-    echo "    ********** 解压缩文件：${file_name} **********    "
-    
-    if [ -e "${ROOT_DIR}/package/${file_name}" ]; then
-        # 判断软件安装目录是否存在，存在就删除
-        if [ -n "$2" ] && [ -d "$2" ]; then
-            rm -rf "$2"
-        fi
-        
-        # 先删除已经存在的目录
-        cd "${ROOT_DIR}/package" || exit
-        ls -F "${ROOT_DIR}/package" | grep "/$" | xargs rm -rf
-        
-        # 对压缩包进行解压
-        if [[ "${file_name}" =~ tar.xz$ ]]; then
-            tar -Jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.gz$ ]] || [[ "${file_name}" =~ tgz$ ]]; then
-            tar -zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.bz2$ ]]; then
-            tar -jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.Z$ ]]; then
-            tar -Zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar$ ]]; then
-            tar -xvf "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ zip$ ]]; then
-            unzip "${ROOT_DIR}/package/${file_name}"          >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ xz$ ]]; then
-            xz -dk "${ROOT_DIR}/package/${file_name}"         >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ gz$ ]]; then
-            gzip -dk "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
-        elif [[ "${file_name}" =~ bz2$ ]]; then
-            bzip2 -vcdk "${ROOT_DIR}/package/${file_name}"    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ Z$ ]]; then
-            uncompress -rc "${ROOT_DIR}/package/${file_name}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ rar$ ]]; then
-            unrar vx  "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        fi
-        
-        # 将文件夹移动到安装路径
-        if [ -n "$2" ]; then
-            folder=$(ls -F | grep "/$")
-            mkdir -p "$2"
-            mv "${ROOT_DIR}/package/${folder}"* "$2"
-        fi
-    else
-        echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
-    fi
-}
-
-
-# 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
-function get_name()
-{
-    local file_name
-    
-    file_name=$(get_param "$1" | sed 's/.*\/\([^\/]*\)$/\1/')
-    
-    echo "${file_name}"
-}
-
-
 # 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
 function get_version()
 {
@@ -364,9 +185,13 @@ function gradle_install()
 }
 
 
-printf "\n================================================================================\n"
-mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
+if [ "$#" -gt 0 ]; then
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    # shellcheck source=./common.sh
+    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数    
+fi
 
+printf "\n================================================================================\n"
 # 匹配输入参数
 case "$1" in
     # 1. 安装 java 

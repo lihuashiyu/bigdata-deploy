@@ -15,68 +15,6 @@ CONFIG_FILE="server.conf"                                                      #
 LOG_FILE="system-init-$(date +%F).log"                                         # 程序操作日志文件
 
 
-# 读取配置文件，获取配置参数
-function read_param()
-{
-    # 1. 定义局部变量
-    local line string param_list=()
-    
-    # 2. 读取配置文件
-    while read -r line
-    do
-        # 3. 去除 行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
-        
-        # 4. 判断是否为注释文字，是否为空行
-        if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
-            
-            # 6. 将参数添加到参数列表
-            param_list[${#param_list[@]}]="${param}"
-        fi
-    done < "$1"
-    
-    # 将参数列表进行返回
-    echo "${param_list[@]}"
-}
-
-
-# 获取参数（$1：参数键值，$2：待替换的字符，$3：需要替换的字符，$4：后缀字符）
-function get_param()
-{
-    # 定义局部变量
-    local param_list value
-    
-    # 获取参数，并进行遍历
-    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
-    for param in ${param_list}
-    do
-        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
-        if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
-        fi
-    done
-    
-    # 返回结果
-    echo "${value}$4"
-}
-
-
-# 判断文件中参数是否存在，不存在就文件末尾追加（$1：待追加的参数，$2：文件绝对路径）
-function append_param()
-{
-    # 定义参数
-    local exist
-    
-    # 根据文件获取该文件中，是否存在某参数，不存在就追加到文件末尾
-    exist=$(grep -ni "$1" "$2")
-    if [ -z "${exist}" ]; then 
-        echo "$1" >> "$2"
-    fi
-}
-
-
 # 配置网卡
 function network_init()
 {
@@ -276,12 +214,14 @@ function add_execute()
 }
 
 
-printf "\n================================================================================\n"
 if [ "$#" -gt 0 ]; then
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    # shellcheck source=./common.sh
+    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数
     add_execute                                                                # 给脚本添加可执行权限    
 fi
 
+printf "\n================================================================================\n"
 # 匹配输入参数
 case "$1" in
     # 1. 配置网卡
