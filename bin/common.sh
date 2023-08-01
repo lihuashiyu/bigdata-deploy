@@ -31,7 +31,9 @@ function read_param()
             param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
             
             # 6. 将参数添加到参数列表
-            PARAM_LIST[${#PARAM_LIST[@]}]="${param}"
+            if [ -n "${param}" ]; then
+                PARAM_LIST[${#PARAM_LIST[@]}]="${param}"
+            fi
         fi
     done < "$1"
 }
@@ -45,11 +47,7 @@ function get_param()
     
     # 获取参数，并进行遍历
     if [[ ${#PARAM_LIST[@]} -eq 0 ]]; then
-        if [ "$#" -gt 0 ]; then
-            read_param "${ROOT_DIR}/conf/$1"
-        else    
-            read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"        
-        fi
+        read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
     fi
     
     for param in "${PARAM_LIST[@]}"
