@@ -217,10 +217,11 @@ function distribute_file()
     password=$(get_password)
     
     if [ -d "$HOME/.ssh" ]; then
-        echo "${password}" | sudo -S xync.sh  "/etc/profile.d/${USER}.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        
-        xync.sh  "$1"                   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        xcall.sh  "source /etc/profile"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+        {
+            echo "${password}" | sudo -S xync.sh  "/etc/profile.d/${USER}.sh"
+            xync.sh   "$1"
+            xcall.sh  "source /etc/profile"
+        } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
     else
         echo "    需要提前手动配置节点间免密登录 ...... "
         exit 1
@@ -247,5 +248,48 @@ function get_cpu_thread()
     
     echo "${thread}"
 }
+
+
+# 获取目录下的所有目录（$1：需要查找的目录，$2：过滤目录）
+function get_dir_list()
+{
+    # 定义参数
+    local folder_list 
+        
+    if [ ! -e "$1" ] || [ ! -d "$1" ]; then
+        echo "    ******************* $1：不是文件夹或不存在  ********************    "
+        exit 1
+    fi
+    
+    if [ "$#" -eq 2 ]; then
+        folder_list=$(find "$1" -iname "*$2*" -maxdepth 0 -type d -print)
+    else    
+        folder_list=$(find "$1"  -maxdepth 0 -type d -print)
+    fi
+    
+    echo "${folder_list}"
+}
+
+
+# 获取目录下的所有文件（$1：需要查找的目录，$2：过滤文件）
+function get_file_list()
+{
+    # 定义参数
+    local file_name_list 
+    
+    if [ ! -e "$1" ] || [ ! -d "$1" ]; then
+        echo "    ******************* $1：不是文件夹或不存在  ********************    "
+        exit 1
+    fi
+    
+    if [ "$#" -eq 2 ]; then
+        file_name_list=$(find "$1" -iname "*$2*" -maxdepth 0 -type f -print)
+    else    
+        file_name_list=$(find "$1"  -maxdepth 0 -type f -print)
+    fi
+    
+    echo "${file_name_list}"
+}
+
 
 printf "\n    ************************ 获取公共函数成功 ************************    \n\n"
