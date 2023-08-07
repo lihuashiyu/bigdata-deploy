@@ -14,18 +14,18 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
-JAVA_HOME="/opt/java/jdk"                                                      # Java     默认安装路径  
-SCALA_HOME="/opt/java/scala"                                                   # Scala    默认安装路径  
-HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop   默认安装路径 
-SPARK_HOME="/opt/apache/spark"                                                 # Spark    默认安装路径 
-FLINK_HOME="/opt/apache/flink"                                                 # Flink    默认安装路径 
-ZOOKEEPER_HOME="/opt/apache/zookeeper"                                         # Zookeeper  默认安装路径 
-KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka    默认安装路径 
-HIVE_HOME="/opt/apache/hive"                                                   # Hive     默认安装路径 
-DORIS_HOME="/opt/apache/doris"                                                 # Doris    默认安装路径 
-FLUME_HOME="/opt/apache/flume"                                                 # Flume    默认安装路径 
-HBASE_HOME="/opt/apache/hbase"                                                 # HBase    默认安装路径 
-PHOENIX_HOME="/opt/apache/phoenix"                                             # Phoenix  默认安装路径 
+JAVA_HOME="/opt/java/jdk"                                                      # Java      默认安装路径  
+SCALA_HOME="/opt/java/scala"                                                   # Scala     默认安装路径  
+HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop    默认安装路径 
+SPARK_HOME="/opt/apache/spark"                                                 # Spark     默认安装路径 
+FLINK_HOME="/opt/apache/flink"                                                 # Flink     默认安装路径 
+ZOOKEEPER_HOME="/opt/apache/zookeeper"                                         # Zookeeper 默认安装路径 
+KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka     默认安装路径 
+HIVE_HOME="/opt/apache/hive"                                                   # Hive      默认安装路径 
+DORIS_HOME="/opt/apache/doris"                                                 # Doris     默认安装路径 
+FLUME_HOME="/opt/apache/flume"                                                 # Flume     默认安装路径 
+HBASE_HOME="/opt/apache/hbase"                                                 # HBase     默认安装路径 
+PHOENIX_HOME="/opt/apache/phoenix"                                             # Phoenix   默认安装路径 
 
 
 # 离线安装 maven jar （$1：jar 文件名，$2：Maven 坐标 GroupId 值，$3：Maven 坐标 ArtifactId 值，$4：Maven 坐标 Version 值）
@@ -593,7 +593,7 @@ function doris_install()
 function hbase_install()
 {
     echo "    ************************* 开始安装 HBase *************************    "
-    local namenode_host_port zookeeper_hosts hbase_version master_list master region_list region backup_list backup
+    local namenode_host_port zookeeper_hosts hbase_version region_list region backup_list backup
     
     HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
     file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
@@ -616,18 +616,21 @@ function hbase_install()
     zookeeper_hosts=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}') 
     region_list=$(get_param "hbase.hregion.hosts" | tr ',' ' ')                # 获取 region 节点
     backup_list=$(get_param "hbase.backup.host"   | tr ',' ' ')                # 获取 backup 备份节点
+    namenode_host_port=$(get_param "namenode.host.port")                       # 获取 NameNode 地址
     sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"       "${HBASE_HOME}/conf/hbase-site.xml"
     sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"             "${HBASE_HOME}/conf/hbase-site.xml"
     sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"               "${HBASE_HOME}/conf/hbase-site.xml"
     sed -i "s|hbase.log.dir=.*|hbase.log.dir=${HBASE_HOME}/logs|g"  "${HBASE_HOME}/conf/log4j.properties"
     
     # 修改修改 RegionServer 节点配置
+    cat /dev/null > "${HBASE_HOME}/conf/regionservers" 
     for region in ${region_list}
     do 
         append_param "${region}"  "${HBASE_HOME}/conf/regionservers"
     done    
     
     # 修改修改 HMaster Backup 节点配置
+    cat /dev/null > "${HBASE_HOME}/conf/backup-masters"
     if [ -z "${backup_list}" ]; then
         for backup in $(echo "${backup_list}" | tr ',' ' ')
         do
@@ -646,8 +649,8 @@ function hbase_install()
     distribute_file "${HBASE_HOME}"                                            # 分发到其它节点
     
     echo "    **************************** 启动集群 ****************************    "
-    "${HBASE_HOME}/bin/start-habse.sh"                                         # 启动集群的 HMaster 和所有的 HRegionServer
-    "${HBASE_HOME}/bin/habse.sh" status                                        # 查看集群信息
+    "${HBASE_HOME}/bin/start-hbase.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 启动集群的 HMaster 和所有的 HRegionServer
+    "${HBASE_HOME}/bin/hbase.sh" status                                        # 查看集群信息
     
     echo "    **************************** 测试集群 ****************************    "
     
@@ -672,9 +675,13 @@ function phoenix_install()
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 core 配置文件到 Phoenix 
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 hdfs 配置文件到 Phoenix    
     
-    cp -fpr  "${PHOENIX_HOME}/phoenix-server-hbase-${phoenix_version}-${hbase_version}.jar" "${HBASE_HOME}/lib/"       # 复制 驱动
+    cp -fpr  "${PHOENIX_HOME}/phoenix-server-hbase-*-${phoenix_version}.jar" "${HBASE_HOME}/lib/"       # 复制 驱动
+            
+    echo "    *********************** 分发 Phoenix 目录 ************************    "        
+    append_env "phoenix.home" "${phoenix_version}"                                 # 添加环境变量
+    distribute_file "${PHOENIX_HOME}"                                            # 分发到其它节点
+
     
-    echo "    ********************* 修改 Phoenix 配置文件 **********************    "
 }
 
 

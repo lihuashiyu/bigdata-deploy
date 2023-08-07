@@ -177,7 +177,7 @@ function file_decompress()
         if [ -n "$2" ]; then
             folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)
             mkdir -p "$2"
-            mv "${ROOT_DIR}/package/${folder}"* "$2"
+            mv "${folder}/"* "$2"
         fi
     else
         echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
@@ -291,3 +291,5 @@ function get_file_list()
 
 
 printf "\n    ************************ 获取公共函数成功 ************************    \n\n"
+source "${HOME}/.bashrc"
+source "/etc/profile"
