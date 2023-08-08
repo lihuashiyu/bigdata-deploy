@@ -105,15 +105,6 @@ if [ "$#" -gt 0 ]; then
     source "${ROOT_DIR}/bin/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 获取公共函数    
 fi
 
-if [ "$#" -gt 0 ]; then
-    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
-    
-    source "${HOME}/.bashrc"                                                   # 刷系用户环境变量
-    source /etc/profile                                                        # 刷系统新环境变量
-    # shellcheck source=./../../bin/common.sh
-    source "${ROOT_DIR}/bin/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 获取公共函数    
-fi
-
 printf "\n================================================================================\n"
 # 匹配输入参数
 case "$1" in
@@ -141,7 +132,7 @@ case "$1" in
     
     # 10. 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：             "
+        echo "    脚本可传入一个参数，如下所示：      "
         echo "        +----------+------------------+ "
         echo "        |  参  数  |      描  述      | "
         echo "        +----------+------------------+ "
