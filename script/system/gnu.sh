@@ -16,132 +16,6 @@ LOG_FILE="compile-install-$(date +%F).log"                                     #
 USER=$(whoami)                                                                 # 当前登录使用的用户
 
 
-# 读取配置文件，获取配置参数
-function read_param()
-{
-    # 1. 定义局部变量
-    local line string param_list=()
-    
-    # 2. 读取配置文件
-    while read -r line
-    do
-        # 3. 去除 行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
-        
-        # 4. 判断是否为注释文字，是否为空行
-        if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
-            # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
-            
-            # 6. 将参数添加到参数列表
-            param_list[${#param_list[@]}]="${param}"
-        fi
-    done < "$1"
-    
-    # 将参数列表进行返回
-    echo "${param_list[@]}"
-}
-
-
-# 获取参数（$1：参数键值，$2：待替换的字符，$3：需要替换的字符，$4：后缀字符）
-function get_param()
-{
-    # 定义局部变量
-    local param_list value
-    
-    # 获取参数，并进行遍历
-    param_list=$(read_param "${ROOT_DIR}/conf/${CONFIG_FILE}")
-    for param in ${param_list}
-    do
-        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
-        if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
-        fi
-    done
-    
-    # 返回结果
-    echo "${value}$4"
-}
-
-
-# 解压缩文件到临时路径（$1：下载软件包 url 的 key，$2：软件包安装路径）
-function file_decompress()
-{
-    # 定义参数
-    local file_name folder
-    
-    file_name=$(get_param "$1" | sed 's/.*\/\([^\/]*\)$/\1/')
-    echo "    ********** 解压缩文件：${file_name} **********    "
-    
-    if [ -e "${ROOT_DIR}/package/${file_name}" ]; then
-        # 判断软件安装目录是否存在，存在就删除
-        if [ -n "$2" ] && [ -d "$2" ]; then
-            rm -rf "$2"
-        fi
-        
-        # 先删除已经存在的目录
-        find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print -exec rm -rf {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        cd "${ROOT_DIR}/package/" || exit                                       # 进入解压目录
-        
-        # 对压缩包进行解压
-        if [[ "${file_name}" =~ tar.xz$ ]]; then
-            tar -Jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.gz$ ]] || [[ "${file_name}" =~ tgz$ ]]; then
-            tar -zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.bz2$ ]]; then
-            tar -jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar.Z$ ]]; then
-            tar -Zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ tar$ ]]; then
-            tar -xvf "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ zip$ ]]; then
-            unzip "${ROOT_DIR}/package/${file_name}"          >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ xz$ ]]; then
-            xz -dk "${ROOT_DIR}/package/${file_name}"         >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ gz$ ]]; then
-            gzip -dk "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
-        elif [[ "${file_name}" =~ bz2$ ]]; then
-            bzip2 -vcdk "${ROOT_DIR}/package/${file_name}"    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ Z$ ]]; then
-            uncompress -rc "${ROOT_DIR}/package/${file_name}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-        elif [[ "${file_name}" =~ rar$ ]]; then
-            unrar vx  "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        fi
-        
-        # 将文件夹移动到安装路径
-        if [ -n "$2" ]; then
-            folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)
-            mkdir -p "$2"
-            mv "${folder}"* "$2"
-        fi
-    else
-        echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
-        exit 1
-    fi
-}
-
-
-# 获取 cpu 超线程数
-function get_cpu_thread()
-{
-    local physical_count core_count processor_count thread 
-    
-    # 查看物理 CPU 个数
-    physical_count=$(grep -i "physical id" /proc/cpuinfo | sort | uniq | wc -l)
-    
-    # 查看每个物理 CPU 中 core 的个数(即核数)
-    core_count=$(grep -i "cpu cores" /proc/cpuinfo | uniq | awk '{print $NF}')
-    
-    # 查看逻辑 CPU 的个数
-    processor_count=$(grep -ci "processor" /proc/cpuinfo)
-    
-    # 总逻辑 CPU 数 = 物理 CPU 个数 X 每颗物理 CPU 的核数 X 超线程数
-    thread=$(( physical_count * core_count * processor_count ))
-    
-    echo "${thread}"
-}
-
-
 # 安装并配置 gcc
 function gcc_install()
 {
@@ -208,9 +82,16 @@ function htop_install()
 }
 
 
-printf "\n================================================================================\n"
-mkdir -p "${ROOT_DIR}/logs"                                                    # 创建日志目录
+if [ "$#" -gt 0 ]; then
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    source "${HOME}/.bashrc"                                                   # 刷系用户环境变量
+    source /etc/profile                                                        # 刷系统新环境变量
+    # shellcheck source=./../../bin/common.sh
+    source "${ROOT_DIR}/bin/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 获取公共函数    
+fi
 
+printf "\n================================================================================\n"
 # 匹配输入参数
 case "$1" in
     # 1. 安装 gcc 
