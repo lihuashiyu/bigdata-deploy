@@ -19,8 +19,15 @@ USER=$(whoami)                                                                 #
 # 安装并配置 gcc
 function gcc_install()
 {
-    local folder gcc_home cpu_thread password gcc_version count
+    local exists result_count folder gcc_home cpu_thread password gcc_version count
+    exists=$(command_exist gcc)
+    echo "${exists}"
+    result_count=$(echo "${exists}" | wc -l)
+    if [[ ${result_count} -gt 1 ]]; then
+        return
+    fi
     
+    echo "exists= ${exists}"
     echo "    ************************ $(date '+%T')：解压源码包 ************************    "
     file_decompress "gcc.url"                                                  # 解压源码包
     folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取解压目录
@@ -69,6 +76,15 @@ function gcc_install()
 # 安装并配置 git
 function git_install()
 {
+    local exists folder gcc_home cpu_thread password gcc_version count
+    
+    exists=$(command -v gcc > /dev/null 2>&1; echo $?)
+    if [[ "${exists}" -eq 0 ]]; then
+        echo "    **************************** 软件已经安装 ****************************    "
+        echo "        ===> 位置：$(command -v gcc) "
+        return
+    fi
+    
     echo "    ************************ 开始安装 git ************************    "
     
 }
@@ -81,6 +97,13 @@ function htop_install()
     
 }
 
+
+if [ "$#" -gt 0 ]; then
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    # shellcheck source=./../../bin/common.sh
+    source "${ROOT_DIR}/bin/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 获取公共函数    
+fi
 
 if [ "$#" -gt 0 ]; then
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录

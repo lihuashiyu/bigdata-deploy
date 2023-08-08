@@ -290,6 +290,26 @@ function get_file_list()
 }
 
 
-printf "\n    ************************ 获取公共函数成功 ************************    \n\n"
-source "${HOME}/.bashrc"
+# 判断命令是否存在（$1：需要查找的命令）
+function command_exist()
+{
+    local exists
+    exists=$(command -v "$1" > /dev/null 2>&1; echo $?)
+    if [[ "${exists}" -eq 0 ]]; then
+        echo "    **************************** 软件已经安装 ****************************    "
+        echo "        ===> 位置：$(command -v $1) "
+        echo "        ===> 相关文件：$(whereis $1) "
+    else
+        echo "    ***************** 推荐使用命令：sudo dnf install git *****************    "
+    fi
+}
+
+
+printf "\n    ************************** 刷新环境变量 **************************    \n"
+if [ -e "${HOME}/.bash_profile" ]; then
+    source "${HOME}/.bash_profile"
+elif [ -e "${HOME}/.bashrc" ]; then
+    source "${HOME}/.bashrc"
+fi
 source "/etc/profile"
+printf "\n    ************************** 获取公共函数 **************************    \n\n"
