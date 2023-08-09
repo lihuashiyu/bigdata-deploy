@@ -28,6 +28,29 @@ HBASE_HOME="/opt/apache/hbase"                                                 #
 PHOENIX_HOME="/opt/apache/phoenix"                                             # Phoenix   默认安装路径 
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 离线安装 maven jar （$1：jar 文件名，$2：Maven 坐标 GroupId 值，$3：Maven 坐标 ArtifactId 值，$4：Maven 坐标 Version 值）
 function maven_jar_install()
 {
@@ -402,7 +425,7 @@ function kafka_install()
     sed -i "s|compression.type=.*|compression.type=gzip|g"                   "${KAFKA_HOME}/config/producer.properties"
     
     # 修改配 Broker 置文件参数
-    kafka_zookeeper_node=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
+    kafka_zookeeper_node=$(get_param "zookeeper.hosts" | sed -e 's|$|,|g' | awk '{gsub(/,/,":2181/kafka,");print $0}' | sed -e 's|,$||g' )
     sed -i "s|\${KAFKA_HOME}|${KAFKA_HOME}|g"                     "${KAFKA_HOME}/config/server.properties"
     sed -i "s|\${kafka_zookeeper_node}|${kafka_zookeeper_node}|g" "${KAFKA_HOME}/config/server.properties"
     
@@ -581,19 +604,11 @@ function hive_install()
 }
 
 
-# 安装并初始化 Doris
-function doris_install()
-{
-    echo "    ************************* 开始安装 Doris *************************    "
-    
-}
-
-
 # 安装并初始化 HBase
 function hbase_install()
 {
     echo "    ************************* 开始安装 HBase *************************    "
-    local namenode_host_port zookeeper_hosts hbase_version region_list region backup_list backup
+    local namenode_host_port zookeeper_hosts hbase_version region_list region backup_list backup fail_count
     
     HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
     file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
@@ -613,7 +628,7 @@ function hbase_install()
     append_param "export HBASE_MANAGES_ZK=false"           "${HBASE_HOME}/conf/hbase-env.sh"
     
     # zookeeper 集群
-    zookeeper_hosts=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}') 
+    zookeeper_hosts=$(get_param "zookeeper.hosts" | sed -e 's|$|,|g' | awk '{gsub(/,/,":2181,");print $0}' | sed -e 's|,$||g' ) 
     region_list=$(get_param "hbase.hregion.hosts" | tr ',' ' ')                # 获取 region 节点
     backup_list=$(get_param "hbase.backup.host"   | tr ',' ' ')                # 获取 backup 备份节点
     namenode_host_port=$(get_param "namenode.host.port")                       # 获取 NameNode 地址
@@ -652,8 +667,34 @@ function hbase_install()
     "${HBASE_HOME}/bin/start-hbase.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 启动集群的 HMaster 和所有的 HRegionServer
     "${HBASE_HOME}/bin/hbase.sh" status                                        # 查看集群信息
     
-    echo "    **************************** 测试集群 ****************************    "
+    echo "    **************************** 测试集群 ****************************    "    
+    { 
+        echo "create_namespace 'test'"
+        echo "list_namespace"
+        echo "create 'test:test', 'info', 'address'"
+        echo "list_namespace_tables 'test'"
+        echo "put 'test:test','1','info:age','22'"
+        echo "put 'test:test','1','info:name','zhao'"
+        echo "put 'test:test','1','info:class','2'"
+        echo "put 'test:test','1','address:city','shanghai'"
+        echo "put 'test:test','1','address:area','pudong'"
+        echo "put 'test:test','2','info:age','21'"
+        echo "put 'test:test','2','info:name','yang'"
+        echo "put 'test:test','2','info:class','1'"    
+        echo "put 'test:test','2','address:city','beijing'"
+        echo "put 'test:test','2','address:area','CBD'"
+        echo "scan 'test:test'"
+        echo "exit" 
+    } > "${HBASE_HOME}/data/test.txt" 
     
+    "${HBASE_HOME}/bin/hbase" shell "${HBASE_HOME}/data/test.txt" > "${HBASE_HOME}/logs/test.log" 2>&1
+    
+    fail_count=$(grep -nic "ERROR:" "${PHOENIX_HOME}/logs/test.log")
+    if [[ "${fail_count}" -eq 0 ]]; then
+        echo "    *************************** 测试成功 *****************************    "
+    else
+        echo "    *************************** 测试失败 *****************************    "
+    fi
 }
 
 
@@ -661,7 +702,7 @@ function hbase_install()
 function phoenix_install()
 {
     echo "    ************************ 开始安装 Phoenix ************************    "
-    local hbase_version phoenix_version
+    local hbase_version phoenix_version zookeeper_hosts sql_count success_count fail_count
     
     PHOENIX_HOME=$(get_param "phoenix.home")                                   # 获取 Phoenix 安装路径
     file_decompress "phoenix.url" "${PHOENIX_HOME}"                            # 解压 Phoenix 安装包
@@ -675,13 +716,40 @@ function phoenix_install()
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 core 配置文件到 Phoenix 
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 hdfs 配置文件到 Phoenix    
     
-    cp -fpr  "${PHOENIX_HOME}/phoenix-server-hbase-*-${phoenix_version}.jar" "${HBASE_HOME}/lib/"       # 复制 驱动
+    cp -fpr  "${PHOENIX_HOME}"/phoenix-server-hbase-*-"${phoenix_version}".jar "${HBASE_HOME}/lib/"          # 复制 驱动
+    mkdir -p "${PHOENIX_HOME}/logs"
             
     echo "    *********************** 分发 Phoenix 目录 ************************    "        
     append_env "phoenix.home" "${phoenix_version}"                                 # 添加环境变量
     distribute_file "${PHOENIX_HOME}"                                            # 分发到其它节点
-
     
+    echo "    ************************* 测试 Phoenix  **************************    "    
+    { 
+        echo "create schema if not exists test;"
+        echo "use test;"
+        echo "create table if not exists student ( id bigint primary key, name varchar(64), age bigint, gender bigint );"
+        echo "upsert into student (id, name, age, gender) values(1001, '张三', 25, 0);"
+        echo "upsert into student (id, name, age, gender) values(1002, '李四', 36, 1);"
+        echo "select * from student;"
+        echo "upsert into student (id, name, age, gender) values(1001, '王五', 27, 1);"
+        echo "select * from student;"
+        echo "delete from student where id = 1001;"
+        echo "select * from student;"
+        echo "select * from system.catalog;"
+        echo "!exit"
+    } > "${PHOENIX_HOME}/logs/test.sql" 
+    
+    zookeeper_hosts=$(get_param "zookeeper.hosts" | sed -e 's|$|:2181|g' )
+    "${PHOENIX_HOME}/bin/sqlline.py"  "${zookeeper_hosts}" "${PHOENIX_HOME}/logs/test.sql" > "${PHOENIX_HOME}/logs/test.log" 2>&1
+    
+    sql_count=$(wc -l "${PHOENIX_HOME}/logs/test.sql" | awk '{print $1}')
+    success_count=$(grep -nic "${sql_count}/${sql_count}" "${PHOENIX_HOME}/logs/test.log")
+    fail_count=$(grep -nic "command failed" "${PHOENIX_HOME}/logs/test.log")
+    if [[ "${fail_count}" -eq 0 ]] && [[ "${success_count}" -eq 1 ]]; then
+        echo "    *************************** 测试成功 *****************************    "
+    else
+        echo "    *************************** 测试失败 *****************************    "
+    fi
 }
 
 
@@ -743,13 +811,48 @@ function flume_install()
 }
 
 
-if [ "$#" -gt 0 ]; then
-    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
-    # shellcheck source=./common.sh
-    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数    
-fi
+# 安装并初始化 Doris
+function doris_install()
+{
+    echo "    ************************* 开始安装 Doris *************************    "
+    local doris_version 
+    
+    DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
+    file_decompress "doris.fe.url" "${DORIS_HOME}/fe"                          # 解压 FE 安装包
+    file_decompress "doris.be.url" "${DORIS_HOME}/be"                          # 解压 BE 安装包
+
+    # 创建必要的目录    
+    mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/logs" 
+    mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/logs"                                       
+    
+    echo "    ********************** 修改 Doris 配置文件 ***********************    "
+    cp -fpr "${ROOT_DIR}/conf/doris-fe.conf" "${DORIS_HOME}/fe/conf/fe.conf"
+    cp -fpr "${ROOT_DIR}/conf/doris-be.conf" "${DORIS_HOME}/be/conf/be.conf"
+    
+    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
+    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/be.conf"
+
+    doris_version=$(get_version "doris_version.fe.url")                        # 获取 Doris 的版本
+    append_env "doris.home" "${doris_version}"                                 # 添加环境变量
+    distribute_file "${DORIS_HOME}"                                            # 分发到其它节点
+    
+    echo "    **************************** 启动集群 ****************************    "
+    "${DORIS_HOME}/be/bin/start_fe.sh"  --daemon
+    "${DORIS_HOME}/be/bin/start_be.sh"  --daemon
+    
+    echo "    **************************** 添加 BE *****************************    "
+    
+    
+    echo "    **************************** 测试集群 ****************************    "
+    
+}
+
 
 printf "\n================================================================================\n"
+if [ "$#" -gt 0 ]; then
+    flush_env                                                                    # 刷新环境变量   
+fi
+
 # 匹配输入参数
 case "$1" in
     # 1. 安装 hadoop 
