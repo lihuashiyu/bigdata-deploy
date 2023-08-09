@@ -156,17 +156,8 @@ function service_role()
         do
             # 2.1 程序 节点 的 角色
             node_role=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${ZOOKEEPER_HOME}/bin/zkServer.sh status 2> /dev/null  | grep -i 'mode'")
-            leader_count=$(echo "${node_role}" | grep -i "${LEADER_STATUS}" | wc -l)
-            flower_count=$(echo "${node_role}" | grep -i "${FLOWER_STATUS}" | wc -l)
-            local_count=$(echo "${node_role}"  | grep -i "${LOCAL_STATUS}"  | wc -l)
-            
-            if [ "${leader_count}" -ne 0 ]; then
-                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 leader 状态 ......"
-            elif [ "${flower_count}" -ne 0 ]; then
-                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 flower 状态 ......"
-            elif [ "${local_count}" -ne 0 ]; then
-                echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 standalone 状态 ......"
-            fi
+            mode=$(echo "${node_role}" | awk -F ':' '{print $NF}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+            echo "    主机（${host_name}）的（${ALIAS_NAME}）处于 ${mode} 状态 ......"
         done
     else
         echo "    程序（${ALIAS_NAME}）运行出错 ...... "
@@ -253,4 +244,3 @@ fi
 
 printf "================================================================================\n\n"
 exit 0
-
