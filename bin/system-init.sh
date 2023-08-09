@@ -15,6 +15,29 @@ CONFIG_FILE="server.conf"                                                      #
 LOG_FILE="system-init-$(date +%F).log"                                         # 程序操作日志文件
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 配置网卡
 function network_init()
 {
@@ -215,9 +238,7 @@ function add_execute()
 
 
 if [ "$#" -gt 0 ]; then
-    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
-    # shellcheck source=./common.sh
-    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数
+    flush_env                                                                    # 刷新环境变量
     add_execute                                                                # 给脚本添加可执行权限    
 fi
 

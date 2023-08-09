@@ -9,30 +9,31 @@
 # ==================================================================================================
 
 
-USER=$(whoami)                                                                 # 当前登录使用的用户
-PARAM_LIST=()                                                                  # 配置文件中参数
-
-
 # 读取配置文件，获取配置参数
 function read_param()
 {
     # 1. 定义局部变量
-    local line string
+    local line string key value
     
     # 2. 读取配置文件
     while read -r line
     do
-        # 3. 去除 行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+        # 3. 去除行尾的回车、换行符，行首 和 行尾 的 空格 和 制表符
+        string=$(echo "${line}" | sed -e 's/\r//g' | sed -e 's/\n//g' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
         
         # 4. 判断是否为注释文字，是否为空行
         if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
             # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr ' |\t' '#')
+            param=$(echo "${string}" | awk -F '#' '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
             
             # 6. 将参数添加到参数列表
             if [ -n "${param}" ]; then
-                PARAM_LIST[${#PARAM_LIST[@]}]="${param}"
+                # 7. 获取参数的键值对
+                key=$(echo "${param}"   | awk -F '=' '{print $1}'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
+                value=$(echo "${param}" | awk -F '=' '{print $NF}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+                
+                # 8. 将键值对添加到 数组（Map）
+                PARAM_LIST["${key}"]="${value}"
             fi
         fi
     done < "$1"
@@ -50,13 +51,8 @@ function get_param()
         read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
     fi
     
-    for param in "${PARAM_LIST[@]}"
-    do
-        # 判断参数是否符合以 键 开始，并对键值对进行 切割 和 替换 
-        if [[ ${param} =~ ^$1 ]]; then
-            value=$(echo "${param//#/ }" | awk -F '=' '{print $2}' | awk '{gsub(/^\s+|\s+$/, ""); print}' | tr "\'$2\'" "\'$3\'")
-        fi
-    done
+    # 获取结果
+    value=$(echo "${PARAM_LIST[$1]}" | tr "\'$2\'" "\'$3\'")
     
     # 返回结果
     echo "${value}$4"
@@ -303,13 +299,3 @@ function command_exist()
         echo "    ***************** 推荐使用命令：sudo dnf install git *****************    "
     fi
 }
-
-
-printf "\n    ************************** 刷新环境变量 **************************    \n"
-if [ -e "${HOME}/.bash_profile" ]; then
-    source "${HOME}/.bash_profile"
-elif [ -e "${HOME}/.bashrc" ]; then
-    source "${HOME}/.bashrc"
-fi
-source "/etc/profile"
-printf "\n    ************************** 获取公共函数 **************************    \n\n"
