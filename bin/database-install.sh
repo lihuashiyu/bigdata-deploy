@@ -21,8 +21,30 @@ MONGO_HOME="/opt/db/mongodb"                                                   #
 ORACLE_HOME="/opt/db/oracle"                                                   # Mysql 默认安装路径 
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 卸载系统自带的 MariaDB
-# shellcheck disable=SC2024
 function uninstall_mariadb()
 {
     local password software_list software pid_list pid
@@ -245,6 +267,10 @@ if [ "$#" -gt 0 ]; then
 fi
 
 printf "\n================================================================================\n"
+if [ "$#" -gt 0 ]; then
+    flush_env                                                                  # 刷新环境变量    
+fi
+
 # 匹配输入参数
 case "$1" in
     # 1. 安装 Mysql 并进行测试

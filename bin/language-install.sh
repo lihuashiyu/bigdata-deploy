@@ -21,6 +21,29 @@ MAVEN_HOME="/opt/apache/maven"                                                 #
 GRADLE_HOME="/opt/apache/gradle"                                               # Gradle 默认安装路径 
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
 function get_version()
 {
@@ -57,7 +80,7 @@ function uninstall_open_jdk()
 function java_install()
 {
     uninstall_open_jdk                                                         # 卸载系统自带的 OpenJdk
- 
+    
     echo "    ************************* 开始安装 java *************************    "
     JAVA_HOME=$(get_param "java.home")                                         # 获取 Java 安装路径
     file_decompress "java.url" "${JAVA_HOME}"                                  # 解压 Java 安装包
@@ -185,13 +208,11 @@ function gradle_install()
 }
 
 
+printf "\n================================================================================\n"
 if [ "$#" -gt 0 ]; then
-    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
-    # shellcheck source=./common.sh
-    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数    
+    flush_env                                                                  # 刷新环境变量    
 fi
 
-printf "\n================================================================================\n"
 # 匹配输入参数
 case "$1" in
     # 1. 安装 java 

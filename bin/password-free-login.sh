@@ -15,6 +15,29 @@ LOG_FILE="password-free-login-$(date +%F).log"                                 #
 USER=$(whoami)                                                                 # 当前使用的用户
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 创建秘钥（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码）
 function create_keygen()
 {
@@ -100,13 +123,11 @@ function sync_keygen()
 }
 
 
+printf "\n================================================================================\n"
 if [ "$#" -gt 0 ]; then
-    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
-    # shellcheck source=./common.sh
-    source "${SERVICE_DIR}/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 获取公共函数    
+    flush_env                                                                  # 刷新环境变量    
 fi
 
-printf "\n================================================================================\n"
 # 判断脚本是否传入参数，未传入会使用自定义参数
 if [ "$#" -eq 0 ]; then
     HOST_LIST=$(get_host_list)

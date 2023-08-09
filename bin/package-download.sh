@@ -17,6 +17,29 @@ LOG_FILE="package-download-$(date +%F).log"                                    #
 software_list=(mysql redis java python scala maven gradle hadoop spark.nohadoop)
 
 
+# 刷新环境变量
+function flush_env()
+{
+    mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    
+    echo "    ************************** 刷新环境变量 **************************    "
+    if [ -e "${HOME}/.bash_profile" ]; then
+        source "${HOME}/.bash_profile"
+    elif [ -e "${HOME}/.bashrc" ]; then
+        source "${HOME}/.bashrc"
+    fi
+    
+    source "/etc/profile"
+    
+    echo "    ************************** 获取公共函数 **************************    "
+    # shellcheck source=./common.sh
+    source "${ROOT_DIR}/bin/common.sh"
+    
+    export -A PARAM_LIST=()
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+}
+
+
 # 下载软件包（$1：配置文件中软件包 url 的 key）
 function download()
 {
@@ -41,9 +64,9 @@ function download()
 
 
 printf "\n================================================================================\n" 
-mkdir -p  "${ROOT_DIR}/logs" "${ROOT_DIR}/package"                             # 创建 日志目录 和 安装包存放目录
-# shellcheck source=./common.sh
-source "${ROOT_DIR}/bin/common.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 获取公共函数    
+if [ "$#" -gt 0 ]; then
+    flush_env                                                                  # 刷新环境变量
+fi
 
 # 判断脚本是否传入参数，未传入会使用自定义参数
 if [ "$#" -eq 0 ]; then

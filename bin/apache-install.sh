@@ -581,7 +581,7 @@ function hive_install()
             email  varchar(128)  comment '电子邮件',
             remark varchar(1024) comment '备注'
         ) comment '学生测试表';
-    
+        
         set mapreduce.map.java.opts='-Xmx4096m';                               -- 设置 map 堆内存
         set mapreduce.reduce.java.opts='-Xms4096m';                            -- 设置 reduce 堆内存
         
@@ -820,7 +820,7 @@ function doris_install()
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
     file_decompress "doris.fe.url" "${DORIS_HOME}/fe"                          # 解压 FE 安装包
     file_decompress "doris.be.url" "${DORIS_HOME}/be"                          # 解压 BE 安装包
-
+    
     # 创建必要的目录    
     mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/logs" 
     mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/logs"                                       
@@ -831,7 +831,7 @@ function doris_install()
     
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/be.conf"
-
+    
     doris_version=$(get_version "doris_version.fe.url")                        # 获取 Doris 的版本
     append_env "doris.home" "${doris_version}"                                 # 添加环境变量
     distribute_file "${DORIS_HOME}"                                            # 分发到其它节点

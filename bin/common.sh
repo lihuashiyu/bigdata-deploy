@@ -78,18 +78,18 @@ function append_env()
 {
     echo "    ******************************* 添加环境变量 *******************************    "
     local software_name variate_key variate_value password env_file exist
-
+    
     software_name=$(echo "$1" | awk -F '.' '{print $1}')
     variate_key=$(echo "${1^^}" | tr '.' '_')
     variate_value=$(get_param "$1")
     password=$(get_password)
-
+    
     if [[ -z $3 ]]; then
         env_file="/etc/profile.d/${USER}.sh"
     else
         env_file="${HOME}/.bashrc"
     fi
-
+    
     exist=$(grep -ni "${variate_key}" "${env_file}")
     if [ -z "${exist}" ]; then
         {
