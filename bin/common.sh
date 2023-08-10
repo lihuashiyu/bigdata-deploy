@@ -76,7 +76,7 @@ function append_param()
 # 添加到环境变量（$1：配置文件中变量的 key，$1：，$2：软件版本号，$3：是否为系统环境变量）
 function append_env()
 {
-    echo "    ******************************* 添加环境变量 *******************************    "
+    echo "    ************************** 添加环境变量 **************************    "
     local software_name variate_key variate_value password env_file exist
     
     software_name=$(echo "$1" | awk -F '.' '{print $1}')

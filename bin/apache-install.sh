@@ -815,32 +815,43 @@ function flume_install()
 function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
-    local doris_version 
+    local doris_version fe_list be_list host
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
-    file_decompress "doris.fe.url" "${DORIS_HOME}/fe"                          # 解压 FE 安装包
-    file_decompress "doris.be.url" "${DORIS_HOME}/be"                          # 解压 BE 安装包
-    
-    # 创建必要的目录    
-    mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/logs" 
-    mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/logs"                                       
+    # file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
+    # 
+    # # 创建必要的目录    
+    # mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/data/tmp" "${DORIS_HOME}/fe/log"
+    # mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/log"
     
     echo "    ********************** 修改 Doris 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/conf/doris-fe.conf" "${DORIS_HOME}/fe/conf/fe.conf"
     cp -fpr "${ROOT_DIR}/conf/doris-be.conf" "${DORIS_HOME}/be/conf/be.conf"
     
-    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
-    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"  "${DORIS_HOME}/fe/conf/be.conf"
+    priority_networks=$(get_param "server.gateway" | awk -F '.' '{print $1,$2}' | tr ' ' '.' | sed -e 's|$|\.0\.0/16|g')
+    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/fe/conf/fe.conf"
+    sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/be/conf/be.conf"
+    sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
+    sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/be/conf/be.conf"
     
-    doris_version=$(get_version "doris_version.fe.url")                        # 获取 Doris 的版本
+    doris_version=$(get_version "doris.url")                                   # 获取 Doris 的版本
     append_env "doris.home" "${doris_version}"                                 # 添加环境变量
     distribute_file "${DORIS_HOME}"                                            # 分发到其它节点
     
-    echo "    **************************** 启动集群 ****************************    "
-    "${DORIS_HOME}/be/bin/start_fe.sh"  --daemon
-    "${DORIS_HOME}/be/bin/start_be.sh"  --daemon
+    echo "    **************************** 启动节点 ****************************    "
+    fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')
+    for host in ${fe_list}
+    do
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/start_fe.sh --daemon"
+    done
     
-    echo "    **************************** 添加 BE *****************************    "
+    be_list=$(get_param "doris.be.hosts" | tr ',' ' ')
+    for host in ${be_list}
+    do
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon"
+    done
+    
+    echo "    **************************** 构建集群 ****************************    "
     
     
     echo "    **************************** 测试集群 ****************************    "
