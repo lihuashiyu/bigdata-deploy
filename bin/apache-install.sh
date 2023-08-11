@@ -815,14 +815,16 @@ function flume_install()
 function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
-    local doris_version fe_list be_list host
+    local doris_version priority_networks fe_list be_list host broker_port_list observer_list 
+    local fe_sql be_sql broker_sql observer_sql mysql_home leader_host doris_test_sql doris_set_sql
+    local doris_user doris_password doris_database_list db doris_root_password 
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
-    # file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
-    # 
-    # # 创建必要的目录    
-    # mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/data/tmp" "${DORIS_HOME}/fe/log"
-    # mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/log"
+    file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
+    
+    # 创建必要的目录    
+    mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/data/tmp" "${DORIS_HOME}/fe/log"
+    mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/log"
     
     echo "    ********************** 修改 Doris 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/conf/doris-fe.conf" "${DORIS_HOME}/fe/conf/fe.conf"
@@ -839,23 +841,98 @@ function doris_install()
     distribute_file "${DORIS_HOME}"                                            # 分发到其它节点
     
     echo "    **************************** 启动节点 ****************************    "
-    fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')
+    fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')                         # 获取 FE 集群节点
+    
+    # 启动 FE 集群
     for host in ${fe_list}
     do
+        fe_sql="${fe_sql} alter system add follower \"${host}:9010\";"         # 获取 Follower 
         ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/start_fe.sh --daemon"
     done
     
+    # 启动 BE 集群
     be_list=$(get_param "doris.be.hosts" | tr ',' ' ')
     for host in ${be_list}
     do
+        be_sql="${be_sql} alter system add backend \"${host}:9050\";"          # 获取 be
         ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon"
     done
     
-    echo "    **************************** 构建集群 ****************************    "
+    # 启动 broker 集群
+    broker_port_list=$(get_param "doris.broker.hosts" | tr ',' ' ')
+    for host in ${broker_port_list}
+    do
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon"
+    done
     
+    echo "    **************************** 构建集群 ****************************    "
+    mysql_home=$(get_version "mysql.home")                                     # 获取 Mysql 安装路径
+    leader_host=$(get_param "doris.fe.hosts" | awk -F ',' '{print $1}')        # 获取 leader
+    
+    # 添加 flower 
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${fe_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    # 添加 observer     
+    observer_list=$(get_param "doris.observer.hosts" | tr ',' ' ')
+    for host in ${observer_list}
+    do
+        observer_sql="alter system add observer \"${host}:9010\";"
+        "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${observer_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    done
+    
+    # 添加 be 
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${be_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    # 添加 broker
+    broker_port_list=$(get_param "doris.broker.hosts" | sed -e 's|^|"|g' | sed -e 's|,|:8000",|g' | sed -e 's|$|:8000";|g')
+    broker_sql="alter system add broker broker_name ${be_list} "
+    "${mysql_home}/bin/mysql" --host="${broker_sql}" --port=9030 --user=root --execute="${broker_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    echo "    ************************** 查看集群状态 **************************    "
+    # 查看 FE 状态
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/frontends'"
+    
+    # 查看 BE 状态
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/backends';"
+    
+    # 查看 Broker 状态
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/brokers';"
+    
+    echo "    *************************** 配置数据库 ***************************    "
+    doris_user=$(get_param "doris.user.name")                                  # 获取 Doris 用户
+    doris_password=$(get_param "doris.user.password")                          # 获取 Doris 密码
+    
+    # 添加 用户
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="create user if not exists '${doris_user}' identified by '${doris_password}';" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    doris_database_list=$(get_param "doris.database" | tr ',' ' ')             # 获取 Doris 数据库
+    
+    # 添加数据库并授权给用户
+    for db in ${doris_database_list}
+    do
+        doris_set_sql="create database if not exists ${db}; grant all on ${db}.* to ${doris_user};"
+        "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${doris_set_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    done
+    
+    doris_root_password=$(get_param "doris.root.password")                     # 获取 Doris root 密码
+    
+    # 重置 root 密码
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="set password for 'root' = password('${doris_root_password}');" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    **************************** 测试集群 ****************************    "
+    {    
+        echo "create database if not exists test;"
+        echo "create table if not exists test.test (id int, name varchar(255), age int, mark text) aggregate key(id) distributed by hash(id) buckets 2 properties ("replication_allocation" = "tag.location.default: 1");"
+        echo "insert into test.test values (11, '张三', 22, '教师'), (12, '李四', 25, '学生'), (13, '王五', 28, null);"
+        echo "select * from test.test;"
+        echo "insert into test.test values (19, '赵六', 30, '校长');"
+        echo "select * from test.test;"
+        echo "insert into test.test values (19, '田七', 30, '校长');"
+        echo "select * from test.test;"                             
+    }  >>  "${DORIS_HOME}/fe/log/test.sql"
     
+    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --password="${doris_root_password}" --execute="${doris_test_sql}" \
+                             < "${DORIS_HOME}/fe/log/test.sql" > "${DORIS_HOME}/fe/log/test.log" 2>&1
 }
 
 
