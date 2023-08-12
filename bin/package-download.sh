@@ -21,6 +21,7 @@ software_list=(mysql redis java python scala maven gradle hadoop spark.nohadoop)
 function flush_env()
 {
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
+    mkdir -p "${ROOT_DIR}/package"                                                # 创建日志目录
     
     echo "    ************************** 刷新环境变量 **************************    "
     if [ -e "${HOME}/.bash_profile" ]; then
