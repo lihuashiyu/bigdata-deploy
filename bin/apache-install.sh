@@ -815,7 +815,7 @@ function flume_install()
 function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
-    local doris_version priority_networks fe_list be_list host broker_port_list observer_list 
+    local doris_version priority_networks fe_list be_list host broker_list observer_list broker_port_list
     local fe_sql be_sql broker_sql observer_sql mysql_home leader_host doris_test_sql doris_set_sql
     local doris_user doris_password doris_database_list db doris_root_password 
     
@@ -827,10 +827,17 @@ function doris_install()
     mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/log"
     
     echo "    ********************** 修改 Doris 配置文件 ***********************    "
-    cp -fpr "${ROOT_DIR}/conf/doris-fe.conf" "${DORIS_HOME}/fe/conf/fe.conf"
-    cp -fpr "${ROOT_DIR}/conf/doris-be.conf" "${DORIS_HOME}/be/conf/be.conf"
+    cp -fpr "${ROOT_DIR}/conf/doris-fe.conf" "${DORIS_HOME}/fe/conf/fe.conf"   # fe 配置文件
+    cp -fpr "${ROOT_DIR}/conf/doris-be.conf" "${DORIS_HOME}/be/conf/be.conf"   # be 配置文件
+    cp -fpr "${ROOT_DIR}/script/apache/doris.sh" "${DORIS_HOME}/"              # 集群启停脚本
     
     priority_networks=$(get_param "server.gateway" | awk -F '.' '{print $1,$2}' | tr ' ' '.' | sed -e 's|$|\.0\.0/16|g')
+    fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')                         # 获取 FE 集群节点
+    be_list=$(get_param "doris.be.hosts" | tr ',' ' ')                         # 获取 BE 集群节点
+    broker_list=$(get_param "doris.broker.hosts" | tr ',' ' ')                 # 获取 Broker 集群节点
+    sed -i "s|\${fe_list}|${fe_list}|g"                      "${DORIS_HOME}/bin/doris.sh"
+    sed -i "s|\${be_list}|${be_list}|g"                      "${DORIS_HOME}/bin/doris.sh"
+    sed -i "s|\${broker_list}|${broker_list}|g"              "${DORIS_HOME}/bin/doris.sh"
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/fe/conf/fe.conf"
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/be/conf/be.conf"
     sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
@@ -841,8 +848,6 @@ function doris_install()
     distribute_file "${DORIS_HOME}"                                            # 分发到其它节点
     
     echo "    **************************** 启动节点 ****************************    "
-    fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')                         # 获取 FE 集群节点
-    
     # 启动 FE 集群
     for host in ${fe_list}
     do
@@ -851,7 +856,6 @@ function doris_install()
     done
     
     # 启动 BE 集群
-    be_list=$(get_param "doris.be.hosts" | tr ',' ' ')
     for host in ${be_list}
     do
         be_sql="${be_sql} alter system add backend \"${host}:9050\";"          # 获取 be
@@ -859,8 +863,7 @@ function doris_install()
     done
     
     # 启动 broker 集群
-    broker_port_list=$(get_param "doris.broker.hosts" | tr ',' ' ')
-    for host in ${broker_port_list}
+    for host in ${broker_list}
     do
         ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon"
     done
@@ -885,7 +888,7 @@ function doris_install()
     
     # 添加 broker
     broker_port_list=$(get_param "doris.broker.hosts" | sed -e 's|^|"|g' | sed -e 's|,|:8000",|g' | sed -e 's|$|:8000";|g')
-    broker_sql="alter system add broker broker_name ${be_list} "
+    broker_sql="alter system add broker broker_name ${broker_port_list} "
     "${mysql_home}/bin/mysql" --host="${broker_sql}" --port=9030 --user=root --execute="${broker_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ************************** 查看集群状态 **************************    "
