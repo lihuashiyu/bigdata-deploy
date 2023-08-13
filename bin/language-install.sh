@@ -44,17 +44,6 @@ function flush_env()
 }
 
 
-# 根据文件名获取软件版本号（$1：下载软件包 url 的 key）
-function get_version()
-{
-    local version
-    
-    version=$(get_name "$1" | grep -oP "\d*\.\d*\.\d+")
-    
-    echo "${version}" 
-}
-
-
 # 卸载系统自带的 OpenJdk
 # shellcheck disable=SC2024
 function uninstall_open_jdk()
