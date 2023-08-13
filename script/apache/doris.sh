@@ -10,8 +10,7 @@
 # =========================================================================================
 
     
-# DORIS_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")" || exit; pwd -P)         # Doris 安装目录
-DORIS_HOME="/opt/apache/doris"         # Doris 安装目录
+DORIS_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")" || exit; pwd -P)         # Doris 安装目录
 ALIAS_FE_NAME="Doris FE"                                                       # FE     别名
 ALIAS_BE_NAME="Doris BE"                                                       # BE     别名
 ALIAS_BROKER_NAME="Doris Broker"                                               # Broker 别名
@@ -25,13 +24,10 @@ BE_PORT=9060                                                                   #
 BE_WEB_PORT=8040                                                               # BE 端口
 BE_WEB_PORT=8040                                                               # Broker 端口
 BE_WEB_PORT=8040                                                               # Broker 端口
-    
-FE_LIST=( issac )                                                           # FE     部署节点
-BE_LIST=( issac )                                                           # BE     部署节点
-BROKER_LIST=( issac )                                                   # Broker 部署节点    
-# FE_LIST=(${fe_list})                                                           # FE     部署节点
-# BE_LIST=(${be_list})                                                           # BE     部署节点
-# BROKER_LIST=(${broker_list})                                                   # Broker 部署节点
+        
+FE_LIST=(${fe_list})                                              # FE     部署节点
+FE_LIST=(${be_list})                                              # FE     部署节点
+BROKER_LIST=(${broker_list})                                      # Broker 部署节点
 FE_LOG_FILE=fe-$(date +%F).log                                                 # FE     程序操作日志文件
 BE_LOG_FILE=be-$(date +%F).log                                                 # BE     程序操作日志文件
 BROKER_LOG_FILE=broker-$(date +%F).log                                         # Broker 程序操作日志文件
