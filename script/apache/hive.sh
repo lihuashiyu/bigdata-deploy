@@ -18,7 +18,8 @@ BEELINE_PORT=10000                                                             #
 HIVE_SERVER_2=org.apache.hive.service.server.HiveServer2                       # HiveServer2 进程名称
 HIVE_META_STORE=org.apache.hadoop.hive.metastore.HiveMetaStore                 # NameNode 进程名称
     
-LOG_FILE=hive-$(date +%F).log                                                  # 程序操作日志文件    
+METASTORE_LOG_FILE="meta-store-$(date +%f).log"                                # MetaStore   程序操作日志文件    
+SERVER2_LOG_FILE="server2-$(date +%F).log"                                     # HiveServer2 程序操作日志文件    
 SERVER_2_LIST=(master)                                                         # HiveServer2 主机主机名
 META_STORE_LIST=(master)                                                       # HiveMetaStore 集群主机名
 USER=$(whoami)                                                                 # 获取当前登录用户
@@ -88,7 +89,7 @@ function service_start()
         # 2.1 启动 Hive 的 HiveMetaStore 进程
         for host_name in "${META_STORE_LIST[@]}"
         do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hive --service metastore >> ${HIVE_HOME}/logs/${LOG_FILE} 2>&1 & "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hive --service metastore >> ${HIVE_HOME}/logs/${METASTORE_LOG_FILE} 2>&1 & "
         done
         
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
@@ -97,7 +98,7 @@ function service_start()
         # 2.2 启动 Hive 的 HiveServer2 进程
         for host_name in "${SERVER_2_LIST[@]}"
         do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hiveserver2 >> ${HIVE_HOME}/logs/${LOG_FILE} 2>&1 & "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; nohup ${HIVE_HOME}/bin/hiveserver2 >> ${HIVE_HOME}/logs/${SERVER2_LOG_FILE} 2>&1 & "
         done
         
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
