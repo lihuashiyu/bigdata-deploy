@@ -30,5 +30,5 @@ do
     ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${cmd}"
 done
 
-printf "\n==========================================================================================\n\n"
+echo ""
 exit 0

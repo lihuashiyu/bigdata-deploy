@@ -822,6 +822,11 @@ function doris_install()
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
     file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
     
+    # 移动目录到指定路径
+    mv "${DORIS_HOME}/extensions/apache_hdfs_broker"  "${DORIS_HOME}/broker"
+    mv "${DORIS_HOME}/extensions/audit_loader"        "${DORIS_HOME}/"
+    rm -rf  "${DORIS_HOME}/extensions/"
+    
     # 创建必要的目录    
     mkdir -p  "${DORIS_HOME}/fe/data/meta" "${DORIS_HOME}/fe/data/tmp" "${DORIS_HOME}/fe/log"
     mkdir -p  "${DORIS_HOME}/be/data" "${DORIS_HOME}/be/log"
@@ -835,9 +840,9 @@ function doris_install()
     fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')                         # 获取 FE 集群节点
     be_list=$(get_param "doris.be.hosts" | tr ',' ' ')                         # 获取 BE 集群节点
     broker_list=$(get_param "doris.broker.hosts" | tr ',' ' ')                 # 获取 Broker 集群节点
-    sed -i "s|\${fe_list}|${fe_list}|g"                      "${DORIS_HOME}/bin/doris.sh"
-    sed -i "s|\${be_list}|${be_list}|g"                      "${DORIS_HOME}/bin/doris.sh"
-    sed -i "s|\${broker_list}|${broker_list}|g"              "${DORIS_HOME}/bin/doris.sh"
+    sed -i "s|\${fe_list}|${fe_list}|g"                      "${DORIS_HOME}/doris.sh"
+    sed -i "s|\${be_list}|${be_list}|g"                      "${DORIS_HOME}/doris.sh"
+    sed -i "s|\${broker_list}|${broker_list}|g"              "${DORIS_HOME}/doris.sh"
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/fe/conf/fe.conf"
     sed -i "s|\${DORIS_HOME}|${DORIS_HOME}|g"                "${DORIS_HOME}/be/conf/be.conf"
     sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/fe/conf/fe.conf"

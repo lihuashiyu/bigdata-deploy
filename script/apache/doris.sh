@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2029
     
 # =========================================================================================
 #    FileName      ：  doris.sh
@@ -9,7 +10,8 @@
 # =========================================================================================
 
     
-DORIS_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")" || exit; pwd -P)         # Doris 安装目录
+# DORIS_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")" || exit; pwd -P)         # Doris 安装目录
+DORIS_HOME="/opt/apache/doris"         # Doris 安装目录
 ALIAS_FE_NAME="Doris FE"                                                       # FE     别名
 ALIAS_BE_NAME="Doris BE"                                                       # BE     别名
 ALIAS_BROKER_NAME="Doris Broker"                                               # Broker 别名
@@ -17,14 +19,19 @@ FE_NAME="org.apache.doris.PaloFe"                                              #
 BE_NAME="${DORIS_HOME}/be/lib/doris_be"                                        # BE     进程名称
 BROKER_NAME="org.apache.doris.broker.hdfs.BrokerBootstrap"                     # Broker 进程名称
     
-FE_PORT=8030
-FE_QUERY_PORT=9030
-BE_PORT=9060
-BE_WEB_PORT=8040
+FE_PORT=8030                                                                   # FE 端口
+FE_QUERY_PORT=9030                                                             # FE 端口
+BE_PORT=9060                                                                   # BE 端口
+BE_WEB_PORT=8040                                                               # BE 端口
+BE_WEB_PORT=8040                                                               # Broker 端口
+BE_WEB_PORT=8040                                                               # Broker 端口
     
-FE_LIST=(${fe_list})                                                           # FE     部署节点
-BE_LIST=(${be_list})                                                           # BE     部署节点
-BROKER_LIST=(${broker_list})                                                   # Broker 部署节点
+FE_LIST=( issac )                                                           # FE     部署节点
+BE_LIST=( issac )                                                           # BE     部署节点
+BROKER_LIST=( issac )                                                   # Broker 部署节点    
+# FE_LIST=(${fe_list})                                                           # FE     部署节点
+# BE_LIST=(${be_list})                                                           # BE     部署节点
+# BROKER_LIST=(${broker_list})                                                   # Broker 部署节点
 FE_LOG_FILE=fe-$(date +%F).log                                                 # FE     程序操作日志文件
 BE_LOG_FILE=be-$(date +%F).log                                                 # BE     程序操作日志文件
 BROKER_LOG_FILE=broker-$(date +%F).log                                         # Broker 程序操作日志文件
@@ -79,7 +86,7 @@ function fe_start()
     # 3. 若处于运行状态，则打印结果；若处于停止状态，则启动程序；若程序启动时，出现错误，则打印错误的进程
     if [ "${fe_status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_FE_NAME}）正在运行 ...... "
-    elif [ "${status}" == "${STOP}" ]; then
+    elif [ "${fe_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_FE_NAME}）正在加载中 ......"
         for host_name in "${FE_LIST[@]}"
         do
@@ -167,7 +174,7 @@ function broker_start()
     # 3. 若处于运行状态，则打印结果；若处于停止状态，则启动程序；若程序启动时，出现错误，则打印错误的进程
     if [ "${broker_status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_BROKER_NAME}）正在运行 ...... "
-    elif [ "${status}" == "${STOP}" ]; then
+    elif [ "${broker_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_BROKER_NAME}）正在加载中 ......"
         for host_name in "${FE_LIST[@]}"
         do
@@ -301,9 +308,9 @@ function broker_stop()
         echo "    程序（${ALIAS_BROKER_NAME}）已经停止运行 ...... "
     elif [ "${broker_status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_BROKER_NAME}）正在停止中 ......"
-        for host_name in "${FE_LIST[@]}"
+        for host_name in "${BROKER_LIST[@]}"
         do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/stop_fe.sh >> ${DORIS_HOME}/fe/log/${FE_LOG_FILE} 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/stop_broker.sh >> ${DORIS_HOME}/broker/log/${FE_LOG_FILE} 2>&1 "
         done
         
         sleep 2
@@ -311,7 +318,7 @@ function broker_stop()
         sleep 1        
         
         # 4. 判断程序每个进程启动状态
-        broker_status=$(node_service_status "${BROKER_LIST[*]}" "${BROKER_NAME}" "${ALIAS_FE_NAME}")
+        broker_status=$(node_service_status "${BROKER_LIST[*]}" "${BROKER_NAME}" "${ALIAS_BROKER_NAME}")
         if [ "${broker_status}" == "${STOP}" ]; then
             echo "    程序（${ALIAS_BROKER_NAME}）停止成功 ...... "
         else
