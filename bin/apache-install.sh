@@ -949,15 +949,15 @@ function doris_install()
     "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="set password for 'root' = password('${doris_root_password}');" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    **************************** 测试集群 ****************************    "
-    {    
+    {   
         echo "create database if not exists test;"
         echo "create table if not exists test.test (id int, name varchar(255) replace_if_not_null null, age int replace_if_not_null null, mark text replace_if_not_null null) aggregate key(id) distributed by hash(id) buckets 2 properties ('replication_allocation' = 'tag.location.default: 1');"
-        echo "insert into test.test values (11, '张三', 22, '教师'), (12, '李四', 25, '学生'), (13, '王五', 28, null);"
-        echo "select * from test.test;"
-        echo "insert into test.test values (19, '赵六', 30, '校长');"
-        echo "select * from test.test;"
-        echo "insert into test.test values (19, '田七', 30, '校长');"
-        echo "select * from test.test;"                             
+        echo "insert into test.test (id, name, age, mark) values (11, '张三', 22, '教师'), (12, '李四', 25, '学生'), (13, '王五', 28, null);"
+        echo "select * from test.test order by id;"
+        echo "insert into test.test (id, name, age, mark) values (19, '赵六', 30, '校长');"
+        echo "select * from test.test order by id;"
+        echo "insert into test.test (id, name, age, mark) values (19, '田七', 30, '校长');"
+        echo "select * from test.test order by id;"                             
     }  > "${DORIS_HOME}/fe/log/test.sql"
     
     "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --password="${doris_root_password}" \
