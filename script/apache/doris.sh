@@ -26,7 +26,7 @@ BE_WEB_PORT=8040                                                               #
 BE_WEB_PORT=8040                                                               # Broker 端口
         
 FE_LIST=(${fe_list})                                              # FE     部署节点
-FE_LIST=(${be_list})                                              # FE     部署节点
+BE_LIST=(${be_list})                                              # FE     部署节点
 BROKER_LIST=(${broker_list})                                      # Broker 部署节点
 FE_LOG_FILE=fe-$(date +%F).log                                                 # FE     程序操作日志文件
 BE_LOG_FILE=be-$(date +%F).log                                                 # BE     程序操作日志文件
@@ -128,7 +128,7 @@ function be_start()
         echo "    程序（${ALIAS_BE_NAME}）正在运行 ...... "
     elif [ "${be_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_BE_NAME}）正在加载中 ......"
-        for host_name in "${FE_LIST[@]}"
+        for host_name in "${BE_LIST[@]}"
         do
             ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon >> ${DORIS_HOME}/be/log/${BE_LOG_FILE} 2>&1 "
         done
@@ -172,7 +172,7 @@ function broker_start()
         echo "    程序（${ALIAS_BROKER_NAME}）正在运行 ...... "
     elif [ "${broker_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_BROKER_NAME}）正在加载中 ......"
-        for host_name in "${FE_LIST[@]}"
+        for host_name in "${BROKER_LIST[@]}"
         do
             ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon >> ${DORIS_HOME}/broker/log/${BROKER_LOG_FILE} 2>&1 "
         done
@@ -182,7 +182,7 @@ function broker_start()
         sleep 1        
         
         # 4. 判断程序每个进程启动状态
-        broker_status=$(node_service_status "${FE_LIST[*]}" "${FE_NAME}" "${ALIAS_FE_NAME}")
+        broker_status=$(node_service_status "${BROKER_LIST[*]}" "${BROKER_NAME}" "${ALIAS_BROKER_NAME}")
         if [ "${broker_status}" == "${RUNNING}" ]; then
             echo "    程序（${ALIAS_BROKER_NAME}）启动成功 ...... "
         else
@@ -193,7 +193,7 @@ function broker_start()
             done
         fi
     else
-        echo "    程序（${ALIAS_FE_NAME}）运行出错 ...... "
+        echo "    程序（${ALIAS_BROKER_NAME}）运行出错 ...... "
         for ps in ${broker_status}
         do
             echo "    ${ps} ...... "
@@ -260,7 +260,7 @@ function be_stop()
         echo "    程序（${ALIAS_BE_NAME}）已经停止运行 ...... "
     elif [ "${be_status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_BE_NAME}）正在停止中 ......"
-        for host_name in "${FE_LIST[@]}"
+        for host_name in "${BE_LIST[@]}"
         do
             ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/stop_be.sh >> ${DORIS_HOME}/be/log/${BE_LOG_FILE} 2>&1 "
         done
@@ -306,7 +306,7 @@ function broker_stop()
         echo "    程序（${ALIAS_BROKER_NAME}）正在停止中 ......"
         for host_name in "${BROKER_LIST[@]}"
         do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/stop_broker.sh >> ${DORIS_HOME}/broker/log/${FE_LOG_FILE} 2>&1 "
+            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/stop_broker.sh >> ${DORIS_HOME}/broker/log/${BROKER_LOG_FILE} 2>&1 "
         done
         
         sleep 2
@@ -355,10 +355,10 @@ function service_status()
         done
     fi
     
-    # 3.1 遍历 FE 的所有的主机，查看进程
+    # 3.1 遍历 BE 的所有的主机，查看进程
     be_status=$(node_service_status "${BE_LIST[*]}" "${BE_NAME}" "${ALIAS_BE_NAME}")
-
-    # 3.2 判断 FE 运行状态
+    
+    # 3.2 判断 BE 运行状态
     if [ "${be_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_BE_NAME}）已经停止 ...... "
     elif [ "${be_status}" == "${RUNNING}" ]; then
@@ -371,10 +371,10 @@ function service_status()
         done
     fi
     
-    # 4.1 遍历 FE 的所有的主机，查看进程
+    # 4.1 遍历 Broker 的所有的主机，查看进程
     broker_status=$(node_service_status "${BROKER_LIST[*]}" "${BROKER_NAME}" "${ALIAS_BROKER_NAME}")
-
-    # 4.2 判断 FE 运行状态
+    
+    # 4.2 判断 Broker 运行状态
     if [ "${broker_status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_BROKER_NAME}）已经停止 ...... "
     elif [ "${broker_status}" == "${RUNNING}" ]; then
@@ -426,7 +426,7 @@ case "$1" in
     
     # 2.5 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：              "
+        echo "    脚本可传入一个参数，如下所示：            "
         echo "        +-----------------------------------+ "
         echo "        |  start | stop | restart | status  | "
         echo "        +-----------------------------------+ "
