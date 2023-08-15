@@ -75,8 +75,8 @@ function service_status()
         history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE 'grep|$0' | grep -ci '${HISTORY_SERVER}'")
         
         # 4.2 判断该主机的 pid 是否存在
-        if [ "${server_2_pid}" -ne 1 ]; then
-            result_list[${#result_list[@]}]="主机（${host_name}）的程序（HiveServer2）出现错误"
+        if [ "${history_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（HistoryServer）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
         else
             pid_list[${#pid_list[@]}]="${RUNNING}"
@@ -115,7 +115,7 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         
         # 3.3 启动 Flink 的历史服务器
-        "${FLINK_HOME}/bin/bin/historyserver.sh" start  >> "${FLINK_HOME}/logs/${HISTORY_LOG_FILE}" 2>&1
+        "${FLINK_HOME}/bin/historyserver.sh" start  >> "${FLINK_HOME}/logs/${HISTORY_LOG_FILE}" 2>&1
         sleep 2
         
         # 3.4 判断所有程序启动是否成功
