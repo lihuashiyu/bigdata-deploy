@@ -4,7 +4,7 @@
     <!-- 记录 Hive 中的元数据信息在 mysql 中 -->
     <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://${hive_mysql_host}:3306/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
+        <value>jdbc:mysql://${hive_mysql_host}/hive?serverTimezone=UTC&amp;createDatabaseIfNotExist=true&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;useSSL=false&amp;allowPublicKeyRetrieval=true</value>
         <description>连接数据库用户名称</description>
     </property>
     <!-- jdbc mysql 驱动 -->

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2029
+# shellcheck disable=SC2029,SC2120
 
 # =========================================================================================
 #    FileName      ：  apache-install
@@ -458,7 +458,8 @@ function hive_install()
 {
     echo "    ************************* 开始安装 Hive **************************    "
     local spark_version hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port
-    local namenode_host_port mysql_home mysql_user mysql_password root_password sql hive_sql hive_mysql_host
+    local namenode_host_port mysql_host mysql_port mysql_home mysql_user mysql_password root_password hive_mysql_host
+    local test_result
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
@@ -468,24 +469,30 @@ function hive_install()
     mkdir -p "${ROOT_DIR}/src"                                                 # 创建源码保存目录
     cd "${ROOT_DIR}/src" || exit                                               # 进入目录
     
-    hive_version=$(get_version "hive.url")
-    
     # 将 Spark 源码克隆到本地
     hive_src_url=$(get_param "hive.resource.url")                              # 获取 Hive 源码路径
     if [ ! -e "${ROOT_DIR}/src/spark/.git" ]; then
-        git clone "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+        git clone "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 克隆代码到本地
     fi 
     
     cd "${ROOT_DIR}/src/hive" || exit                                          # 进入 Hive 源码路径
     spark_version=$(get_version "spark.nohadoop.url")                          # 获取 Spark 版本
     
-    # 更新代码，应用补丁
-    { git fetch --all; git reset --hard; git pull; }   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    sleep 5
-    { git checkout "rel/release-${hive_version}"; git fetch --all; git reset --hard; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # 更新代码
+    hive_version=$(get_version "hive.url")                                     # 获取 Hive 版本号
+    { 
+        git fetch --all                                                        # 重置所有本地更改 
+        git reset --hard                                                       # 强制重置所有本地提交 
+        git pull                                                               # 将代码与远端保持一致
+        sleep 3                                                                
+        git checkout "rel/release-${hive_version}"                             # 检出 特定版本的 Hive 分支
+        git fetch --all                                                        # 重置所有本地更改
+        git reset --hard                                                       # 强制重置所有本地提交 
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    cp -fpr "${ROOT_DIR}/patch/ColumnsStatsUtils.java" "${ROOT_DIR}/src/hive/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/"
-    git apply --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/hive-${hive_version}-spark-${spark_version}.patch" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
+    # 复制缺失的代码，应用 git 补丁
+    cp -fpr   "${ROOT_DIR}/patch/ColumnsStatsUtils.java" "${ROOT_DIR}/src/hive/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/"
+    git apply --ignore-space-change --ignore-whitespace  "${ROOT_DIR}/patch/hive-${hive_version}-spark-${spark_version}.patch" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
     
     echo "    ************************** 离线安装依赖 **************************    "
     source /etc/profile                                                        # 生效当前环境变量
@@ -496,27 +503,30 @@ function hive_install()
     mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
     
     # 复制 Hive 安装包
-    cp -fpr "${ROOT_DIR}/src/hive/packaging/target/apache-hive-3.1.3-bin.tar.gz"  "${ROOT_DIR}/package/"        
-    file_decompress "hive.url"  "${HIVE_HOME}"                                           # 解压 Hive 并安装
+    cp -fpr "${ROOT_DIR}/src/hive/packaging/target/apache-hive-${hive_version}-bin.tar.gz"  "${ROOT_DIR}/package/"        
+    file_decompress "hive.url"  "${HIVE_HOME}"                                 # 解压 Hive 并安装
     
     echo "    *********************** 修改 Hive 配置文件 ***********************    "
+    # 复制配置文件和启停脚本
+    cp -fpr "${ROOT_DIR}/script/apache/hive.sh"       "${HIVE_HOME}/bin/"      # 用于 Hive 的启停
     cp -fpr "${ROOT_DIR}/conf/hive-beeline-site.xml"  "${HIVE_HOME}/conf/beeline-site.xml"
-    cp -fpr "${ROOT_DIR}/conf/hive-site.xml"          "${HIVE_HOME}/conf/"
+    cp -fpr "${ROOT_DIR}/conf/hive-site.xml"          "${HIVE_HOME}/conf/"     # Hive 主要配置文件
+    cp -fpr "${SPARK_HOME}/conf/spark-defaults.conf"  "${HIVE_HOME}/conf/"     # 用于 Hive on Spark
     
     # 修改 beeline-site.xml 配置
-    server2_host_port=$(get_param "hive.server2.host.port")
-    hive_user=$(get_param "hive.user")
-    hive_password=$(get_param "hive.password")
+    server2_host_port=$(get_param "hive.server2.host.port")                    # Hive server2 的节点和端口
+    hive_user=$(get_param "hive.user")                                         # Hive 使用的用户名
+    hive_password=$(get_param "hive.password")                                 # Hive 使用用户名的密码
     sed -i "s|\${server2_host_port}|${server2_host_port}|g" "${HIVE_HOME}/conf/beeline-site.xml"
     sed -i "s|\${hive_user}|${hive_user}|g"                 "${HIVE_HOME}/conf/beeline-site.xml"
     sed -i "s|\${hive_password}|${hive_password}|g"         "${HIVE_HOME}/conf/beeline-site.xml"
     
     # 修改 hive-site.xml 配置
-    hive_mysql_host=$(get_param "hive.mysql.host")
-    mysql_user=$(get_param "mysql.user.name")
-    mysql_password=$(get_param "mysql.root.password")
-    metastore_host_port=$(get_param "hive.metastore.host.port")
-    namenode_host_port=$(get_param "namenode.host.port")
+    hive_mysql_host=$(get_param "hive.mysql.host.port")                        # Hive 使用的 Mysql 主机名和端口号
+    mysql_user=$(get_param "mysql.user.name")                                  # Hive 使用的 Mysql 用户名
+    mysql_password=$(get_param "mysql.root.password")                          # Hive 使用的 Mysql 用户密码
+    metastore_host_port=$(get_param "hive.metastore.host.port")                # MetaStore 主机和端口
+    namenode_host_port=$(get_param "namenode.host.port")                       # NameNode  主机和端口
     sed -i "s|\${hive_mysql_host}|${hive_mysql_host}|g"         "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_user}|${mysql_user}|g"                   "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_password}|${mysql_password}|g"           "${HIVE_HOME}/conf/hive-site.xml"
@@ -536,6 +546,7 @@ function hive_install()
     append_param "HIVE_CONF_DIR=${HIVE_HOME}/conf"     "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HIVE_AUX_JARS_PATH=${HIVE_HOME}/lib" "${HIVE_HOME}/conf/hive-env.sh"
     
+    # 创建必要的目录
     mkdir -p "${HIVE_HOME}/logs/"                                              # 创建日志存储目录
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /hive/data /hive/tmp /hive/logs   # 在 hdfs 上创建必要的目录 
     "${HADOOP_HOME}/bin/hadoop" fs -chmod -R 777 /hive/                        # 授权目录
@@ -546,64 +557,66 @@ function hive_install()
     echo "    ************************** 初始化 Hive ***************************    "
     cp -fpr "${ROOT_DIR}/lib/mysql-connector-java-8.0.32.jar"  "${HIVE_HOME}/lib"
     
-    mysql_home=$(get_param "mysql.home") 
-    root_password=$(get_param "mysql.root.password")
-    "${mysql_home}/bin/mysql.sh" start >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 启动 mysql
-    "${mysql_home}/bin/mysql" -h 127.0.0.1 -P 3306 -u root -p"${root_password}" -e "create database if not exists hive; grant all privileges on hive.* to '${mysql_user}'@'%'; flush privileges;"
+    mysql_home=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
+    root_password=$(get_param "mysql.root.password")                           # 获取 Mysql root 账户密码
     
-    "${HIVE_HOME}/bin/schematool" -dbType mysql -initSchema -verbose >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 初始化元数据
+    # 启动 Mysql 并创建必要的数据库
+    mysql_host=$(echo "${hive_mysql_host}" | awk -F ':' "{print $1}")
+    mysql_port=$(echo "${hive_mysql_host}" | awk -F ':' "{print $2}")
+    "${mysql_home}/support-files/mysql.server" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+    "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user=root --password="${root_password}" \
+                              --execute="create database if not exists hive; grant all privileges on hive.* to '${mysql_user}'@'%'; flush privileges;"
+    
+    # 初始化元数据
+    "${HIVE_HOME}/bin/schematool" -dbType mysql -initSchema -verbose >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
     
     # 修改字段注释字符集
-    sql=" 
-        alter table hive.columns_v2       modify column comment             varchar(2048)  character set utf8mb4;
-        alter table hive.table_params     modify column param_value         varchar(4096)  character set utf8mb4;
-        alter table hive.partition_params modify column param_value         varchar(4096)  character set utf8mb4;
-        alter table hive.partition_keys   modify column pkey_comment        varchar(4096)  character set utf8mb4;
-        alter table hive.index_params     modify column param_value         varchar(4096)  character set utf8mb4;
-        alter table hive.tbls             modify column view_expanded_text  mediumtext     character set utf8mb4;
-        alter table hive.tbls             modify column view_original_text  mediumtext     character set utf8mb4;
-        flush privileges;
-    "
-    "${mysql_home}/bin/mysql" -h 127.0.0.1 -P 3306 -u "${mysql_user}" -p"${mysql_password}" -e "${sql}"
+    "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user="${mysql_user}" --password="${mysql_password}" \
+                              < "${ROOT_DIR}/conf/hive-character.sql"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    *************************** 测试 Hive ****************************    "
     "${HIVE_HOME}/bin/hive.sh" start                                           # 启动 Hive
-    "${HIVE_HOME}/bin/hive.sh" start
     
-    hive_sql=" 
-        create database if not exists test;                                    -- 创建 test 数据库
-        use test;                                                              -- 切换到 test 数据库
-        create table if not exists student                                     -- 创建 test 数据库
-        (
-            id     int           comment '主键 ID',
-            name   varchar(64)   comment '姓名',
-            age    int           comment '年龄',
-            gender int           comment '性别：-1，未知；0，女；1：男',
-            hight  float         comment '身高：厘米',
-            wight  float         comment '体重：千克',
-            email  varchar(128)  comment '电子邮件',
-            remark varchar(1024) comment '备注'
-        ) comment '学生测试表';
-        
-        set mapreduce.map.java.opts='-Xmx4096m';                               -- 设置 map 堆内存
-        set mapreduce.reduce.java.opts='-Xms4096m';                            -- 设置 reduce 堆内存
-        
-        -- 测试 mr 引擎
-        set hive.execution.engine=mr;
-        insert into student (id, name, age, gender, hight, wight, email, remark) values (1, '张三', 33, 1, 172.1, 48.9, 'zhangsan@qq.com', '学生');
-        
-        -- 测试 spark 引擎
-        set hive.execution.engine=spark;
-        insert into student (id, name, age, gender, hight, wight, email, remark) values (2, '李四', 23, 0, 165.1, 53.9, 'lisi@qq.com', '学生');
-        insert into student (id, name, age, gender, hight, wight, email, remark) 
-        values (3, '王五', 28, 1, 168.3, 52.7, 'wangwu@qq.com', '学生'), 
-               (4, '赵六', 22, 0, 161.3, 46.7, 'zhaoliu@qq.com', '教师');
-        
-        -- 测试执行计划
-        explain formatted select * from student;
-        select * from student limit 10;
-    "
-    "${HIVE_HOME}bin/hive" -e "${hive_sql}" >> "${HIVE_HOME}/logs/test.log" 2>&1 
+    # 打印测试 sql
+    {    
+        echo "create database if not exists test;                                   -- 创建 test 数据库"
+        echo ""
+        echo "create table if not exists test.test                                  -- 创建 test 表"
+        echo "( "
+        echo "    id     int           comment '主键 ID', "
+        echo "    name   varchar(64)   comment '姓名', "
+        echo "    age    int           comment '年龄', "
+        echo "    gender int           comment '性别：-1，未知；0，女；1：男', "
+        echo "    hight  float         comment '身高：厘米', "
+        echo "    wight  float         comment '体重：千克', "
+        echo "    email  varchar(128)  comment '电子邮件', "
+        echo "    remark varchar(1024) comment '备注' "
+        echo ") comment '学生测试表'; "
+        echo ""
+        echo "set mapreduce.map.java.opts='-Xmx4096m';                              -- 设置 map 堆内存"
+        echo "set mapreduce.reduce.java.opts='-Xms4096m';                           -- 设置 reduce 堆内存"
+        echo ""
+        echo "set hive.execution.engine=mr;                                         -- 设置 MR 引擎"
+        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (1, '张三', 33, 1, 172.1, 48.9, 'zhangsan@qq.com', '学生');"
+        echo ""
+        echo "set hive.execution.engine=spark;                                      -- 设置 Spark 引擎"
+        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (2, '李四', 23, 0, 165.1, 53.9, 'lisi@qq.com', '学生');"
+        echo ""
+        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (3, '王五', 28, 1, 168.3, 52.7, 'wangwu@qq.com', '学生');"
+        echo ""
+        echo "explain formatted select * from student;                              -- 测试执行计划"
+        echo ""
+        echo "select * from test.test limit 10;"
+    }  > "${HIVE_HOME}/logs/test.sql"
+    
+    "${HIVE_HOME}/bin/hive" -f "${HIVE_HOME}/logs/test.sql" >> "${HIVE_HOME}/logs/test.log" 2>&1 
+    
+    test_result=$(grep -nic "王五" "${HIVE_HOME}/logs/test.log")
+    if [[ ${test_result} -eq 1 ]]; then
+        echo "    **************************** 测试成功 ****************************    "
+    else    
+        echo "    **************************** 测试失败 ****************************    "
+    fi
 }
 
 
