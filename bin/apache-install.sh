@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2029
 
 # =========================================================================================
 #    FileName      ：  apache-install
@@ -285,7 +286,7 @@ function spark_install()
 function flink_install()
 {
     echo "    ************************* 开始安装 Flink *************************    "
-    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list folder
+    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list
     
     FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
     file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
@@ -335,7 +336,7 @@ function flink_install()
     host_list=$(get_param "flink.hosts" | tr ',' ' ')
     for host in ${host_list}
     do
-         ssh "${USER}@${host}" "sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
+         ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
     done
     
     echo "    ************************ 上传依赖到 HDFS *************************    "
@@ -349,10 +350,12 @@ function flink_install()
     "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/plugins/*/*.jar  /flink/libs/plugins
     
     echo "    ************************ 启动 Flink 集群 *************************    "
-    "${FLINK_HOME}/bin/start-cluster.sh"
-    # "${FLINK_HOME}/bin/flink.sh" start
+    "${FLINK_HOME}/bin/start-cluster.sh"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "${FLINK_HOME}/bin/historyserver.sh start"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ********************** 测试 Standalone 集群 **********************    "
+    
+    
     "${FLINK_HOME}/bin/flink" run "${FLINK_HOME}/examples/batch/WordCount.jar"      \
                                    --input  "hdfs://${namenode_host_port}/flink/test/wc/input"  \
                                    --output "hdfs://${namenode_host_port}/flink/test/wc/output"
@@ -815,9 +818,9 @@ function flume_install()
 function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
-    local doris_version priority_networks fe_list be_list host broker_list observer_list broker_port_list
-    local fe_sql be_sql broker_sql observer_sql mysql_home leader_host doris_set_sql fe_count be_count broker_count
-    local doris_user doris_password doris_database_list db doris_root_password test_result
+    local doris_version priority_networks fe_list be_list host broker_list observer_list broker_list
+    local leader_host doris_set_sql fe_count be_count broker_count
+    local MYSQL_HOME doris_user doris_password doris_database_list db doris_root_password test_result
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
     file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
@@ -856,75 +859,86 @@ function doris_install()
     # 启动 FE 集群
     for host in ${fe_list}
     do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/start_fe.sh --daemon" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/start_fe.sh --daemon"
     done
     
     # 启动 BE 集群
     for host in ${be_list}
     do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon"
     done
     
     # 启动 broker 集群
     for host in ${broker_list}
     do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon"
     done
     sleep 60                                                                   # 暂停 2 min 确保所有节点启动正常
     
     echo "    **************************** 构建集群 ****************************    "
-    mysql_home=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
+    MYSQL_HOME=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
     leader_host=$(get_param "doris.fe.hosts" | awk -F ',' '{print $1}')        # 获取 leader
     sleep 65                                                                   # 暂停 2 min 确保所有节点启动正常
     
     # 添加 flower 
     for host in ${fe_list}
     do
-        if [[ "${host}" != "${leader_host}" ]]; then
-            fe_sql="${fe_sql} alter system add follower '${host}:9010';"       # 获取 Follower
+        if [[ ${host} != "${leader_host}" ]]; then
+            "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
+                --execute="alter system add follower '${host}:9010';" \
+                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         fi 
     done
-        
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${fe_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     # 添加 observer     
     observer_list=$(get_param "doris.observer.hosts" | tr ',' ' ')
     for host in ${observer_list}
     do
-        observer_sql="alter system add observer \"${host}:9010\";"
-        "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${observer_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
+            --execute="alter system add observer '${host}:9010';" \
+            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done
     
     # 添加 be 
     for host in ${be_list}
     do
-        be_sql="${be_sql} alter system add backend '${host}:9050';"            # 获取 be
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
+            --execute="alter system add backend '${host}:9050';" \
+            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done
     
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${be_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    
     # 添加 broker
-    broker_port_list=$(get_param "doris.broker.hosts" | sed -e "s|^|'|g" | sed -e "s|,|:8000', '|g" | sed -e "s|$|:8000';|g")
-    broker_sql="alter system add broker broker_name ${broker_port_list}"
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${broker_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    for host in ${broker_list}
+    do
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
+            --execute="alter system add broker broker_name '${host}:8000';" \
+            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    done
     
     echo "    ************************** 查看集群状态 **************************    "
     # 查看 FE 状态
-    fe_count=$("${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/frontends';" | wc -l)
+    fe_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/frontends';" | wc -l)
     if [[ ${fe_count} -gt ${#fe_list[@]} ]]; then
         echo "    FE 集群构建成功 ...... "
+    else
+        echo "    FE 集群构建失败 ...... "
     fi
     
     # 查看 BE 状态
-    be_count=$("${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/backends';" | wc -l)
+    be_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/backends';" | wc -l)
     if [[ ${be_count} -gt ${#be_list[@]} ]]; then
         echo "    BE 集群构建成功 ...... "
+    else
+        echo "    FE 集群构建失败 ...... "
     fi
     
     # 查看 Broker 状态
-    broker_count=$("${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/brokers';" | wc -l)
+    broker_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/brokers';" | wc -l)
     if [[ ${broker_count} -gt ${#broker_list[@]} ]]; then
         echo "    Broker 集群构建成功 ...... "
+    else
+        echo "    FE 集群构建失败 ...... "
+        return 1
     fi
     
     echo "    *************************** 配置数据库 ***************************    "
@@ -932,39 +946,53 @@ function doris_install()
     doris_password=$(get_param "doris.user.password")                          # 获取 Doris 密码
     
     # 添加 用户
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="create user if not exists '${doris_user}' identified by '${doris_password}';" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="create user if not exists '${doris_user}' identified by '${doris_password}';"
     
+    # 添加数据库并授权给已添加的用户
     doris_database_list=$(get_param "doris.database" | tr ',' ' ')             # 获取 Doris 数据库
-    
-    # 添加数据库并授权给用户
     for db in ${doris_database_list}
     do
         doris_set_sql="create database if not exists ${db}; grant all on ${db}.* to ${doris_user};"
-        "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${doris_set_sql}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="${doris_set_sql}"
     done
     
-    doris_root_password=$(get_param "doris.root.password")                     # 获取 Doris root 密码
-    
     # 重置 root 密码
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="set password for 'root' = password('${doris_root_password}');" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    doris_root_password=$(get_param "doris.root.password")                     # 获取 doris root 密码
+    "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="set password for 'root' = password('${doris_root_password}');"
     
     echo "    **************************** 测试集群 ****************************    "
     {   
         echo "create database if not exists test;"
-        echo "create table if not exists test.test (id int, name varchar(255) replace_if_not_null null, age int replace_if_not_null null, mark text replace_if_not_null null) aggregate key(id) distributed by hash(id) buckets 2 properties ('replication_allocation' = 'tag.location.default: 1');"
-        echo "insert into test.test (id, name, age, mark) values (11, '张三', 22, '教师'), (12, '李四', 25, '学生'), (13, '王五', 28, null);"
+        echo ""
+        echo "create table if not exists test.test "
+        echo "( "
+        echo "    id   int, "
+        echo "    name varchar(255) replace_if_not_null null, "
+        echo "    age  int          replace_if_not_null null, "
+        echo "    mark text         replace_if_not_null null"
+        echo ") aggregate key(id) distributed by hash(id) buckets 2 "
+        echo "    properties ('replication_allocation' = 'tag.location.default: 1'); "
+        echo ""
+        echo "insert into test.test (id, name, age, mark) "
+        echo "values (11, '张三', 22, '教师'), (12, '李四', 25, '学生'), (13, '王五', 28, null);"
+        echo ""
         echo "select * from test.test order by id;"
+        echo ""
         echo "insert into test.test (id, name, age, mark) values (19, '赵六', 30, '校长');"
+        echo ""
         echo "select * from test.test order by id;"
+        echo ""
         echo "insert into test.test (id, name, age, mark) values (19, '田七', 30, '校长');"
+        echo ""
         echo "select * from test.test order by id;"                             
     }  > "${DORIS_HOME}/fe/log/test.sql"
     
-    "${mysql_home}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --password="${doris_root_password}" \
+    sleep 30
+    "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --password="${doris_root_password}" \
                              < "${DORIS_HOME}/fe/log/test.sql" > "${DORIS_HOME}/fe/log/test.log" 2>&1
     
     test_result=$(grep -nic "田七" "${DORIS_HOME}/fe/log/test.log")
-    if [[ "${test_result}" -eq 1 ]]; then
+    if [[ ${test_result} -eq 1 ]]; then
         echo "    **************************** 测试成功 ****************************    "
     else    
         echo "    **************************** 测试失败 ****************************    "
