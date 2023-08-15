@@ -82,7 +82,7 @@ jobmanager.execution.failover-strategy: region
 rest.port: 8083
 
 # 基于 Web 的运行时监视器侦听的地址：master
-rest.address: 0.0.0.0
+rest.address: master
 
 # Web 访问端口
 rest.bind-port: 8084
@@ -101,6 +101,9 @@ web.tmpdir: ${FLINK_HOME}/data/web-tmp
 
 # 从页面上传的 jar 存储路径
 web.upload.dir: ${FLINK_HOME}/data
+
+# 开启 flink 火焰图
+rest.flamegraph.enabled: true
 
 
 # ====================================================== 高级 配置 ====================================================== #
