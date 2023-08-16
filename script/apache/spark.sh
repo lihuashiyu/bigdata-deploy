@@ -37,12 +37,12 @@ function service_status()
 {
     # 1. 初始化局域参数
     local result_list=() pid_list=() host_name master_pid worker_pid history_pid run_pid_count
-
+    
     # 2. 遍历 master 的所有的主机，查看 jvm 进程
     for host_name in "${MASTER_LIST[@]}"; do
         # 2.1 程序 Master pid 的数量
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -v 'grep|$0' | grep -ci '${MASTER_NODE}'")
-
+        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE 'grep|$0' | grep -ci '${MASTER_NODE}'")
+        
         # 2.2 判断进程是否存在
         if [ "${master_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Master）出现错误"
@@ -51,13 +51,13 @@ function service_status()
             pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
     done
-
+    
     # 3. 遍历 Worker 的所有的主机，查看 jvm 进程
     for host_name in "${WORKER_LIST[@]}"
     do
         # 3.1 程序 Work 的 pid 的数量
-        worker_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -v 'grep|$0' | grep -ci '${WORKER_NODE}'")
-
+        worker_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE 'grep|$0' | grep -ci '${WORKER_NODE}'")
+        
         # 3.2 判断进程是否存在
         if [ "${worker_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Worker）出现错误"
@@ -66,11 +66,11 @@ function service_status()
             pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
     done
-
+    
     # 4. 遍历 历史服务器 的所有的主机，查看 jvm 进程
     for host_name in "${MASTER_LIST[@]}"; do
         # 3.1 程序 JobHistoryServer 的 pid 的数量
-        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
+        history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE 'grep|$0' | grep -ci '${HISTORY_SERVER}'")
         
         # 4.2 判断进程是否存在
         if [ "${history_pid}" -ne 1 ]; then
@@ -80,10 +80,10 @@ function service_status()
             pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
     done
-
+    
     # 5. 判断是否所有的进程都正常
     run_pid_count=$(echo "${pid_list[@]}" | grep -ci "${RUNNING}")
-
+    
     if [ "${#result_list[@]}" -eq 0 ]; then
         echo "${RUNNING}"
     elif [ "${run_pid_count}" -eq 0 ]; then
