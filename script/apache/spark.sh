@@ -24,34 +24,55 @@ WORKER_NODE=org.apache.spark.deploy.worker.Worker                              #
 HISTORY_SERVER=org.apache.spark.deploy.history.HistoryServer                   # 历史服务器 进程名称
           
 LOG_FILE=spark-$(date +%F).log                                                 # 程序操作日志文件
-MASTER_LIST=(master)                                                           # master 主机主机名
-SLAVER_LIST=(slaver1 slaver2 slaver3)                                          # slaver 集群主机名
+MASTER_LIST=(${master_list})                                                           # master 主机主机名
+WORKER_LIST=(${worker_list})                                          # slaver 集群主机名
 USER=$(whoami)                                                                 # 获取当前登录用户
 RUNNING=1                                                                      # 服务运行状态码
 STOP=0                                                                         # 服务停止状态码
 
 
 # 服务状态检测
+# shellcheck disable=SC2029
 function service_status()
 {
-    # 1. 初始返回结果
-    result_list=()
-    pid_list=()
-    
+    # 1. 初始化局域参数
+    local result_list=() pid_list=() host_name master_pid worker_pid history_pid run_pid_count
+
     # 2. 遍历 master 的所有的主机，查看 jvm 进程
-    for host_name in "${MASTER_LIST[@]}"
-    do
-        # 2.1 程序 Master 的 pid
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${MASTER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
+    for host_name in "${MASTER_LIST[@]}"; do
+        # 2.1 程序 Master pid 的数量
+        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -v 'grep|$0' | grep -ci '${MASTER_NODE}'")
+
+        # 2.2 判断进程是否存在
         if [ "${master_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（Master）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
         else
             pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
-        
-        # 2.2 程序 JobHistoryServer 的 pid
+    done
+
+    # 3. 遍历 Worker 的所有的主机，查看 jvm 进程
+    for host_name in "${WORKER_LIST[@]}"
+    do
+        # 3.1 程序 Work 的 pid 的数量
+        worker_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -v 'grep|$0' | grep -ci '${WORKER_NODE}'")
+
+        # 3.2 判断进程是否存在
+        if [ "${worker_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（Worker）出现错误"
+            pid_list[${#pid_list[@]}]="${STOP}"
+        else
+            pid_list[${#pid_list[@]}]="${RUNNING}"
+        fi
+    done
+
+    # 4. 遍历 历史服务器 的所有的主机，查看 jvm 进程
+    for host_name in "${MASTER_LIST[@]}"; do
+        # 3.1 程序 JobHistoryServer 的 pid 的数量
         history_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${HISTORY_SERVER}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' | wc -l ")
+        
+        # 4.2 判断进程是否存在
         if [ "${history_pid}" -ne 1 ]; then
             result_list[${#result_list[@]}]="主机（${host_name}）的程序（HistoryServer）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
@@ -59,25 +80,11 @@ function service_status()
             pid_list[${#pid_list[@]}]="${RUNNING}"
         fi
     done
-    
-    # 3. 遍历 slaver 的所有的主机，查看 jvm 进程
-    for host_name in "${SLAVER_LIST[@]}"
-    do
-        # 3.1 程序 Work 的 pid
-        master_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -i '${WORKER_NODE}' | grep -v grep | awk '{print $2}' | awk -F '_' '{print $1}' " | wc -l)
-        if [ "${master_pid}" -ne 1 ]; then
-            result_list[${#result_list[@]}]="主机（${host_name}）的程序（Worker）出现错误"
-            pid_list[${#pid_list[@]}]="${STOP}"
-        else
-            pid_list[${#pid_list[@]}]="${RUNNING}"
-        fi
-    done
-    
-    # 4. 判断是否所有的进程都正常
-    run_pid_count=$(echo "${pid_list[@]}"  | grep -i "${RUNNING}" | wc -l)
-    result_pid_count=$(echo "${#result_list[@]}") 
-    
-    if [ "${result_pid_count}" -eq 0 ]; then
+
+    # 5. 判断是否所有的进程都正常
+    run_pid_count=$(echo "${pid_list[@]}" | grep -ci "${RUNNING}")
+
+    if [ "${#result_list[@]}" -eq 0 ]; then
         echo "${RUNNING}"
     elif [ "${run_pid_count}" -eq 0 ]; then
         echo "${STOP}"
@@ -90,23 +97,27 @@ function service_status()
 # 服务启动
 function service_start()
 {
-    # 1. 判断程序所处的状态
+    # 1. 定义局部变量
+    local status ps
+        
+    # 2. 判断程序所处的状态
     status=$(service_status)
     
-    # 2. 若处于运行状态，则打印结果；若处于停止状态，则启动程序；若程序启动时，出现错误，则打印错误的进程
+    # 3. 若处于运行状态，则打印结果；若处于停止状态，则启动程序；若程序启动时，出现错误，则打印错误的进程
     if [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在运行 ...... "
     elif [ "${status}" == "${STOP}" ]; then
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
-        for host_name in "${MASTER_LIST[@]}"
-        do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/start-all.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 " 
-            sleep 3    
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/start-history-server.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
-        done
         
-        echo "    程序（${ALIAS_NAME}）启动验证中 ......"        
-        sleep 2
+        # 3.1 启动 Spark 集群
+        "${SPARK_HOME}/sbin/start-all.sh"  >> "${SPARK_HOME}/logs/${LOG_FILE}" 2>&1
+        
+        echo "    程序（${ALIAS_NAME}）启动验证中 ......"
+        
+        # 3.2 启动 历史服务器 集群
+        "${SPARK_HOME}/sbin/start-history-server.sh"  >> "${SPARK_HOME}/logs/${LOG_FILE}" 2>&1
+        
+        sleep 3
         
         # 3. 判断程序每个进程启动状态
         status=$(service_status)
@@ -120,6 +131,7 @@ function service_start()
             done
         fi
     else
+        echo "    程序（${ALIAS_NAME}）运行出错 ...... "
         for ps in ${status}
         do
             echo "    ${ps} ...... "
@@ -131,26 +143,28 @@ function service_start()
 # 服务停止
 function service_stop()
 {
-    # 1. 判断程序所处的状态
+    # 1. 定义局部变量
+    local status ps
+    
+    # 2. 判断程序所处的状态
     status=$(service_status)
     
-    # 2. 若处于停止状态，则打印结果；若处于运行状态，则停止程序；若停止时，程序出现错误，则打印错误的进程
+    # 3. 若处于停止状态，则打印结果；若处于运行状态，则停止程序；若停止时，程序出现错误，则打印错误的进程
     if [ "${status}" == "${STOP}" ]; then
-        echo "    程序（${ALIAS_NAME}）已经停止运行 ...... "
+        echo "    程序（${ALIAS_NAME}）已经停止 ...... "
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
-        for host_name in "${MASTER_LIST[@]}"
-        do
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/stop-history-server.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
-            sleep 2
-            ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${SPARK_HOME}/sbin/stop-all.sh >> ${SPARK_HOME}/logs/${LOG_FILE} 2>&1 "
-        done
+        # 3.1 关闭 历史服务器 集群
+        "${SPARK_HOME}/sbin/stop-history-server.sh" >> "${SPARK_HOME}/logs/${LOG_FILE}" 2>&1
+                
+        # 3.2 关闭 Spark 集群
+        "${SPARK_HOME}/sbin/stop-all.sh"  >> "${SPARK_HOME}/logs/${LOG_FILE}" 2>&1
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
-        sleep 2
+        sleep 3
         
-        # 3. 判断程序每个进程停止状态
+        # 3.3 判断程序每个进程停止状态
         status=$(service_status)
         if [ "${status}" == "${STOP}" ]; then
             echo "    程序（${ALIAS_NAME}）停止成功 ...... "
@@ -170,8 +184,7 @@ function service_stop()
     
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
-start_time=$(date +"%Y-%m-%d %H:%M:%S")
-start_timestamp=$(date -d "${start_time}" +%s)
+start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 
 #  2. 匹配输入参数
 case "$1" in
@@ -187,16 +200,16 @@ case "$1" in
     
     # 2.3 状态查询
     status)
-        # 3.1 查看正在运行程序的 pid
+        # 2.3.1 查看正在运行程序的 pid
         pid_status=$(service_status)
         
-        #  3.2 判断 ES 运行状态
+        # 2.3.2 判断 ES 运行状态
         if [ "${pid_status}" == "${STOP}" ]; then
             echo "    程序（${ALIAS_NAME}）已经停止 ...... "
         elif [ "${pid_status}" == "${RUNNING}" ]; then
             echo "    程序（${ALIAS_NAME}）正在运行中 ...... "
         else
-            echo "    程序（${ALIAS_NAME}）运行出现问题 ...... "
+            echo "    程序（${ALIAS_NAME}）运行出错 ...... "
             for ps in ${pid_status}
             do
                 echo "    ${ps} ...... "
@@ -226,13 +239,11 @@ case "$1" in
 esac
 
 # 3. 获取脚本执行结束时间
-end_time=$(date +"%Y-%m-%d %H:%M:%S")
-end_timestamp=$(date -d "${end_time}" +%s)
+end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 
 # 4. 计算并输出脚本执束时间
-time_consuming=$(expr "${end_timestamp}" - "${start_timestamp}")
-if [ "$#" -eq 1 ]  && ( [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ] ); then
-    echo "    脚本（$(basename $0)）执行共消耗：${time_consuming}s ...... "
+if [ "$#" -eq 1 ]  && { [ "$1" == "start" ] || [ "$1" == "stop" ] || [ "$1" == "restart" ]; }; then
+    echo "    脚本（$(basename "$0")）执行共消耗：$(( end - start ))s ...... "
 fi
 
 printf "================================================================================\n\n"

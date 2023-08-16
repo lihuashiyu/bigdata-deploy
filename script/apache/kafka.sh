@@ -30,10 +30,6 @@ function service_status()
     # 1. 初始化局域参数
     local result_list=() pid_list=() host_name kafka_pid run_pid_count
     
-    # 1. 初始返回结果
-    result_list=()
-    pid_list=()
-    
     # 2. 遍历 kafka 的所有的主机，查看 jvm 进程
     for host_name in "${KAFKA_LIST[@]}"; do
         # 2.1 程序 kafka 的 pid 的个数

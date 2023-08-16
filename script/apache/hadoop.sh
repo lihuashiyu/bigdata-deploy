@@ -186,6 +186,7 @@ function service_start()
             done
         fi
     else
+        echo "    程序（${ALIAS_NAME}）运行出错 ...... "
         for ps in ${status}
         do
             echo "    ${ps} ...... "
