@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2120
+# shellcheck disable=SC2120,SC2029
 
 # =========================================================================================
 #    FileName      ：  flink.sh
@@ -23,7 +23,7 @@ TASK_MANAGER=org.apache.flink.runtime.taskexecutor.TaskManagerRunner           #
 HISTORY_SERVER=org.apache.flink.runtime.webmonitor.history.HistoryServer       # Flink 历史服务器进程名称
 
 MASTER_LIST=(${master_list})                                                           # JobManager    主机主机名
-SLAVER_LIST=(${slaver_list})                                          # TaskManager   主机主机名
+WORKER_LIST=(${worker_list})                                          # TaskManager   主机主机名
 HISTORY_LIST=(${history_list})                                                          # HistoryServer 主机主机名
 FLINK_LOG_FILE="flink-$(date +%F).log"                                         # Flink   程序操作日志文件
 HISTORY_LOG_FILE="history-$(date +%F).log"                                     # History 程序操作日志文件
@@ -54,7 +54,7 @@ function service_status()
     done
     
     # 3. 遍历 Slaver 的所有的主机，查看 jvm 进程
-    for host_name in "${SLAVER_LIST[@]}"
+    for host_name in "${WORKER_LIST[@]}"
     do
         # 3.1 程序 Slaver 的 pid 数量
         slaver_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE 'grep|$0' | grep -ci '${TASK_MANAGER}'")

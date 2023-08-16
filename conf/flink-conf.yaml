@@ -14,7 +14,7 @@ jobmanager.bind-host: 0.0.0.0
 # JobManager JVM heap 内存大小
 jobmanager.memory.process.size: 2048m
 
-# askManager 将绑定到的主机
+# TaskManager 将绑定到的主机
 taskmanager.bind-host: 0.0.0.0
 
 # 运行 TaskManager 的主机地址，JobManager 和其他 TaskManager 可以访问该主机地址，需要为每个任 TaskManager 单独配置
@@ -82,7 +82,7 @@ jobmanager.execution.failover-strategy: region
 rest.port: 8083
 
 # 基于 Web 的运行时监视器侦听的地址：master
-rest.address: master
+# rest.address: master
 
 # Web 访问端口
 rest.bind-port: 8084

@@ -286,7 +286,7 @@ function spark_install()
 function flink_install()
 {
     echo "    ************************* 开始安装 Flink *************************    "
-    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list
+    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list history_list
     
     FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
     file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
@@ -313,6 +313,10 @@ function flink_install()
     
     master_list=$(get_param "flink.job.managers"  | tr ',' ' ')
     worker_list=$(get_param "flink.task.managers" | tr ',' ' ')
+    history_list=$(get_param "flink.history.hosts" | tr ',' ' ')
+    sed -i "s|\${master_list}|${master_list}|g"    "${FLINK_HOME}/bin/flink.sh"
+    sed -i "s|\${worker_list}|${worker_list}|g"    "${FLINK_HOME}/bin/flink.sh"
+    sed -i "s|\${history_list}|${history_list}|g"  "${FLINK_HOME}/bin/flink.sh"
     
     # 修改 masters 
     cat /dev/null > "${FLINK_HOME}/conf/masters"
@@ -351,7 +355,7 @@ function flink_install()
     
     echo "    ************************ 启动 Flink 集群 *************************    "
     "${FLINK_HOME}/bin/start-cluster.sh"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    "${FLINK_HOME}/bin/historyserver.sh start"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "${FLINK_HOME}/bin/historyserver.sh" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ********************** 测试 Standalone 集群 **********************    "
     
