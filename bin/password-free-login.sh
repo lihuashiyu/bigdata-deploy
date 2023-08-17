@@ -38,103 +38,168 @@ function flush_env()
 }
 
 
-# 创建秘钥（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码）
+# 删除秘钥生成文件夹（$1：用户名，$2：用户密码，$3：远程主机名）
+function remove_key()
+{
+    expect -c \
+    " 
+        set timeout 30;
+        spawn ssh $1@$3 rm -rf ${HOME}/.ssh;
+        expect {
+            *Overwrite*  { send  --  y\r;    exp_continue; }
+            *yes/no*     { send  --  yes\r;  exp_continue; }
+            *password*   { send  --  $2\r;   exp_continue; }
+            eof          { exit 0 }
+        };
+    "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+}
+
+
+# 创建秘钥（$1：用户名，$2：用户密码，$3：远程主机名）
 function create_keygen()
 {
     expect -c \
     " 
-        spawn ssh $2@$1 \"ssh-keygen -t rsa -P '' -f ${HOME}/.ssh/id_rsa\"
-        set timeout 30
-        expect
-        {
-            *(yes/no)*       { send -- yes\r;  exp_continue; }
-            *password:*      { send -- $3\r;   exp_continue; }
-            \"*Overwrite*\"  { send -- y\r;    exp_continue; } 
-            eof              { exit 0; }
-        }
-    "
+        set timeout 30;
+        spawn ssh $1@$3 ssh-keygen -t rsa -P '' -f ${HOME}/.ssh/id_rsa;
+        expect {
+            *Overwrite*  { send  --  y\r;    exp_continue; }
+            *yes/no*     { send  --  yes\r;  exp_continue; }
+            *password*   { send  --  $2\r;   exp_continue; }
+            eof          { exit 0 }
+        };
+    "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
 
-# 复制秘钥 ID（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码，$4：本主机名，$5：本机用户名，$6：本机用户密码）
+# 复制秘钥 ID（$1：用户名，$2：用户密码，$3：本主机名，$4：远程主机名）
 function ssh_copy_id()
 {
     expect -c \
     "
-        set timeout -1;
-        spawn ssh $2@$1 \"ssh-copy-id $5@$4\"              
-        expect 
-        {
-            *(yes/no)*  { send -- yes\r; exp_continue; }
-            *password:* { send -- $3\r;  exp_continue; }  
+        set timeout 30;
+        spawn ssh $1@$4 ssh-copy-id -f $1@$3;              
+        expect {
+            *yes/no*    { send  --  yes\r; exp_continue; }
+            *password*  { send  --  $2\r;  exp_continue; }  
             eof         { exit 0; }
-        }
-    "
+        };
+    "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
-# 复制公钥（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码）
+# 复制公钥（$1：用户名，$2：用户密码，$3：远程主机名）
 function scp_copy_pub()
 {
     expect -c \
     "
-        set timeout -1;
-        spawn scp $2@$1:${HOME}/.ssh/id_rsa.pub ${HOME}/.ssh/id_rsa.pub.$1                               
-        expect 
-        {
-            *password:* { send -- $3\r;  exp_continue; }  
+        set timeout 30;
+        spawn scp $1@$3:${HOME}/.ssh/id_rsa.pub ${HOME}/.ssh/id_rsa.pub.$3; 
+        expect {
+            *yes/no*    { send  --  yes\r; exp_continue; }
+            *password*  { send  --  $2\r;  exp_continue; }    
             eof         { exit 0; }
-        }
-    "  
+        };
+    "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
 }
 
 
-# 复制公钥（$1：远程主机名，$2：远程主机用户名，$3：远程主机用户密码）
+# 复制公钥（$1：用户名，$2：用户密码，$3：远程主机名）
 function scp_copy_keys()
 {
     expect -c \
     "
         set timeout -1;
-        spawn scp ${HOME}/.ssh/authorized_keys $2@$1:${HOME}/.ssh/                              
-        expect 
-        {
-            *password:* { send -- $3\r;  exp_continue; }  
+        spawn scp ${HOME}/.ssh/authorized_keys $1@$3:${HOME}/.ssh/;                              
+        expect {
+            *yes/no*    { send  --  yes\r; exp_continue; }
+            *password* { send -- $2\r;  exp_continue; }  
             eof         { exit 0; }
-        }
-    "  
+        };
+    "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
 
-# 分发合成后的公钥（$1：用户名，$2：主机名，$3：用户密码，$4：使用的主机）
+# 合成秘钥
 function sync_keygen()
 {
-    local password host
+    # 定义局域变量
+    local password host master h test_result count=0                                  # 定义局域变量
     
-    password=$(get_param "server.password")
+    password=$(get_param "server.password")                                    # 获取主机密码
+    master=$(echo "${HOST_LIST[@]}" | awk '{print $1}')                        # 获取 Master 节点 
+    
+    echo "    ************************ 删除 SSH 秘钥对 *************************    "
+    for host in ${HOST_LIST}
+    do
+        remove_key "${USER}" "${password}" "${host}"                           # 生成 ssh 秘钥对
+    done
+    
+    echo "    ************************ 生成 SSH 秘钥对 *************************    "
+    for host in ${HOST_LIST}
+    do
+        create_keygen "${USER}" "${password}" "${host}"                        # 生成 ssh 秘钥对
+    done
+    
+    echo "    ********************* 秘钥 id 发送到 Master **********************    "
     
     for host in ${HOST_LIST}
     do
-        create_keygen "${host}" "${USER}" "${password}"
-        ssh_copy_id   "${host}" "${USER}" "${password}" "${host}" "${USER}"
-        scp_copy_pub  "${host}" "${USER}" "${password}"
-        cat "${HOME}"/.ssh/id_rsa.pub*  >>  "${HOME}"/.ssh/authorized_keys
-        scp_copy_keys  "${host}" "${USER}" "${password}"
+        if [[ "${master}" != "${host}" ]]; then
+            ssh_copy_id  "${USER}" "${password}" "${master}" "${host}"         # 将秘钥 id 复制到 master
+        fi
     done
+    
+    echo "    *********************** 公钥发送到 Master ************************    "
+    for host in ${HOST_LIST}
+    do
+        if [[ "${master}" != "${host}" ]]; then
+            scp_copy_pub  "${USER}" "${password}" "${host}"                    # 将公钥发送到 master
+        fi
+    done
+     
+    echo "    **************************** 合成公钥 ****************************    "
+    cat "${HOME}"/.ssh/id_rsa.pub*  >>  "${HOME}"/.ssh/authorized_keys         # 合成 公钥
+    
+    echo "    **************************** 分发公钥 ****************************    "
+    for host in ${HOST_LIST}
+    do
+        if [[ "${master}" != "${host}" ]]; then
+            scp_copy_keys  "${USER}" "${password}" "${host}"                   # 分发 公钥
+        fi
+    done
+     
+    echo "    **************************** 免密登录 ****************************    "
+    for host in ${HOST_LIST}
+    do
+        for h in ${HOST_LIST}
+        do
+            ssh "${USER}@${host}" "echo '  <== ${host} 登录 ${h} ==>  '; exit"  >> "${HOME}/.ssh/test.log"
+            (( count = count + 1 ))
+        done
+    done
+    
+    test_result=$(wc -l "${HOME}/.ssh/test.log" | awk '{ print $1}')
+    if [ "${test_result}" -eq "${count}" ]; then
+        echo "    **************************** 配置成功 ****************************    "
+    else
+        echo "    **************************** 配置失败 ****************************    "
+    fi
 }
 
 
 printf "\n================================================================================\n"
-if [ "$#" -gt 0 ]; then
-    flush_env                                                                  # 刷新环境变量    
-fi
+# 1. 刷新环境变量
+flush_env
 
-# 判断脚本是否传入参数，未传入会使用自定义参数
+# 2. 判断脚本是否传入参数，未传入会使用自定义参数
 if [ "$#" -eq 0 ]; then
-    HOST_LIST=$(get_host_list)
+    HOST_LIST=$(get_param "server.hosts" | tr ',' ' ' | sed 's|[^a-z A-Z]||g')
 else
     HOST_LIST="$*"
 fi
 
+# 3. 进行 ssh 免密配置
 sync_keygen
 printf "================================================================================\n\n"
 exit 0
