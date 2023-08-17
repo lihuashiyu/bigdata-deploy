@@ -59,7 +59,7 @@ function maven_jar_install()
     
     file_name=$(echo "$1" | awk -F '--' '{print $NF}')                         # 切割文件名
     cp -fpr  "${ROOT_DIR}/lib/$1" "${ROOT_DIR}/package/${file_name}"           # 复制到指定路径
-    echo "====================> $file_name"
+    
     mvn install:install-file -DgroupId="$2"                             \
                              -DartifactId="$3"                          \
                              -Dversion="$4"                             \
@@ -286,7 +286,8 @@ function spark_install()
 function flink_install()
 {
     echo "    ************************* 开始安装 Flink *************************    "
-    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list history_list
+    local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list 
+    local history_list job_manager test_result name_node
     
     FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
     file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
@@ -358,14 +359,45 @@ function flink_install()
     "${FLINK_HOME}/bin/historyserver.sh" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ********************** 测试 Standalone 集群 **********************    "
+    "${HADOOP_HOME}/bin/hadoop" fs -rm -r  /flink/test/session-cep/  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
+    job_manager=$(echo "${master_list}" | awk -F ',' '{print $1}')             # 获取 JobManager 节点
+    "${FLINK_HOME}/bin/flink" run --detached                                                  \
+                                  --jobmanager "${job_manager}:8084"                          \
+                                  --parallelism 2                                             \
+                                  --class "run.CepTest" "${ROOT_DIR}/lib/flink-test-1.0.jar"  \
+                                  /flink/test/session-cep/                                    \
+                                  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    "${FLINK_HOME}/bin/flink" run "${FLINK_HOME}/examples/batch/WordCount.jar"      \
-                                   --input  "hdfs://${namenode_host_port}/flink/test/wc/input"  \
-                                   --output "hdfs://${namenode_host_port}/flink/test/wc/output"
+    test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/session-cep/* | grep -ci "张三")
+    if [[ "${test_result}" -gt 1 ]]; then
+        echo "    ********************** Standalone 测试成功 ***********************    "
+    else
+        echo "    ********************** Standalone 测试失败 ***********************    "
+        return 1
+    fi
     
     echo "    ************************* 测试 Yarn 集群 *************************    "
+    "${HADOOP_HOME}/bin/hadoop" fs -rm -r     /flink/test/yarn-cep/
+    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/test/yarn-cep/
     
+    name_node=$(get_param "namenode.host.port" )                               # HDFS 的 NameNode 节点
+    "${FLINK_HOME}/bin/flink" run-application --target yarn-application                                           \
+                              --class "run.CepTest" "hdfs://${name_node}/flink/test/yarn-cep/flink-test-1.0.jar"  \
+                              -Djobmanager.memory.process.size=1024m                                              \
+                              -Dtaskmanager.memory.process.size=1024m                                             \
+                              -Dyarn.application.name="FlinkCepTest"                                              \
+                              -Dtaskmanager.numberOfTaskSlots=2                                                   \
+                              -Dyarn.provided.lib.dirs="hdfs://${name_node}/flink/libs/lib;hdfs://${name_node}/flink/libs/opt;hdfs://${name_node}/flink/libs/plugins" \
+                              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+                              
+    test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/yarn-cep/* | grep -ci "张三")
+    if [[ "${test_result}" -gt 1 ]]; then
+        echo "    ************************* Yarn 测试成功 **************************    "
+    else
+        echo "    ************************* Yarn 测试失败 **************************    "
+        return 1
+    fi    
 }
 
 
@@ -463,7 +495,7 @@ function hive_install()
     echo "    ************************* 开始安装 Hive **************************    "
     local spark_version hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port
     local namenode_host_port mysql_host mysql_port mysql_home mysql_user mysql_password root_password hive_mysql_host
-    local test_result
+    local test_result server2_list meta_store_list
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
@@ -549,6 +581,13 @@ function hive_install()
     append_param "HADOOP_HOME=${HADOOP_HOME}"          "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HIVE_CONF_DIR=${HIVE_HOME}/conf"     "${HIVE_HOME}/conf/hive-env.sh"
     append_param "HIVE_AUX_JARS_PATH=${HIVE_HOME}/lib" "${HIVE_HOME}/conf/hive-env.sh"
+    
+    # 修改 hive.sh 
+    server2_list=$(echo "${server2_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g')      # server2   节点
+    meta_store_list=$(echo "${metastore_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g') # MetaStore 节点
+    
+    sed -i "s|\${server2_list}|${server2_list}|g"        "${HIVE_HOME}/conf/hive-site.xml"
+    sed -i "s|\${meta_store_list}|${meta_store_list}|g"  "${HIVE_HOME}/conf/hive-site.xml"
     
     # 创建必要的目录
     mkdir -p "${HIVE_HOME}/logs/"                                              # 创建日志存储目录
