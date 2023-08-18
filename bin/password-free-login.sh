@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2029,SC1090
 
 # ==================================================================================================
 #    FileName      ：  password-free-login.sh
 #    CreateTime    ：  2023-07-20 19:05
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
-#    Description   ：  实现节点间免密登录
+#    Description   ：  实现节点间免密登录：dnf install openssh-server openssh-clients expect
 # ==================================================================================================
 
 SERVICE_DIR=$(dirname "$(readlink -e "$0")")                                   # Shell 脚本目录
@@ -46,7 +47,6 @@ function remove_key()
         set timeout 30;
         spawn ssh $1@$3 rm -rf ${HOME}/.ssh;
         expect {
-            *Overwrite*  { send  --  y\r;    exp_continue; }
             *yes/no*     { send  --  yes\r;  exp_continue; }
             *password*   { send  --  $2\r;   exp_continue; }
             eof          { exit 0 }
@@ -104,7 +104,7 @@ function scp_copy_pub()
 }
 
 
-# 复制公钥（$1：用户名，$2：用户密码，$3：远程主机名）
+# 发送合成公钥（$1：用户名，$2：用户密码，$3：远程主机名）
 function scp_copy_keys()
 {
     expect -c \
@@ -124,36 +124,23 @@ function scp_copy_keys()
 function sync_keygen()
 {
     # 定义局域变量
-    local password host master h test_result count=0                                  # 定义局域变量
+    local password host master h test_result count=0                           # 定义局域变量
     
     password=$(get_param "server.password")                                    # 获取主机密码
     master=$(echo "${HOST_LIST[@]}" | awk '{print $1}')                        # 获取 Master 节点 
     
-    echo "    ************************ 删除 SSH 秘钥对 *************************    "
-    for host in ${HOST_LIST}
-    do
-        remove_key "${USER}" "${password}" "${host}"                           # 生成 ssh 秘钥对
-    done
-    
     echo "    ************************ 生成 SSH 秘钥对 *************************    "
     for host in ${HOST_LIST}
     do
+        remove_key "${USER}" "${password}" "${host}"                           # 生成 ssh 秘钥对
         create_keygen "${USER}" "${password}" "${host}"                        # 生成 ssh 秘钥对
     done
     
-    echo "    ********************* 秘钥 id 发送到 Master **********************    "
-    
+    echo "    *********************** 发送公钥到 Master ************************    "
     for host in ${HOST_LIST}
     do
         if [[ "${master}" != "${host}" ]]; then
-            ssh_copy_id  "${USER}" "${password}" "${master}" "${host}"         # 将秘钥 id 复制到 master
-        fi
-    done
-    
-    echo "    *********************** 公钥发送到 Master ************************    "
-    for host in ${HOST_LIST}
-    do
-        if [[ "${master}" != "${host}" ]]; then
+            ssh_copy_id   "${USER}" "${password}" "${master}" "${host}"        # 将秘钥 id 复制到 master
             scp_copy_pub  "${USER}" "${password}" "${host}"                    # 将公钥发送到 master
         fi
     done
@@ -161,15 +148,15 @@ function sync_keygen()
     echo "    **************************** 合成公钥 ****************************    "
     cat "${HOME}"/.ssh/id_rsa.pub*  >>  "${HOME}"/.ssh/authorized_keys         # 合成 公钥
     
-    echo "    **************************** 分发公钥 ****************************    "
+    echo "    ************************** 分发合成公钥 **************************    "
     for host in ${HOST_LIST}
     do
         if [[ "${master}" != "${host}" ]]; then
-            scp_copy_keys  "${USER}" "${password}" "${host}"                   # 分发 公钥
+            scp_copy_keys  "${USER}" "${password}" "${host}"                   # 分发合成公钥
         fi
     done
      
-    echo "    **************************** 免密登录 ****************************    "
+    echo "    ************************** 测试免密登录 **************************    "
     for host in ${HOST_LIST}
     do
         for h in ${HOST_LIST}
@@ -179,7 +166,7 @@ function sync_keygen()
         done
     done
     
-    test_result=$(wc -l "${HOME}/.ssh/test.log" | awk '{ print $1}')
+    test_result=$(grep -ci "登录" "${HOME}/.ssh/test.log")                       # 统计文件行数
     if [ "${test_result}" -eq "${count}" ]; then
         echo "    **************************** 配置成功 ****************************    "
     else
@@ -194,7 +181,7 @@ flush_env
 
 # 2. 判断脚本是否传入参数，未传入会使用自定义参数
 if [ "$#" -eq 0 ]; then
-    HOST_LIST=$(get_param "server.hosts" | tr ',' ' ' | sed 's|[^a-z A-Z]||g')
+    HOST_LIST=$(get_param "server.hosts" | awk -F ',' '{ for(i=1; i<=NF; i++) {print $i} }' | awk -F ':' '{print $2}' | sed ':label;N;s|\n| |g;t label')
 else
     HOST_LIST="$*"
 fi
