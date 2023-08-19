@@ -350,9 +350,11 @@ function flink_install()
                                               /flink/history      /flink/ha            /flink/libs/lib   \
                                               /flink/libs/opt     /flink/libs/plugins  /flink/libs/custom     
     # 将依赖 jar 上传到 HDFS
-    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/lib/*.jar        /flink/libs/lib
-    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/opt/*.jar        /flink/libs/opt
-    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/plugins/*/*.jar  /flink/libs/plugins
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/lib/*.jar                /flink/libs/lib
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/opt/*.jar                /flink/libs/opt
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${FLINK_HOME}"/plugins/*/*.jar          /flink/libs/plugins
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/commons-cli-1.5.0.jar"  /flink/libs/custom
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-shaded-hadoop-3-uber-3.1.1.7.2.9.0-173-9.0.jar"  /flink/libs/custom
     
     echo "    ************************ 启动 Flink 集群 *************************    "
     "${FLINK_HOME}/bin/start-cluster.sh"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
@@ -381,17 +383,17 @@ function flink_install()
     "${HADOOP_HOME}/bin/hadoop" fs -rm -r     /flink/test/yarn-cep/
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/test/yarn-cep/
     
-    name_node=$(get_param "namenode.host.port" )                               # HDFS 的 NameNode 节点
-    "${FLINK_HOME}/bin/flink" run-application --target yarn-application                                           \
-                              --class "run.CepTest" "hdfs://${name_node}/flink/test/yarn-cep/flink-test-1.0.jar"  \
-                              -Djobmanager.memory.process.size=1024m                                              \
-                              -Dtaskmanager.memory.process.size=1024m                                             \
-                              -Dyarn.application.name="FlinkCepTest"                                              \
-                              -Dtaskmanager.numberOfTaskSlots=2                                                   \
-                              -Dyarn.provided.lib.dirs="hdfs://${name_node}/flink/libs/lib;hdfs://${name_node}/flink/libs/opt;hdfs://${name_node}/flink/libs/plugins" \
+    "${FLINK_HOME}/bin/flink" run-application --target yarn-application                              \
+                              --class "run.CepTest"                                                  \
+                              "hdfs://${namenode_host_port}/flink/test/yarn-cep/flink-test-1.0.jar"  \
+                              --path "hdfs://${namenode_host_port}/flink/test/yarn-cep/data"         \
+                              -Djobmanager.memory.process.size=1024m                                 \
+                              -Dtaskmanager.memory.process.size=1024m                                \
+                              -Dyarn.application.name="FlinkCepTest"                                 \
+                              -Dtaskmanager.numberOfTaskSlots=2                                      \
                               >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
                               
-    test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/yarn-cep/* | grep -ci "张三")
+    test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/yarn-cep/data/* | grep -ci "张三")
     if [[ "${test_result}" -gt 1 ]]; then
         echo "    ************************* Yarn 测试成功 **************************    "
     else

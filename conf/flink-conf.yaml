@@ -12,7 +12,7 @@ jobmanager.rpc.port: 6123
 jobmanager.bind-host: 0.0.0.0
 
 # JobManager JVM heap 内存大小
-jobmanager.memory.process.size: 2048m
+jobmanager.memory.process.size: 4096m
 
 # TaskManager 将绑定到的主机
 taskmanager.bind-host: 0.0.0.0
@@ -21,10 +21,10 @@ taskmanager.bind-host: 0.0.0.0
 taskmanager.host: ${task_host}
 
 # TaskManager JVM heap 内存大小
-taskmanager.memory.process.size: 2560m
+taskmanager.memory.process.size: 5120m
 
 # 要排除 JVM 元空间和开销，请使用 total Flink内存大小，不建议同时设置 taskmanager.memory.process.size 和 taskmanager.memory.flink.size 内存
-taskmanager.memory.flink.size: 2048m
+taskmanager.memory.flink.size: 4096m
 
 # taskmanager.memory.jvm-overhead.max: 8192m
 
@@ -35,7 +35,7 @@ taskmanager.numberOfTaskSlots: ${cpu_thread}
 parallelism.default: 4
 
 # 文件系统来源
-fs.default-scheme: hdfs://${namenode_host_port}
+# fs.default-scheme: hdfs://${namenode_host_port}
 
 
 # ===================================================== 高可用 配置 ===================================================== #
@@ -79,13 +79,13 @@ jobmanager.execution.failover-strategy: region
 
 # ===================================================== WEB UI 配置 ===================================================== #
 # Web UI 运行时监视器端口
-rest.port: 8083
+rest.port: 8082
 
 # 基于 Web 的运行时监视器侦听的地址：master
 # rest.address: master
 
 # Web 访问端口
-rest.bind-port: 8084
+rest.bind-port: 8084-8087
 
 # WebUI 绑定地址
 rest.bind-address: 0.0.0.0
@@ -111,7 +111,7 @@ rest.flamegraph.enabled: true
 io.tmp.dirs: ${FLINK_HOME}/data/execute-tmp
 
 # 日志文件路径
-env.log.dir: ${FLINK_HOME}/logs
+env.log.dir: ${FLINK_HOME}/log
 
 # 是否应在 TaskManager 启动时预先分配 TaskManager 管理的内存
 # taskmanager.memory.preallocate: false
@@ -160,16 +160,16 @@ taskmanager.memory.network.max: 2048mb
 # =================================================== 历史服务器 配置 =================================================== #
 # 通过 bin/historyserver.sh (start|stop) 命令启动和关闭 HistoryServer
 # 将已完成的作业上传到的目录
-jobmanager.archive.fs.dir: hdfs://${namenode_host_port}/flink/completed
+jobmanager.archive.fs.dir: hdfs://${namenode_host_port}/flink/complete
 
 # 基于 Web 的 HistoryServer 的地址
 historyserver.web.address: 0.0.0.0
 
 # 基于 Web 的 HistoryServer 的端口号
-historyserver.web.port: 8082
+historyserver.web.port: 8083
 
 # 以逗号分隔的目录列表，用于监视已完成的作业
-historyserver.archive.fs.dir: hdfs://${namenode_host_port}/flink/history
+historyserver.archive.fs.dir: hdfs://${namenode_host_port}/flink/archive
 
 # 刷新受监控目录的时间间隔（以毫秒为单位）
 historyserver.archive.fs.refresh-interval: 10000
@@ -178,3 +178,4 @@ historyserver.archive.fs.refresh-interval: 10000
 # ====================================================== 其它 配置 ====================================================== #
 # restart-strategy.fixed-delay.attempts: 6
 # restart-strategy.fixed-delay.delay: 30 s
+yarn.provided.lib.dirs: hdfs://${namenode_host_port}/flink/libs/lib;hdfs://${namenode_host_port}/flink/libs/opt;hdfs://${namenode_host_port}/flink/libs/plugins;hdfs://${namenode_host_port}/flink/libs/custom
