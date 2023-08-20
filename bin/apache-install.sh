@@ -364,11 +364,10 @@ function flink_install()
     "${HADOOP_HOME}/bin/hadoop" fs -rm -r  /flink/test/session-cep/  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     job_manager=$(echo "${master_list}" | awk -F ',' '{print $1}')             # 获取 JobManager 节点
-    "${FLINK_HOME}/bin/flink" run --detached                                                  \
-                                  --jobmanager "${job_manager}:8084"                          \
+    "${FLINK_HOME}/bin/flink" run --jobmanager "${job_manager}:8084"                          \
                                   --parallelism 2                                             \
                                   --class "run.CepTest" "${ROOT_DIR}/lib/flink-test-1.0.jar"  \
-                                  /flink/test/session-cep/                                    \
+                                  "hdfs://${namenode_host_port}/flink/test/session-cep/"      \
                                   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/session-cep/* | grep -ci "张三")
