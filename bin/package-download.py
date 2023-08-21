@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """=================================================================================================
@@ -41,7 +41,7 @@ class Config:
         
         self.PARAM_DICT = \
             {
-                "spm": "a2c6h.25603864"
+                "spm": "a2c6h.25603864.0.0.7bcf427bOOzHCP"
             }
         
         
@@ -58,13 +58,13 @@ class ExtraPackagesEnterpriseLinux:
         
         rpm_dir_list = []
         for content in content_list:
-            rpm_dir = content.contents[0].text
+            rpm_dir = content.contents[0]
             if "parent" not in rpm_dir.lower():
                 rpm_dir_list.append(f"{self.url.strip('/')}/{rpm_dir}")
         
         return rpm_dir_list
     
-    def get_rpm_url(self, rpm_dir: str) -> list[dict[str, str]]:
+    def get_rpm_url(self, rpm_dir: str) -> List[Dict[str, str]]:
         response = requests.get(url=rpm_dir, headers=self.header_dict, params=self.param_dict)
         soup = BeautifulSoup(response.text, "lxml")
         name_list = soup.select("tbody td[class=link] a[href]")
@@ -74,11 +74,11 @@ class ExtraPackagesEnterpriseLinux:
         rpm_info_list = []
         for l in range(len(name_list)):
             rpm_info = {}
-            rmp_name = name_list[l].contents[0].text
+            rmp_name = name_list[l].text
             if "parent" not in rmp_name.lower():
                 rpm_info["name"] = rmp_name
-                rpm_info["size"] = size_list[l].contents[0].text
-                rpm_info["date"] = date_list[l].contents[0].text
+                rpm_info["size"] = size_list[l].text
+                rpm_info["date"] = date_list[l].text
                 rpm_info["url"] = f"{rpm_dir.strip('/')}/{rmp_name}"
                 rpm_info_list.append(rpm_info)
                 
@@ -95,26 +95,9 @@ class ExtraPackagesEnterpriseLinux:
 if __name__ == '__main__':
     config = Config()
     epel = ExtraPackagesEnterpriseLinux(url=config.ALIYUN_EPEL_URL, header_dict=config.HEADERS_DICT, param_dict=config.PARAM_DICT)
-    for rpm_dir in epel.query_dir():
-        for rpm_dict in epel.get_rpm_url(rpm_dir=rpm_dir):
+    dir_list = epel.query_dir()
+    for dir in dir_list:
+        for rpm_dict in epel.get_rpm_url(rpm_dir=dir):
             print(f"rpm_dict ===> {rpm_dict}")
-            # epel.rpm_download(rpm_url=rpm_dict[], path="../logs/")
-
-"""
-    size = 0
-    for data in datas:
-        cache = data[1].split()
-        if "g" in cache[1].lower():
-            size += float(cache[0]) * 1024 * 1024
-        elif "m" in cache[1].lower():
-            size += float(cache[0]) * 1024
-        elif "k" in cache[1].lower():
-            size += float(cache[0])
-        elif "b" in cache[1].lower():
-            size += float(cache[0]) / 1024
-        else:
-            print(f"单位错误：data = {data} ......")
-    print(f"size = {size} KB")
-    print(f"size = {size / 1024} MB")
-    print(f"size = {size / 1024 / 1024} GB")
-"""
+            epel.rpm_download(rpm_url=rpm_dict["url"], path=f"../logs/{rpm_dict['name']}")
+            
