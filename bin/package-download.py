@@ -11,11 +11,12 @@
     Description   ：  下载软件包，以及 爬取 AliYun 镜像的 epel 等 rpm_dict 包
 ================================================================================================="""
 
-from contextlib import closing
-from typing import Dict, List
-
+import os
+import sys
 import requests
+from typing import Dict, List
 from bs4 import BeautifulSoup
+from contextlib import closing
 
 
 class Config:
@@ -85,9 +86,12 @@ class ExtraPackagesEnterpriseLinux:
         return rpm_info_list
 
     def rpm_download(self, rpm_url: str, path: str) -> None:
+        dir_name, file_name = os.path.split(os.path.abspath(sys.argv[0]))        
+        absolute_path = os.path.abspath(f"{dir_name.rstrip('/')}/{path}")
+        
         with closing(requests.get(rpm_url, headers=self.header_dict, stream=True)) as response:
             chunk_size = 1024
-            with open(file=path, mode="wb") as file:
+            with open(file=absolute_path, mode="wb") as file:
                 for data in response.iter_content(chunk_size=chunk_size):
                     file.write(data)
                     
