@@ -146,27 +146,33 @@ function file_decompress()
         
         # 对压缩包进行解压
         if [[ "${file_name}" =~ tar.xz$ ]]; then
-            tar -Jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -Jxvf "${ROOT_DIR}/package/${file_name}"             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.gz$ ]] || [[ "${file_name}" =~ tgz$ ]]; then
-            tar -zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -zxvf "${ROOT_DIR}/package/${file_name}"             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.bz2$ ]]; then
-            tar -jxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -jxvf "${ROOT_DIR}/package/${file_name}"             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar.Z$ ]]; then
-            tar -Zxvf "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -Zxvf "${ROOT_DIR}/package/${file_name}"             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ tar$ ]]; then
-            tar -xvf "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            tar -xvf "${ROOT_DIR}/package/${file_name}"              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ zip$ ]]; then
-            unzip "${ROOT_DIR}/package/${file_name}"          >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            unzip "${ROOT_DIR}/package/${file_name}"                 >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ xz$ ]]; then
-            xz -dk "${ROOT_DIR}/package/${file_name}"         >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            xz -dk "${ROOT_DIR}/package/${file_name}"                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ gz$ ]]; then
-            gzip -dk "${ROOT_DIR}/package/${file_name}"       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
+            gzip -dk "${ROOT_DIR}/package/${file_name}"              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
         elif [[ "${file_name}" =~ bz2$ ]]; then
-            bzip2 -vcdk "${ROOT_DIR}/package/${file_name}"    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            bzip2 -vcdk "${ROOT_DIR}/package/${file_name}"           >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ Z$ ]]; then
-            uncompress -rc "${ROOT_DIR}/package/${file_name}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            uncompress -rc "${ROOT_DIR}/package/${file_name}"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         elif [[ "${file_name}" =~ rar$ ]]; then
-            unrar vx  "${ROOT_DIR}/package/${file_name}"      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+            unrar vx  "${ROOT_DIR}/package/${file_name}"             >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ rpm$ ]]; then
+            rpm2cpio "${ROOT_DIR}/package/${file_name}" | cpio -div  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        elif [[ "${file_name}" =~ deb$ ]]; then
+            ar -vx  "${ROOT_DIR}/package/${file_name}"               >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        else
+            echo "File ===> ${file_name} 文件后缀异常 ...... "
         fi
         
         # 将文件夹移动到安装路径
