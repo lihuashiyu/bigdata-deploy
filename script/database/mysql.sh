@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2029
+# shellcheck disable=SC2029,SC2120
     
 # =========================================================================================
 #    FileName      ：  mysql.sh
 #    CreateTime    ：  2023-02-27 19:24:36
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
-#    Description   ：  mysql.sh 被用于 ==> mysql 的启停和状态检查脚本
+#    Description   ：  mysql.sh 被用于 ==> mysql 集群的启停和状态检查脚本
 # =========================================================================================
     
     
@@ -34,7 +34,7 @@ function service_status()
     for host_name in "${MYSQL_LIST[@]}"
     do
         # 2.1 调用 Mysql 脚本获取 Mysql 守护进程的 pid 
-        mysqld_pid=$("${MYSQL_HOME}/support-files/mysql.server" status | awk -F '(' '{print $2}' | awk -F ')' '{print $1}')
+        mysqld_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${MYSQL_HOME}/support-files/mysql.server status"  | awk -F '(' '{print $2}' | awk -F ')' '{print $1}')
         
         # 2.2 判断进程 mysqld_pid 是否存在
         if [ -z "${mysqld_pid}" ]; then
@@ -49,11 +49,11 @@ function service_status()
     for host_name in "${MYSQL_LIST[@]}"
     do
         # 3.1 mysql_safe 进程的 pid
-        mysql_safe_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${MYSQL_SAFE}")
+        mysql_safe_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE '$0|grep' | grep -ci '${MYSQL_SAFE}'")
         
         # 3.2 判断进程 mysql_safe 是否存在
-        if [ -z "${mysqld_pid}" ]; then
-            result_list[${#result_list[@]}]="主机（${host_name}）的程序（mysqld_pid）出现错误"
+        if [ "${mysql_safe_pid}" -ne 1 ]; then
+            result_list[${#result_list[@]}]="主机（${host_name}）的程序（mysqld_safe）出现错误"
             pid_list[${#pid_list[@]}]="${STOP}"
         else
             pid_list[${#pid_list[@]}]="${RUNNING}"
