@@ -15,18 +15,6 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
-JAVA_HOME="/opt/java/jdk"                                                      # Java      默认安装路径  
-SCALA_HOME="/opt/java/scala"                                                   # Scala     默认安装路径  
-HADOOP_HOME="/opt/apache/hadoop"                                               # Hadoop    默认安装路径 
-SPARK_HOME="/opt/apache/spark"                                                 # Spark     默认安装路径 
-FLINK_HOME="/opt/apache/flink"                                                 # Flink     默认安装路径 
-ZOOKEEPER_HOME="/opt/apache/zookeeper"                                         # Zookeeper 默认安装路径 
-KAFKA_HOME="/opt/apache/kafka"                                                 # Kafka     默认安装路径 
-HIVE_HOME="/opt/apache/hive"                                                   # Hive      默认安装路径 
-DORIS_HOME="/opt/apache/doris"                                                 # Doris     默认安装路径 
-FLUME_HOME="/opt/apache/flume"                                                 # Flume     默认安装路径 
-HBASE_HOME="/opt/apache/hbase"                                                 # HBase     默认安装路径 
-PHOENIX_HOME="/opt/apache/phoenix"                                             # Phoenix   默认安装路径 
 
 
 # 刷新环境变量
