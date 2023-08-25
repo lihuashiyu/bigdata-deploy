@@ -12,7 +12,7 @@
 NGINX_HOME=$(cd -P "$(dirname "$(readlink -e "$0")")/../" || exit; pwd -P)     # 程序路径
 ALIAS_NAME=Nginx                                                               # 程序别名
 CONFIG_FILE=nginx.conf                                                         # 配置文件名
-LOG_FILE=nginx-$(date +%F).log                                                 # 程序运行日志文件
+LOG_FILE=nginx-operation.log                                                   # 程序启停日志文件
                         
 NGINX_PORT=47722                                                               # Nginx 前端静态资源监控端口
 SERVICE_PORT2=10800                                                            # 后台服务
@@ -27,10 +27,10 @@ STOP=0                                                                         #
 function service_status()
 {
     # 1. 初始化局域参数
-    local result_list=() pid_list=() host_name master_pid worker_pid run_pid_count
+    local result_list=() pid_list=() host_name master_pid worker_pid worker_count run_pid_count
     
     # 2.1 获取程序 Master 的 pid 的数量
-    master_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -i "${MASTER}")
+    master_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${MASTER}")
     
     # 2.2 判断进程 master_pid 数量是否正确
     if [ "${master_pid}" -ne 1 ]; then
@@ -41,10 +41,11 @@ function service_status()
     fi  
     
     # 3.1 获取程序 Worker 的 pid 数量是否正确
-    worker_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -i "${WORKER}")
+    worker_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${WORKER}")
+    worker_count=$(grep -ni "worker_processes" "${NGINX_HOME}/conf/nginx.conf" | awk '{print $NF}' | awk -F ';' '{print $1}')
     
     # 3.2 判断进程 worker_pid 数量是否正确
-    if [ "${worker_pid}" -ne 1 ]; then
+    if [ "${worker_pid}" -ne "${worker_count}" ]; then
         result_list[${#result_list[@]}]="主机（${host_name}）的程序（Nginx Worker）出现错误 "
         pid_list[${#pid_list[@]}]="${STOP}"
     else
@@ -167,7 +168,7 @@ function service_restart()
         # 3.2 重启 Nginx 程序
         "${NGINX_HOME}/bin/nginx" -s reload >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
         
-        sleep 2 
+        sleep 1 
         echo "    程序（${ALIAS_NAME}）重启验证中 ...... "
         sleep 1
         
