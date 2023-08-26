@@ -248,6 +248,7 @@ function add_execute()
     
     sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xcall.sh           # 修改集群 主机列表
     sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xync.sh            # 修改集群 主机列表
+    chmod 755  /usr/bin/xcall.sh /usr/bin/xync.sh                              # 添加执行权限
 }
 
 
