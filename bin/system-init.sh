@@ -21,85 +21,90 @@ function flush_env()
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
     
     echo "    ************************** 刷新环境变量 **************************    "
+    # 判断用户环境变量文件是否存在
     if [ -e "${HOME}/.bash_profile" ]; then
-        source "${HOME}/.bash_profile"
+        source "${HOME}/.bash_profile"                                         # RedHat 用户环境变量文件
     elif [ -e "${HOME}/.bashrc" ]; then
-        source "${HOME}/.bashrc"
+        source "${HOME}/.bashrc"                                               # Debian、RedHat 用户环境变量文件
     fi
     
-    source "/etc/profile"
+    source "/etc/profile"                                                      # 系统环境变量文件路径
     
     echo "    ************************** 获取公共函数 **************************    "
     # shellcheck source=./common.sh
-    source "${ROOT_DIR}/bin/common.sh"
+    source "${ROOT_DIR}/bin/common.sh"                                         # 当前程序使用的公共函数
     
-    export -A PARAM_LIST=()
-    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    export -A PARAM_LIST=()                                                    # 初始化 配置文件 参数
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"                               # 读取配置文件，获取参数
 }
 
 
 # 配置网卡
 function network_init()
 {
-    echo "    ****************************** 配置网卡信息 ******************************    "
-    # 定义局部变量
-    local ip dns gateway network_type
+    echo "    ************************** 配置网卡信息 **************************    "
+    local ip dns gateway device_name network_type                              # 定义局部变量
     
-    ip=$(get_param  "server.ip")
-    dns=$(get_param "server.dns" "," ";" ";")
-    gateway=$(get_param "server.gateway")
+    ip=$(get_param  "server.ip")                                               # 获取主机的 IP
+    dns=$(get_param "server.dns" | tr "," ";" | sed -e "s| ||g")               # 获取主机的 DNS
+    gateway=$(get_param "server.gateway")                                      # 获取主机的 网关地址
+    device_name=$(nmcli connection | grep -i "ethernet" | awk '{print $NF}')   # 获取正在使用的网卡名称
     
     # 替换网卡配置文件中的参数：ipv4地址、网关、DNS
     # network_type=$(grep -Pozin "\[ipv4\]\nmethod=auto" /etc/NetworkManager/system-connections/ens160.nmconnection | wc -l)
-    network_type=$(grep -Pozin "\[ipv4\]\nmethod=auto" /home/issac/ens160.nmconnection | wc -l)
+    network_type=$(grep -Poczinc "\[ipv4\]\nmethod=auto" "/etc/NetworkManager/system-connections/${device_name}.nmconnection")
      
+    # 判断是否应配置过网卡信息，若未配置就添加，否则就修改
     if [[ "${network_type}" -gt 0  ]]; then
-        sed -i ":label;N;s|\[ipv4\]\nmethod=auto|\[ipv4\]\nmethod=manual\naddress1=${ip},${gateway}\ndns=${dns}|g;t label" /home/issac/ens160.nmconnection
+        sed -i ":label;N;s|\[ipv4\]\nmethod=auto|\[ipv4\]\nmethod=manual\naddress1=${ip},${gateway}\ndns=${dns};|g;t label" "/etc/NetworkManager/system-connections/${device_name}.nmconnection"
     else
-        sed -i "s|^address1=.*|address1=${ip},${gateway}|g" /home/issac/ens160.nmconnection
-        sed -i "s|^dns=.*|dns=${dns}|g"                     /home/issac/ens160.nmconnection
+        sed -i "s|^address1=.*|address1=${ip},${gateway}|g" "/etc/NetworkManager/system-connections/${device_name}.nmconnection"
+        sed -i "s|^dns=.*|dns=${dns};|g"                    "/etc/NetworkManager/system-connections/${device_name}.nmconnection"
     fi
     
-    { nmcli connection reload; nmcli connection down ens160; nmcli connection up ens160; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    {
+        nmcli connection reload                                                # 重新加载网卡配置信息
+        nmcli connection down   "${device_name}"                               # 关闭网卡
+        nmcli connection up     "${device_name}"                               # 开启网卡
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    sleep 3
+    systemctl restart NetworkManager  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 重启网卡服务
 }
 
 
 # 设置主机名与 hosts 映射
 function host_init()
 {
-    echo "    ***************************** 设置主机名映射 *****************************    "    
-    # 定义参数
-    local host_name ip_host_list item
+    echo "    ************************* 设置主机名映射 *************************    "
+    local host_name ip_host_list item                                          # 定义局部变量
     
-    # 配置主机名
-    host_name=$(get_param  "server.hostname")
-    echo "${host_name}" > /etc/hostname
+    host_name=$(get_param  "server.hostname")                                  # 获取主机名
+    hostname  "${host_name}"                                                   # 临时修改主机名
+    echo "${host_name}" > /etc/hostname                                        # 永久修改主机名：hostnamectl set-hostname ***
     
-    # 添加主机和 ip 映射
-    ip_host_list=$(get_param "server.hosts" "," " ")
+    ip_host_list=$(get_param "server.hosts" | tr "," " ")                      # 获取主机和 ip 映射
     for item in ${ip_host_list}
     do
-        append_param "${item//\:/    }"  /etc/hosts
+        append_param "${item//\:/    }"  /etc/hosts                            # 添加 hosts 映射
     done
 }
 
 
 # 关闭防火墙 和 SELinux
-function stop_protect()
+function close_protect()
 {
-    echo "    ******************************* 关闭防火墙 *******************************    "  
-    # 定义参数
-    local exist
+    echo "    *************************** 关闭防火墙 ***************************    "
+    local exist                                                                # 定义局部变量
     
-    # 关闭防火墙
-    systemctl stop    firewalld.service
-    systemctl disable firewalld.service  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    systemctl stop    firewalld.service                                        # 关闭防火墙
+    systemctl disable firewalld.service >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 # 关闭防火墙开机启动
     
-    # 关闭 SELinux
+    echo "    ************************** 关闭 SeLinux **************************    "
     setenforce 0                                                               # 临时关闭
-    exist=$(grep -ni "^selinux=disabled" /etc/sysconfig/selinux)               # 永久关闭，需要重启系统
+    exist=$(grep -ni "^SELINUX=disabled" /etc/sysconfig/selinux)               # 永久关闭，需要重启系统
     if [ -z "${exist}" ]; then
-        sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELINUX=disabled|g" /etc/sysconfig/selinux 
+        sed -i "s|SELINUX=enforcing|# SELINUX=enforcing\nSELINUX=disabled|g" /etc/sysconfig/selinux
     fi
 }
 
@@ -107,10 +112,9 @@ function stop_protect()
 # 解除文件读写限制
 function unlock_limit()
 {
-    echo "    **************************** 修改打开文件限制 ****************************    "
+    echo "    ************************ 修改打开文件限制 ************************    "
     
-    # 配置用户打开文件限制
-    cp -fpr "${ROOT_DIR}/conf/limits.conf" /etc/security/limits.d/     
+    cp -fpr "${ROOT_DIR}/conf/limits.conf" /etc/security/limits.d/             # 配置用户打开文件限制
     
     # 系统限制的文件最大值，RedHat 9 系列无需操作
     # append_param "65536" /proc/sys/fs/file-max                               # RedHat 9 默认值：9223372036854775807
@@ -120,34 +124,38 @@ function unlock_limit()
 # 优化内核
 function kernel_optimize()
 {
-    echo "    ******************************** 优化内核 ********************************    "
-    # 定义参数
-    local param_list
+    echo "    **************************** 优化内核 ****************************    "
+    local line param                                                           # 定义局部变量
     
-    # 获取配置文件中所有的参数
-    param_list=$(read_param "${ROOT_DIR}/conf/sysctl.conf")
-    for param in ${param_list}
+    # 读取文件进行内核修改
+    while read -r line
     do 
-        sysctl -w "${param//#/}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 对内核进行临时修改，仅当前会话生效
-        append_param "${param//#/ }" /etc/sysctl.conf                          # 对内核进行永久修改，仅重启后才生效
-    done
-    
-    sysctl -p  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            # 刷新配置
+        param=$(echo "${line}" | awk -F '#' '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+        
+        if [ -n "${param}" ]; then
+            { 
+                sysctl -w  "${param}"                                          # 对内核进行临时修改，仅当前会话生效
+                sysctl -p                                                      # 刷新配置
+            } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
+            
+            append_param "${param}" /etc/sysctl.conf                          # 对内核进行永久修改，仅重启后才生效
+        fi
+    done < "${ROOT_DIR}/conf/sysctl.conf"
 }
 
 
 # 添加管理员
 function add_user()
 {
-    echo "    ******************************** 添加用户 ********************************    "
-    # 定义变量
-    local user password exist software_home
+    echo "    **************************** 添加用户 ****************************    "
+    local user password exist software_home                                    # 定义局部变量
     
-    user=$(get_param "server.user")                                            # 用户名
-    useradd -m "${user}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1               # 添加用户，并指定密码
-    
-    password=$(get_param "server.password")                                    # 密码
-    echo "${password}" | passwd "${user}" --stdin >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 修改用户的密码
+    user=$(get_param "server.user")                                            # 获取用户名
+    password=$(get_param "server.password")                                    # 获取密码
+    {
+        useradd -m "${user}"                                                   # 添加用户
+        echo "${password}" | passwd "${user}" --stdin                          # 给用户指定密码
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     chmod u+w /etc/sudoers                                                     # 给文件添加可编辑权限
     # 给用户添加管理员权限
@@ -157,77 +165,83 @@ function add_user()
     fi
     chmod u-w /etc/sudoers                                                     # 取消可编辑权限
     
-    touch "/etc/profile.d/${user}.sh"                                          # 为用户添加环境配置变量
+    { echo '#!/usr/bin/env bash'; echo ''; } > "/etc/profile.d/${user}.sh"     # 为用户添加环境变量配置文件
+    chmod 755 "/etc/profile.d/${user}.sh"                                      # 修改配置文件权限
     chown -R "${user}:${user}" "/etc/profile.d/${user}.sh"                     # 将文件的权限授予新添加的用户
     
-    software_home=$(get_param "software.software.home")                        # 获取软件安装根路径
+    software_home=$(get_param "server.software.home")                          # 获取软件安装根路径
     chown -R "${user}:${user}" "${software_home}"                              # 将软件安装路径的权限授予新添加的用户
     
-    { echo ""; echo "set number"; echo ""; }  >> /etc/vimrc                    # 添加 vim 显示行号配置
+    append_param "set number" /etc/vimrc                                       # 添加 vim 显示行号配置
 }
 
 
 # 替换 dnf 镜像
 function dnf_mirror()
 {
-    echo "    ******************************* 替换镜像源 *******************************    "
-    # 定义变量
-    local mirror exist
+    echo "    *************************** 替换镜像源 ***************************    "
+    local mirror exist                                                         # 定义局部变量
     
-    # 备份原来的路径
-    mirror=$(get_param "dnf.image")
+    mirror=$(get_param "dnf.image")                                            # 获取 rpm 仓库镜像源路径
+    exist=$(echo "${mirror}" | grep -i "rocky")                                # 判断镜像是 rocky 还是 alma
     
     # 备份原来的源，并修改源
-    exist=$(echo "${mirror}" | grep -i "rocky")
     if [[ -n "${exist}" ]]; then
-        sed -e "s|^mirrorlist=|#mirrorlist=|g" \
+        sed -e "s|^mirrorlist=|# mirrorlist=|g"                                         \
             -e "s|^#baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
             -e "s|^#baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
             -i.bak /etc/yum.repos.d/[Rr]ocky*.repo
     else
-        sed -e "s|^mirrorlist=|#mirrorlist=|g" \
+        sed -e "s|^mirrorlist=|# mirrorlist=|g"                              \
             -e "s|^# baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"  \
             -e "s|^# baseurl=https://repo.almalinux.org|baseurl=${mirror}|g" \
             -i.bak /etc/yum.repos.d/almalinux*.repo
     fi
     
-    #  更新源缓存和软件 
-    { dnf clean all; dnf makecache; dnf update  -y; dnf upgrade -y; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # 先，然后更新源缓存和软件 
+    { 
+        dnf clean     all                                                      # 清除原来的缓存
+        dnf makecache                                                          # 建立新的数据缓存
+        dnf update    -y                                                       # 升级所有能升级的包
+        dnf upgrade   -y                                                       # 升级系统中所有能升级的包
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
 # 安装必要的软件包
 function install_rpm()
 {
-    echo "    ******************************* 安装软件包 *******************************    "
-    # 定义变量
-    local rpm_list rpm
+    echo "    *************************** 安装软件包 ***************************    "
+    local rpm_list rpm                                                         # 定义局部变量
+    rpm_list=$(get_param "dnf.rpm" | tr "," " ")                               # 获取安装软件包名称
     
-    # 获取安装软件包名称
-    rpm_list=$(get_param "dnf.rpm" "," " ")
+    # 遍历安装软件包
     for rpm in ${rpm_list}
     do
         echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${rpm}    "
-        dnf install "${rpm}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        dnf install "${rpm}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 使用 dnf 命令安装软件包
     done    
 }
 
 
-# 给 Shell 脚本添加可执行权限
+# 给 Shell 脚本添加可执行权限，安装集群操作脚本
 function add_execute()
 {
-    echo "    ***************************** 添加可执行权限 *****************************    "
-    # 定义变量
-    local item server_hosts=" "
+    echo "    ************************* 添加可执行权限 *************************    "
+    local item server_hosts                                                    # 定义局部变量
     
-    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec dos2unix {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 将文件 Windows 换行符改为 UNIX 格式
-    find "${ROOT_DIR}" -iname "*.sh" -o -iname "*.py" -type f -exec chmod +x {} +  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 给脚本添加可执行权限
+    {
+        find "${ROOT_DIR}" -iname "*.sh" -type f -exec dos2unix {} + -exec chmod +x {} + # 将 shell  文件换行符改为 UNIX 格式，并赋予执行权限
+        find "${ROOT_DIR}" -iname "*.py" -type f -exec dos2unix {} + -exec chmod +x {} + # 将 python 文件换行符改为 UNIX 格式，并赋予执行权限
+        
+        dos2unix  "${ROOT_DIR}"/conf/*                                         # 将配置文件修改为 UNIX 换行        
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/bin/                   # 将 集群间查看命令 脚本复制到系统路径
     cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/bin/                   # 将 集群之间进行文件同步 脚本复制到系统路径
     
     # 获取所有主机名
-    for item in $(get_param "server.hosts" "," " ")
+    for item in $(get_param "server.hosts" | tr "," " ")
     do
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
@@ -238,58 +252,62 @@ function add_execute()
 
 
 printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+
+# 2. 刷新变量
 if [ "$#" -gt 0 ]; then
     flush_env                                                                  # 刷新环境变量
-    add_execute                                                                # 给脚本添加可执行权限    
+    add_execute                                                                # 给脚本添加可执行权限
 fi
 
-# 匹配输入参数
+# 3. 匹配输入参数
 case "$1" in
-    # 1. 配置网卡
+    # 3.1 配置网卡
     network | -n)
         network_init
     ;;
-
-    # 2. 设置主机名与 hosts 映射
+    
+    # 3.2 设置主机名与 hosts 映射
     host | -h)
         host_init
     ;;
     
-    # 3. 关闭防火墙 和 SELinux
-    stop | -s)
-        stop_protect
+    # 3.3 关闭防火墙 和 SELinux
+    close | -l)
+        close_protect
     ;;
     
-    # 4. 解除文件读写限制
+    # 3.4 解除文件读写限制
     unlock | -u)
         unlock_limit
     ;;
     
-    # 5. 优化内核
+    # 3.5 优化内核
     knernel | -k)
         kernel_optimize
     ;;
         
-    # 6. 添加管理员
+    # 3.6 添加管理员
     add | -c)
         add_user
     ;;
     
-    # 7. 替换 dnf 镜像
+    # 3.7 替换 dnf 镜像
     dnf | -d)
         dnf_mirror
     ;;
     
-    # 8. 安装必要的软件包
+    # 3.8 安装必要的软件包
     install | -i)
         install_rpm
     ;;
     
-    # 9. 安装必要的软件包
+    # 3.9 安装必要的软件包
     all | -a)
         network_init
         host_init
-        stop_protect
+        close_protect
         unlock_limit
         kernel_optimize
         add_user
@@ -297,7 +315,7 @@ case "$1" in
         install_rpm
     ;;
     
-    # 10. 其它情况
+    # 3.10 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：     "
         echo "        +-------------+--------------+ "
@@ -305,7 +323,7 @@ case "$1" in
         echo "        +-------------+--------------+ "
         echo "        |   network   |   配置网卡   | "
         echo "        |   host      |   主机映射   | "
-        echo "        |   stop      |   关闭保护   | "
+        echo "        |   close     |   关闭保护   | "
         echo "        |   unlock    |   解除限制   | "
         echo "        |   kernel    |   优化内核   | "
         echo "        |   add       |   添加用户   | "
@@ -316,10 +334,19 @@ case "$1" in
     ;;
 esac
 
+# 4. 打印提示命令
 if [ "$#" -gt 0 ]; then
     echo ""
-    echo "    部分配置必须重启才能生效，可运行以下命令："
-    echo "        shutdown -r 5"    
+    echo "    +---------------------------------------------------------+"
+    echo "    |  部分配置必须重启才能生效，可运行命令：shutdown -r now  |"
+    echo "    +---------------------------------------------------------+"
+    echo ""  
+fi
+
+# 5. 获取脚本执行结束时间，并计算脚本执行时间
+end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+if [ "$#" -ge 1 ]; then
+    echo "    脚本（$(basename "$0")）执行共消耗：$(( end - start ))s ...... "
 fi
 
 printf "================================================================================\n\n"
