@@ -189,7 +189,7 @@ function scala_install()
     local scala_version test_count                                             # 定义局部变量
     
     SCALA_HOME=$(get_param "scala.home")                                       # 获取 Scala 安装路径
-    scala_version=$(get_version "java.url")                                    # 获取 Scala 版本号
+    scala_version=$(get_version "scala.url")                                   # 获取 Scala 版本号
     
     file_decompress "scala.url" "${SCALA_HOME}"                                # 解压 Scala 安装包
     
@@ -223,7 +223,7 @@ function maven_install()
     sed -i "s|\${MAVEN_HOME}|${MAVEN_HOME}|g"     "${MAVEN_HOME}/conf/settings.xml"
     
     echo "    ************************* 测试 Maven 安装 *************************    "
-    append_env "maven.home" "3.8.8"                                            # 添加 Maven 到环境变量
+    append_env "maven.home" "${maven_version}"                                 # 添加 Maven 到环境变量
     
     test_count=$(mvn -v | grep -ci "${maven_version}")                         # 测试 Maven 
     if [ "${test_count}" -eq 1 ]; then
@@ -271,7 +271,7 @@ if [ "$#" -gt 0 ]; then
     flush_env                                                                  # 刷新环境变量    
 fi
 
-# 匹配输入参数
+# 3. 匹配输入参数
 case "$1" in
     # 3.1 安装 java 
     java | -j)
