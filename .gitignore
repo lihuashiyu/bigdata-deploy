@@ -28,3 +28,4 @@ hs_err_pid*
 .gitignore
 /shell/test/
 /test/
+/package/

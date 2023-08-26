@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2024
 
 # =========================================================================================
 #    FileName      ：  language-install
@@ -23,40 +24,40 @@ GRADLE_HOME="/opt/apache/gradle"                                               #
 
 # 刷新环境变量
 function flush_env()
-{
+{    
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
     
     echo "    ************************** 刷新环境变量 **************************    "
+    # 判断用户环境变量文件是否存在
     if [ -e "${HOME}/.bash_profile" ]; then
-        source "${HOME}/.bash_profile"
+        source "${HOME}/.bash_profile"                                         # RedHat 用户环境变量文件
     elif [ -e "${HOME}/.bashrc" ]; then
-        source "${HOME}/.bashrc"
+        source "${HOME}/.bashrc"                                               # Debian、RedHat 用户环境变量文件
     fi
     
-    source "/etc/profile"
+    source "/etc/profile"                                                      # 系统环境变量文件路径
     
     echo "    ************************** 获取公共函数 **************************    "
     # shellcheck source=./common.sh
-    source "${ROOT_DIR}/bin/common.sh"
+    source "${ROOT_DIR}/bin/common.sh"                                         # 当前程序使用的公共函数
     
-    export -A PARAM_LIST=()
-    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    export -A PARAM_LIST=()                                                    # 初始化 配置文件 参数
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"                               # 读取配置文件，获取参数    
 }
 
 
 # 卸载系统自带的 OpenJdk
-# shellcheck disable=SC2024
 function uninstall_open_jdk()
 {
-    local password software_list software
-    password=$(get_password)
+    local password software_list software                                      # 定义局部变量
+    password=$(get_password)                                                   # 获取管理员密码
     
-    echo "    ******************************* 检查系统自带 OpenJdk *******************************    "
+    echo "    ********************** 检查系统自带 OpenJdk **********************    "
     # 获取系统安装的 OpenJdk
     software_list=$(echo "${password}" | sudo -S rpm -qa | grep -iE "java|jdk")
     if [ ${#software_list[@]} -gt 0 ]; then
-        echo "    ******************************* 卸载系统自带 OpenJdk *******************************    "
-        # 卸载系统安装的 MariaDB
+        echo "    ********************** 卸载系统自带 OpenJdk **********************    "
+        # 卸载系统安装的 OpenJdk
         for software in ${software_list}
         do
              echo "${password}" | sudo -S rpm -e --nodeps "${software}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
@@ -69,22 +70,35 @@ function uninstall_open_jdk()
 function java_install()
 {
     uninstall_open_jdk                                                         # 卸载系统自带的 OpenJdk
+    local java_version password test_count                                     # 定义局部变量
     
-    echo "    ************************* 开始安装 java *************************    "
+    echo "    ************************* 开始安装 java **************************    "
     JAVA_HOME=$(get_param "java.home")                                         # 获取 Java 安装路径
+    java_version=$(get_version "java.url")                                     # 获取 Java 版本号
+    password=$(get_password)                                                   # 获取管理员密码
+    
     file_decompress "java.url" "${JAVA_HOME}"                                  # 解压 Java 安装包
-    append_env "java.home" "1.8.361"                                           # 添加 Java 到环境变量
+    
+    append_env "java.home" "${java_version}"                                   # 添加 Java 到环境变量
+    append_param "export CLASSPATH=.:\${JAVA_HOME}/lib/*.jar:\${JAVA_HOME}/lib/*.jar:\${CLASSPATH}" "/etc/profile.d/${USER}.sh"
+    append_param " "                                                                            "/etc/profile.d/${USER}.sh"
     
     echo "    ************************* 测试 java 安装 *************************    "
-    java  -version                                                             # 测试 java
-    javac -version                                                             # 测试 javac
+    { java  -version; javac -version; }  > "${ROOT_DIR}/logs/java-test.log" 2>&1 
+    
+    test_count=$(grep -nic "java" "${ROOT_DIR}/logs/java-test.log")
+    if [ "${test_count}" -eq 4 ]; then
+        echo "    **************************** 安装成功 ****************************    "
+    else    
+        echo "    **************************** 安装失败 ****************************    "
+    fi
 }
 
 
 # 安装并测试 Python，仅 rhel 7.*/8.* 使用
 function python_install()
 {
-    local system_version src_folder version password 
+    local system_version src_folder version password test_count                # 定义局部变量
     
     system_version=$(grep -i "linux" /etc/redhat-release | tr -cd '[0-9]\.' | awk -F '.' '{print $1}')
     if [[ "${system_version}" -lt "9" ]]; then
@@ -93,38 +107,54 @@ function python_install()
         file_decompress "python.url"                                           # 解压 Python 安装包
         
         echo "    *********************** 生成 Makefile 文件 ************************    "
-        # 获取源码目录，斌进入该目录
-        src_folder=$(cd "$(ls -F "${ROOT_DIR}/package" | grep "/$")" || exit; pwd)
-        cd "${src_folder}" || exit 
+        src_folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print) # 获取 Python 源码的绝对路径
+        cd "${src_folder}" || exit                                             # 进入 Python 源码目录
+        # 设置 Python 安装路径
         ./configure prefix="${PYTHON_HOME}" --enable-optimizations >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
         
         echo "    ************************* 编译安装 Python *************************    "
-        # 编译并安装 Python
-        cd "${src_folder}" && make          >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
-        cd "${src_folder}" && make install  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        {
+            cd "${src_folder}" || exit                                         # 进入 Python 源码目录
+            make                                                               # 编译 Python 源码  
+            make install                                                       # 安装 Python 二进制
+        }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         
-        version=$(get_version "python.url" | awk -F '.' '{print $2}')
-        "${PYTHON_HOME}/bin/python3.${version}" -V                             # 查看 python 版本
-        "${PYTHON_HOME}/bin/pip3.${version}"    -V                             # 查看 pip 版本
+        version=$(get_version "python.url" | awk -F '.' '{print $2}')          # 获取 python 版本号
+        {
+            "${PYTHON_HOME}/bin/python3.${version}" -V                         # 查看 python 版本
+            "${PYTHON_HOME}/bin/pip3.${version}"    -V                         # 查看 pip 版本
+        } >> "${ROOT_DIR}/logs/python-test.log" 2>&1
         
-        echo "    *********************** 添加 Python 环境变量 ***********************    " 
+        test_count=$(grep -nic "${version}" "${ROOT_DIR}/logs/python-test.log")
+        if [ "${test_count}" -ne 2 ]; then
+            echo "    ************************** 编译安装失败 ***************************    "
+            return 1
+        fi
+        
+        echo "    ********************** 添加 Python 环境变量 ***********************    " 
         password=$(get_password)
-        echo "${password}" | sudo -S rm /usr/bin/python                        # 删除原来的 python -> python2 软连接
+        echo "${password}" | sudo -S rm    /usr/bin/python                     # 删除原来的 python -> python2 软连接
         echo "${password}" | sudo -S ln -s /usr/bin/python2 /usr/bin/python2.7 # 重新创建 python2 的软连接
             
         # 修改 yum 使用的 python 版本
         echo "${password}" | sudo -S sed -i "s|#!\/usr\/bin\/python|#!\/usr\/bin\/python2.7|g" /usr/bin/yum 
         echo "${password}" | sudo -S sed -i "s|#!\/usr\/bin\/python|#!\/usr\/bin\/python2.7|g" /usr/libexec/urlgrabber-ext-down
         
-        # 创建 python 和 pip 的软连接    
+        # 创建 python 和 pip 的软连接
         echo "${password}" | sudo -S ln -s "${PYTHON_HOME}/bin/python3.${version}" /usr/bin/python
         echo "${password}" | sudo -S ln -s "${PYTHON_HOME}/bin/pip3.${version}"    /usr/bin/pip
         
-        echo "    ************************* 测试 Python 安装 *************************    "
+        echo "    ************************ 测试 Python 安装 *************************    "
         # 测试 Python
-        { echo "#!/usr/bin/env python3.x"; echo ""; echo "print(\"Hello World! \")"; echo ""; } >> "${ROOT_DIR}/logs/test.py"
-        chmod +x "${ROOT_DIR}/logs/test.py"
-        "${ROOT_DIR}/logs/test.py"
+        { echo "#!/usr/bin/env python"; echo ""; echo "print(\"Hello Python ${version}! \")"; echo ""; } >> "${ROOT_DIR}/logs/test.py"
+        chmod +x "${ROOT_DIR}/logs/test.py"                                    # 给文件添加执行权限
+        test_count=$("${ROOT_DIR}/logs/test.py" | grep -ci "${version}!")      # 获取执行后的结果
+        
+        if [ "${test_count}" -eq 1 ]; then
+            echo "    **************************** 安装成功 ****************************    "
+        else    
+            echo "    **************************** 安装失败 ****************************    "
+        fi
     else
         echo "    *********************** 系统已经安装 Python ***********************    "
     fi
@@ -134,16 +164,19 @@ function python_install()
 # 修改 Python 的包管理工具 pip 相关配置
 function pip_config()
 {
-    local password
-    echo "    ************************* 开始设置 pip 镜像源 *************************    "
-    password=$(get_password)
+    echo "    *********************** 开始设置 pip 镜像源 ***********************    "
+    local password                                                             # 定义局部变量
+    password=$(get_password)                                                   # 获取管理员密码
+    mkdir -p "${HOME}/.pip"                                                    # 创建必要的目录
+    cat /dev/null > "${HOME}/.pip/pip.conf"                                    # 创建配置文件
     
-    mkdir -p "${HOME}/.pip"
+    # 修改当前用户的 pip 镜像源
     append_param "[global]"                                             "${HOME}/.pip/pip.conf"
     append_param "index-url = https://mirrors.aliyun.com/pypi/simple/"  "${HOME}/.pip/pip.conf"
     append_param "[install]"                                            "${HOME}/.pip/pip.conf"
     append_param "trusted-host=mirrors.aliyun.com"                      "${HOME}/.pip/pip.conf"  
     
+    # 修改当 root 的 pip 镜像源
     echo "${password}" | sudo -S cp -frp "${HOME}/.pip" /root/
     echo "${password}" | sudo -S pip install mycli  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
@@ -153,84 +186,120 @@ function pip_config()
 function scala_install()
 {
     echo "    ************************* 开始安装 Scala *************************    "
-    SCALA_HOME=$(get_param "scala.home")                                       # 获取 Scala 安装路径
-    file_decompress "scala.url" "${SCALA_HOME}"                                # 解压 Scala 安装包
-    append_env "scala.home" "2.12.18"                                          # 添加 Scala 到环境变量
+    local scala_version test_count                                             # 定义局部变量
     
-    echo "    ************************* 测试 scala 安装 *************************    "
-    scala  -version                                                            # 测试 Scala     
+    SCALA_HOME=$(get_param "scala.home")                                       # 获取 Scala 安装路径
+    scala_version=$(get_version "java.url")                                    # 获取 Scala 版本号
+    
+    file_decompress "scala.url" "${SCALA_HOME}"                                # 解压 Scala 安装包
+    
+    append_env "scala.home" "${scala_version}"                                 # 添加 Scala 到环境变量
+    
+    echo "    ************************ 测试 scala 安装 *************************    "
+    scala -version  > "${ROOT_DIR}/logs/scala-test.log" 2>&1                   # 获取 Scala 版本
+    test_count=$(grep -ci "${scala_version}" "${ROOT_DIR}/logs/scala-test.log") 
+    
+    if [ "${test_count}" -eq 1 ]; then
+        echo "    **************************** 安装成功 ****************************    "
+    else    
+        echo "    **************************** 安装失败 ****************************    "
+    fi    
 }
 
 
 # 安装并测试 Maven
 function maven_install()
 {
-    echo "    ************************* 开始安装 Maven *************************    "
+    echo "    ************************* 开始安装 Maven **************************    "
+    local maven_version test_count                                             # 定义局部变量
+    
     MAVEN_HOME=$(get_param "maven.home")                                       # 获取 Maven 安装路径
+    maven_version=$(get_version "maven.url")                                   # 获取 Maven 版本号
+    
     file_decompress "maven.url" "${MAVEN_HOME}"                                # 解压 Maven 安装包
      
-    echo "    ************************* 修改 Maven 为阿里云  *************************    "
+    echo "    *********************** 修改 Maven 为阿里云 ***********************    "
     cp -fpr "${ROOT_DIR}/conf/maven-settings.xml" "${MAVEN_HOME}/conf/settings.xml"
     sed -i "s|\${MAVEN_HOME}|${MAVEN_HOME}|g"     "${MAVEN_HOME}/conf/settings.xml"
     
     echo "    ************************* 测试 Maven 安装 *************************    "
     append_env "maven.home" "3.8.8"                                            # 添加 Maven 到环境变量
-    mvn -v                                                                     # 测试 Maven    
+    
+    test_count=$(mvn -v | grep -ci "${maven_version}")                         # 测试 Maven 
+    if [ "${test_count}" -eq 1 ]; then
+        echo "    **************************** 安装成功 ****************************    "
+    else    
+        echo "    **************************** 安装失败 ****************************    "
+    fi           
 }
 
 
 # 安装并测试 Gradle
 function gradle_install()
 {
-    echo "    ************************* 开始安装 Gradle *************************    "
+    echo "    ************************ 开始安装 Gradle *************************    "
+    local gradle_version test_count                                            # 定义局部变量
+    
     GRADLE_HOME=$(get_param "gradle.home")                                     # 获取 Gradle 安装路径
+    gradle_version=$(get_version "gradle.url")                                  # 获取 Maven 版本号
+    
     file_decompress "gradle.url" "${GRADLE_HOME}"                              # 解压 Gradle 安装包
     
-    echo "    ************************* 修改 Gradle 为阿里云  *************************    "
+    echo "    ********************** 修改 Gradle 为阿里云 **********************    "
     cp -fpr "${ROOT_DIR}/conf/gradle-gradle.properties" "${GRADLE_HOME}/gradle.properties"
     cp -fpr "${ROOT_DIR}/conf/gradle-init.gradle"       "${GRADLE_HOME}/init.gradle"
     cp -fpr "${ROOT_DIR}/conf/gradle-init.gradle"       "${GRADLE_HOME}/init.d/init.gradle"
     
-    echo "    ************************* 测试 Gradle 安装 *************************    "
-    append_env "gradle.home" "7.6.2"                                         # 添加 Gradle 到环境变量
-    gradle  -version                                                            # 测试 Gradle
+    echo "    ************************ 测试 Gradle 安装 ************************    "
+    append_env "gradle.home" "${gradle_version}"                               # 添加 Gradle 到环境变量
+    
+    test_count=$(gradle  -version | grep -ci "${gradle_version}")              # 测试 Maven 
+    if [ "${test_count}" -eq 1 ]; then
+        echo "    **************************** 安装成功 ****************************    "
+    else    
+        echo "    **************************** 安装失败 ****************************    "
+    fi     
 }
 
 
 printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+
+# 2. 刷新变量
 if [ "$#" -gt 0 ]; then
     flush_env                                                                  # 刷新环境变量    
 fi
 
 # 匹配输入参数
 case "$1" in
-    # 1. 安装 java 
+    # 3.1 安装 java 
     java | -j)
         java_install
     ;;
     
-    # 2. 安装 scala 
+    # 3.2 安装 scala 
     scala | -s)
         scala_install
     ;;
     
-    # 3. 安装 python 
+    # 3.3 安装 python 
     python | -p)
         python_install
         pip_config
     ;;
     
-    # 4. 安装 maven
+    # 3.4 安装 maven
     maven | -m)
         maven_install
     ;;
     
-    # 5. 安装gradle
+    # 3.5 安装gradle
     gradle | -g)
         gradle_install
     ;;
     
-    # 6. 安装必要的软件包
+    # 3.6 安装所有
     all | -a)
         java_install
         scala_install
@@ -240,7 +309,7 @@ case "$1" in
         gradle_install
     ;;
     
-    # 10. 其它情况
+    # 3.7 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：   "
         echo "        +----------+-------------------+ "
@@ -255,5 +324,12 @@ case "$1" in
         echo "        +----------+-------------------+ "
     ;;
 esac
+
+# 4. 获取脚本执行结束时间，并计算脚本执行时间
+end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+if [ "$#" -ge 1 ]; then
+    echo "    脚本（$(basename "$0")）执行共消耗：$(( end - start ))s ...... "
+fi
+
 printf "================================================================================\n\n"
 exit 0
