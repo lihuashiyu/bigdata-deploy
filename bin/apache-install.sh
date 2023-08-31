@@ -62,71 +62,85 @@ function maven_jar_install()
 function hadoop_install()
 {
     echo "    ************************ 开始安装 Hadoop *************************    "
-    local host_list user hadoop_version password host host_name zookeeper_host_port namenode_host_port 
-    local history_hosts resource_manager_hosts cpu_thread
+    local host_list hadoop_version host_name zookeeper_host_port namenode_host_port name_list secondary_list data_node_list
+    local history_list resource_list test_count history_hosts resource_manager_hosts cpu_thread
     
-    JAVA_HOME=$(get_param "java.home")                                     # 获取 java   安装路径
+    JAVA_HOME=$(get_param "java.home")                                     # 获取 Java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
     file_decompress "hadoop.url" "${HADOOP_HOME}"                          # 解压 Hadoop 安装包
     
     echo "    ********************* 修改 Hadoop 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/script/apache/hadoop.sh"     "${HADOOP_HOME}/bin/"
-    
     cp -fpr "${ROOT_DIR}/conf/hadoop-core-site.xml"   "${HADOOP_HOME}/etc/hadoop/core-site.xml"
     cp -fpr "${ROOT_DIR}/conf/hadoop-hdfs-site.xml"   "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"
     cp -fpr "${ROOT_DIR}/conf/hadoop-mapred-site.xml" "${HADOOP_HOME}/etc/hadoop/mapred-site.xml"
     cp -fpr "${ROOT_DIR}/conf/hadoop-yarn-site.xml"   "${HADOOP_HOME}/etc/hadoop/yarn-site.xml"
     
     namenode_host_port=$(get_param "namenode.host.port")                       # NameNode Web UI 主机和端口号
-    zookeeper_host_port=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
+    data_node_list=$(get_param "datanode.hosts" | tr ',' ' ')                  # Worker 节点
+    zookeeper_host_port=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181,");print $0}')
     cpu_thread=$(get_cpu_thread)                                               # 获取 CPU 线程数
     history_hosts=$(get_param "hadoop.history.hosts")                          # 历史服务器所在的节点
-    resource_manager_hosts=$(get_param "hadoop.yarn.resource.manager.hosts")   # Yarn ResourceManager 所在的节点
+    resource_manager_hosts=$(get_param "resource.manager.hosts")               # Yarn ResourceManager 所在的节点
     
-    sed -i "s|# export JAVA_HOME=|export JAVA_HOME=${JAVA_HOME}|g"        "${HADOOP_HOME}"/etc/hadoop/*-env.sh
-    sed -i "s|# export HADOOP_HOME=|export HADOOP_HOME=${HADOOP_HOME}|g"  "${HADOOP_HOME}"/etc/hadoop/*-env.sh
-    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                           "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|\${zookeeper_host_port}|${zookeeper_host_port}|g"           "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|\${cpu_thread}|${cpu_thread}|g"                             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|\${hadoop_history_hosts}|${history_hosts}|g"                "${HADOOP_HOME}"/etc/hadoop/*-site.xml
-    sed -i "s|\${resource_manager_hosts}|${resource_manager_hosts}|g"     "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|# export JAVA_HOME=.*|export JAVA_HOME=${JAVA_HOME}|g"        "${HADOOP_HOME}"/etc/hadoop/*-env.sh
+    sed -i "s|# export HADOOP_HOME=.*|export HADOOP_HOME=${HADOOP_HOME}|g"  "${HADOOP_HOME}"/etc/hadoop/*-env.sh
+    sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${zookeeper_host_port}|${zookeeper_host_port}|g"             "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"               "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${cpu_thread}|${cpu_thread}|g"                               "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${hadoop_history_hosts}|${history_hosts}|g"                  "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    sed -i "s|\${resource_manager_hosts}|${resource_manager_hosts}|g"       "${HADOOP_HOME}"/etc/hadoop/*-site.xml
+    
+    name_list=$(echo "${namenode_host_port}" | sed -E "s|[:0-9,]+| |g")    # NameNode 节点
+    secondary_list=$(get_param "hadoop.secondary.hosts")                   # 2NN 节点
+    history_list=$(echo "${history_hosts}" | tr "," " ")                   # 历史服务器节点
+    resource_list=$(echo "${resource_manager_hosts}" | tr "," " ")         # ResourceManager 节点
+    
+    sed -i "s|\${name_list}|${name_list}|g"           "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${data_list}|${data_node_list}|g"      "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${history_list}|${history_hosts}|g"    "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${secondary_list}|${secondary_list}|g" "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${history_list}|${history_list}|g"     "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${resource_list}|${resource_list}|g"   "${HADOOP_HOME}/bin/hadoop.sh"
+    sed -i "s|\${node_list}|${data_node_list}|g"      "${HADOOP_HOME}/bin/hadoop.sh"
+    
     
     append_param "JAVA_HOME=${JAVA_HOME}"     "${HADOOP_HOME}/etc/hadoop/yarn-env.sh"
-    rm -rf "${HADOOP_HOME}/etc/hadoop/workers"
-    touch  "${HADOOP_HOME}/etc/hadoop/workers"
     
-    host_list=$(get_param "server.hosts" | tr ',' ' ')
-    for host in ${host_list}
+    cat /dev/null > "${HADOOP_HOME}/etc/hadoop/workers"                        # 修改 workers
+    for host_name in ${data_node_list}
     do
-        host_name=$(echo "${host}" | awk -F ':' '{print $2}')
-        if [[ "${host_name}" =~ slave ]]; then
-            append_param "${host_name}" "${HADOOP_HOME}/etc/hadoop/workers"
-        fi
+        append_param "${host_name}" "${HADOOP_HOME}/etc/hadoop/workers"
     done    
     
     echo "    *********************** 创建数据存储目录 *************************    "
-    mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"
+    mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"                       # 闯将必要的目录
     
-    user=$(get_param "server.user")
-    hadoop_version=$(get_version "hadoop.url")
+    hadoop_version=$(get_version "hadoop.url")                                 # Hadoop 版本
+    
+    # 添加环境变量
     append_env "hadoop.home" "${hadoop_version}"
+    sed -i "s|\${HADOOP_HOME}\/bin$|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${USER}.sh"
+    append_param "export HADOOP_CLASSPATH=\$(hadoop classpath)"                   "/etc/profile.d/${USER}.sh"
+    append_param "                                            "                   "/etc/profile.d/${USER}.sh"
     
-    password=$(get_password)
-    echo "${password}" | sudo -S sed -i "s|\${HADOOP_HOME}\/bin$|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${user}.sh"
-    append_param "export HADOOP_CLASSPATH=\$(hadoop classpath)"                  "/etc/profile.d/${user}.sh"
-    append_param "                                            "                  "/etc/profile.d/${user}.sh"
-    
-    distribute_file "${HADOOP_HOME}/"                                          # 分发文件到其它节点
+    # 分发到 安装节点
+    host_list=$(get_version "datanode.hosts" | tr "," " ")                     # Hadoop 安装的节点
+    distribute_file "${host_list}" "${HADOOP_HOME}/"                           # 分发文件到其它节点
         
-    echo "    *********************** 格式化 NameNode *************************    "
+    echo "    ************************ 格式化 NameNode *************************    "
     "${HADOOP_HOME}/bin/hadoop" namenode -format > "${HADOOP_HOME}/logs/format.log" 2>&1
-    grep -ni "formatted"  "${HADOOP_HOME}/logs/format.log"
+    test_count=$(grep -nic "formatted"  "${HADOOP_HOME}/logs/format.log")
+    if [ "${test_count}" -le 1 ]; then
+        echo "    **************************** 安装失败 ****************************    "
+        return 1
+    fi
     
     echo "    *********************** 启动 Hadoop 集群 *************************    "
     "${HADOOP_HOME}/sbin/start-all.sh"                                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     "${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh" start historyserver >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    sleep 20
+    sleep 120
     
     echo "    *********************** 测试 Hadoop 集群 *************************    "
     # 计算 pi 

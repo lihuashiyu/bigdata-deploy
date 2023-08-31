@@ -5,7 +5,7 @@
 #    CreateTime    ：  2023-07-29 21:34
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
-#    Description   ：  编译安装 gcc、git、htop、
+#    Description   ：  部署项目的公共函数
 # ==================================================================================================
 
 
@@ -66,9 +66,9 @@ function append_param()
     local exist
     
     # 根据文件获取该文件中，是否存在某参数，不存在就追加到文件末尾
-    exist=$(grep -ni "$1" "$2")
-    if [ -z "${exist}" ]; then 
-        echo "$1" >> "$2"
+    exist=$(grep -nic "$1" "$2")
+    if [ "${exist}" -ne 1 ]; then 
+        echo -e "$1" >> "$2"
     fi
 }
 
@@ -79,18 +79,18 @@ function append_env()
     echo "    ************************** 添加环境变量 **************************    "
     local software_name variate_key variate_value password env_file exist
     
-    software_name=$(echo "$1" | awk -F '.' '{print $1}')
-    variate_key=$(echo "${1^^}" | tr '.' '_')
-    variate_value=$(get_param "$1")
-    password=$(get_password)
+    software_name=$(echo "$1" | awk -F '.' '{print $1}')                       # 获取软件名称
+    variate_key=$(echo "${1^^}" | tr '.' '_')                                  # 获取 Key
+    variate_value=$(get_param "$1")                                            # 获取 Value
+    password=$(get_password)                                                   # 获取管理员密码
     
-    if [[ -z $3 ]]; then
-        env_file="/etc/profile.d/${USER}.sh"
+    if [ -z "$3" ]; then
+        env_file="/etc/profile.d/${USER}.sh"                                   # 系统环境变量文件
     else
-        env_file="${HOME}/.bashrc"
+        env_file="${HOME}/.bashrc"                                             # 用户环境变量文件
     fi
     
-    exist=$(grep -ni "${variate_key}" "${env_file}")
+    exist=$(grep -ni "${variate_key}" "${env_file}")                           # 判断是否已经加入环境变量
     if [ -z "${exist}" ]; then
         {
             echo "${password}" | sudo -S echo "# ===================================== ${software_name}-$2 ====================================== #"
@@ -209,7 +209,7 @@ function get_version()
 }
 
 
-# 分发文件到其它节点（$1：需要分发的文件路径）
+# 分发文件到其它节点（$1：需要分发的节点，$2：需要分发的文件路径）
 function distribute_file()
 {
     echo "    ************************ 分发到其它节点 **************************    "
@@ -218,12 +218,12 @@ function distribute_file()
     
     if [ -d "$HOME/.ssh" ]; then
         {
-            echo "${password}" | sudo -S xync.sh  "/etc/profile.d/${USER}.sh"
-            xync.sh   "$1"
-            xcall.sh  "source /etc/profile"
+            xync  "$1" "/etc/profile.d/${USER}.sh"
+            xync  "$1" "$2" 
+            xcall  "source /etc/profile"
         } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
     else
-        echo "    需要提前手动配置节点间免密登录 ...... "
+        echo "    需要提前配置节点间免密登录：password-free-login.sh ...... "
         exit 1
     fi
 }
@@ -247,6 +247,35 @@ function get_cpu_thread()
     thread=$(( physical_count * core_count * processor_count ))
     
     echo "${thread}"
+}
+
+
+# 集群间执行命令（$1：需要执行命令的集群节点，$2：命令）
+# shellcheck disable=SC2029
+function xcall()
+{
+    local host_list cmd host_name                                              # 定义局部变量 
+    host_list=$(echo "$1" | tr "#" " ")                                        # 获取主机列表
+    cmd=$(echo "$2" | tr "#" " ")                                              # 获取命令
+    
+    for host_name in ${host_list}
+    do
+        ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${cmd}"
+    done
+}
+
+
+# 集群间数据同步（$1：需要数据同步的集群节点，$2：同步的数据目录）
+function xync()
+{
+    local host_list host_name                                                  # 定义局部变量 
+    host_list=$(echo "$1" | tr "#" " ")                                        # 获取主机列表
+    
+    for host_name in ${host_list}
+    do
+        echo "    ===================== 向（${host_name}）同步数据 =====================    "
+        rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
+    done
 }
 
 
