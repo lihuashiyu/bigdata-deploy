@@ -28,4 +28,6 @@ hs_err_pid*
 .gitignore
 /shell/test/
 /test/
+/conf/server.properties
+/conf/server.yml
 /package/
