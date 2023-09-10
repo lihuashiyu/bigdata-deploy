@@ -196,17 +196,17 @@ case "$1" in
     
     # 2.3 状态查询
     status)
-        # 3.1 查看正在运行程序的 pid
+        # 2.3.1 查看正在运行程序的 pid
         pid_status=$(service_status)
         
-        #  3.2 判断 ES 运行状态
+        # 2.3.2 判断 ES 运行状态
         if [ "${pid_status}" == "${STOP}" ]; then
             echo "    程序（${ALIAS_NAME}）已经停止 ...... "
         elif [ "${pid_status}" == "${RUNNING}" ]; then
             echo "    程序（${ALIAS_NAME}）正在运行 ...... "
         else
             echo "    程序（${ALIAS_NAME}）运行出错 ...... "
-            for ps in ${status}
+            for ps in ${pid_status}
             do
                 echo "    ${ps} ...... "
             done  

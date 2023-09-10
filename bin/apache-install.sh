@@ -16,27 +16,27 @@ CONFIG_FILE="server.conf"                                                      #
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
 
-
 # 刷新环境变量
 function flush_env()
-{
+{    
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
     
     echo "    ************************** 刷新环境变量 **************************    "
+    # 判断用户环境变量文件是否存在
     if [ -e "${HOME}/.bash_profile" ]; then
-        source "${HOME}/.bash_profile"
+        source "${HOME}/.bash_profile"                                         # RedHat 用户环境变量文件
     elif [ -e "${HOME}/.bashrc" ]; then
-        source "${HOME}/.bashrc"
+        source "${HOME}/.bashrc"                                               # Debian、RedHat 用户环境变量文件
     fi
     
-    source "/etc/profile"
+    source "/etc/profile"                                                      # 系统环境变量文件路径
     
     echo "    ************************** 获取公共函数 **************************    "
     # shellcheck source=./common.sh
-    source "${ROOT_DIR}/bin/common.sh"
+    source "${ROOT_DIR}/bin/common.sh"                                         # 当前程序使用的公共函数
     
-    export -A PARAM_LIST=()
-    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    export -A PARAM_LIST=()                                                    # 初始化 配置文件 参数
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"                               # 读取配置文件，获取参数    
 }
 
 
@@ -63,7 +63,7 @@ function hadoop_install()
 {
     echo "    ************************ 开始安装 Hadoop *************************    "
     local host_list hadoop_version host_name zookeeper_host_port namenode_host_port name_list secondary_list data_node_list
-    local history_list resource_list test_count history_hosts resource_manager_hosts cpu_thread
+    local history_list resource_list test_count history_hosts resource_manager_hosts cpu_thread test_result
     
     JAVA_HOME=$(get_param "java.home")                                     # 获取 Java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
@@ -105,7 +105,6 @@ function hadoop_install()
     sed -i "s|\${resource_list}|${resource_list}|g"   "${HADOOP_HOME}/bin/hadoop.sh"
     sed -i "s|\${node_list}|${data_node_list}|g"      "${HADOOP_HOME}/bin/hadoop.sh"
     
-    
     append_param "JAVA_HOME=${JAVA_HOME}"     "${HADOOP_HOME}/etc/hadoop/yarn-env.sh"
     
     cat /dev/null > "${HADOOP_HOME}/etc/hadoop/workers"                        # 修改 workers
@@ -115,7 +114,7 @@ function hadoop_install()
     done    
     
     echo "    *********************** 创建数据存储目录 *************************    "
-    mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"                       # 闯将必要的目录
+    mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"                       # 创建必要的目录
     
     hadoop_version=$(get_version "hadoop.url")                                 # Hadoop 版本
     
@@ -133,7 +132,7 @@ function hadoop_install()
     "${HADOOP_HOME}/bin/hadoop" namenode -format > "${HADOOP_HOME}/logs/format.log" 2>&1
     test_count=$(grep -nic "formatted"  "${HADOOP_HOME}/logs/format.log")
     if [ "${test_count}" -le 1 ]; then
-        echo "    **************************** 安装失败 ****************************    "
+        echo "    *************************** 格式化失败 ***************************    "
         return 1
     fi
     
@@ -144,8 +143,12 @@ function hadoop_install()
     
     echo "    *********************** 测试 Hadoop 集群 *************************    "
     # 计算 pi 
-    "${HADOOP_HOME}/bin/hadoop" jar "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${hadoop_version}.jar" pi 10 10 >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "Pi is"  "${ROOT_DIR}/logs/${LOG_FILE}"
+    "${HADOOP_HOME}/bin/hadoop" jar "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${hadoop_version}.jar" pi 10 10 >> "${HADOOP_HOME}/logs/pi.log" 2>&1
+    test_count=$(grep -ni "Pi is"  "${HADOOP_HOME}/logs/pi.log" | grep -i "3.")
+    if [ "${test_count}" -ne 1 ]; then
+        echo "    ************************** 计算 Pi 失败 **************************    "
+        return 1
+    fi
     
     # 计算 wc 
     "${HADOOP_HOME}/bin/hadoop" fs -rm -r    /hadoop/test/wc/       >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1    
@@ -154,7 +157,13 @@ function hadoop_install()
     "${HADOOP_HOME}/bin/hadoop" jar          "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${hadoop_version}.jar" \
                                              wordcount /hadoop/test/wc/input /hadoop/test/wc/output \
                                              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    "${HADOOP_HOME}/bin/hadoop" fs -cat      /hadoop/test/wc/output/*
+                                                                                      
+    test_count=$("${HADOOP_HOME}/bin/hadoop" fs -cat /hadoop/test/wc/output/* | wc -l)
+    if [ "${test_count}" -le 1 ]; then
+        echo "    **************************** 安装失败 ****************************    "
+    else    
+        echo "    **************************** 安装成功 ****************************    "
+    fi
 }
 
 

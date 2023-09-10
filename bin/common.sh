@@ -13,7 +13,7 @@
 function read_param()
 {
     # 1. 定义局部变量
-    local line string key value
+    local line string param key value
     
     # 2. 读取配置文件
     while read -r line
@@ -328,8 +328,8 @@ function command_exist()
     exists=$(command -v "$1" > /dev/null 2>&1; echo $?)
     if [[ "${exists}" -eq 0 ]]; then
         echo "    **************************** 软件已经安装 ****************************    "
-        echo "        ===> 位置：$(command -v $1) "
-        echo "        ===> 相关文件：$(whereis $1) "
+        echo "        ===> 位置：$(command -v "$1") "
+        echo "        ===> 相关文件：$(whereis "$1") "
     else
         echo "    ***************** 推荐使用命令：sudo dnf install git *****************    "
     fi
