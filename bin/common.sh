@@ -250,6 +250,14 @@ function get_cpu_thread()
 }
 
 
+# 集群间执行命令（$1：需要执行命令的节点，$2：命令）
+# shellcheck disable=SC2029
+function xssh()
+{
+    ssh "${USER}@$1" "source ~/.bashrc; source /etc/profile; $2"
+}
+
+
 # 集群间执行命令（$1：需要执行命令的集群节点，$2：命令）
 # shellcheck disable=SC2029
 function xcall()
@@ -260,7 +268,7 @@ function xcall()
     
     for host_name in ${host_list}
     do
-        ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ${cmd}"
+        xssh "${host_name}" "${cmd}"
     done
 }
 
