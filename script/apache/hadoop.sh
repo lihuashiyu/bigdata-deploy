@@ -28,7 +28,7 @@ RESOURCE_MANAGER=org.apache.hadoop.yarn.server.resourcemanager.ResourceManager #
 JOB_HISTORY_SERVER=org.apache.hadoop.mapreduce.v2.hs.JobHistoryServer          # JobHistoryServer 进程名称
 
 NAME_LIST=(${name_list})                                                             # NameNode          集群主机名
-DATA_LIST=(data_list)                                            # DataName          集群主机名
+DATA_LIST=(${data_list})                                            # DataName          集群主机名
 SECONDARY_LIST=(${secondary_list})                                                        # SecondaryNameNode 集群主机名
 HISTORY_LIST=(${history_list})                                                          # JHistoryServer    集群主机名
 RESOURCE_LIST=(${resource_list})                                                         # ResourceManager   集群主机名

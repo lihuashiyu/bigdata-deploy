@@ -214,8 +214,6 @@ function get_version()
 function distribute_file()
 {
     echo "    ************************ 分发到其它节点 **************************    "
-    local password
-    password=$(get_password)
     
     if [ -d "$HOME/.ssh" ]; then
         {

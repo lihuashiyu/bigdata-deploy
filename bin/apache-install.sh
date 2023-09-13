@@ -63,7 +63,7 @@ function hadoop_install()
 {
     echo "    ************************ 开始安装 Hadoop *************************    "
     local host_list hadoop_version host_name zookeeper_host_port namenode_host_port name_list secondary_list data_node_list
-    local history_list resource_list test_count history_hosts resource_manager_hosts cpu_thread test_result
+    local history_list resource_list test_count history_hosts resource_manager_hosts cpu_thread pass_word
     
     JAVA_HOME=$(get_param "java.home")                                     # 获取 Java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
@@ -116,16 +116,16 @@ function hadoop_install()
     echo "    *********************** 创建数据存储目录 *************************    "
     mkdir -p "${HADOOP_HOME}/data" "${HADOOP_HOME}/logs"                       # 创建必要的目录
     
+    pass_word=$(get_password)                                                  # 管理员密码
     hadoop_version=$(get_version "hadoop.url")                                 # Hadoop 版本
     
     # 添加环境变量
-    append_env "hadoop.home" "${hadoop_version}"
-    sed -i "s|\${HADOOP_HOME}\/bin$|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin|g" "/etc/profile.d/${USER}.sh"
-    append_param "export HADOOP_CLASSPATH=\$(hadoop classpath)"                   "/etc/profile.d/${USER}.sh"
-    append_param "                                            "                   "/etc/profile.d/${USER}.sh"
+    append_env "hadoop.home" "${hadoop_version}"                               # 添加环境变量
+    echo "${pass_word}" | sudo -S sed -i "s|\${HADOOP_HOME}\/bin$|\${HADOOP_HOME}\/bin:\${HADOOP_HOME}\/sbin\nexport HADOOP_CLASSPATH=\$(hadoop classpath)\n|g" "/etc/profile.d/${USER}.sh"
+    echo ""
     
     # 分发到 安装节点
-    host_list=$(get_version "datanode.hosts" | tr "," " ")                     # Hadoop 安装的节点
+    host_list=$(get_param "datanode.hosts" | tr "," " ")                       # Hadoop 安装的节点
     distribute_file "${host_list}" "${HADOOP_HOME}/"                           # 分发文件到其它节点
         
     echo "    ************************ 格式化 NameNode *************************    "
@@ -139,12 +139,12 @@ function hadoop_install()
     echo "    *********************** 启动 Hadoop 集群 *************************    "
     "${HADOOP_HOME}/sbin/start-all.sh"                                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     "${HADOOP_HOME}/sbin/mr-jobhistory-daemon.sh" start historyserver >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    sleep 120
+    sleep 30                                                                   # 等待 HDFS 启动保护时间
     
     echo "    *********************** 测试 Hadoop 集群 *************************    "
     # 计算 pi 
     "${HADOOP_HOME}/bin/hadoop" jar "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${hadoop_version}.jar" pi 10 10 >> "${HADOOP_HOME}/logs/pi.log" 2>&1
-    test_count=$(grep -ni "Pi is"  "${HADOOP_HOME}/logs/pi.log" | grep -i "3.")
+    test_count=$(grep -nic "Pi is 3."  "${HADOOP_HOME}/logs/pi.log")
     if [ "${test_count}" -ne 1 ]; then
         echo "    ************************** 计算 Pi 失败 **************************    "
         return 1
@@ -155,7 +155,7 @@ function hadoop_install()
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /hadoop/test/wc/input
     "${HADOOP_HOME}/bin/hadoop" fs -put      "${HADOOP_HOME}/etc/hadoop/workers" /hadoop/test/wc/input
     "${HADOOP_HOME}/bin/hadoop" jar          "${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-${hadoop_version}.jar" \
-                                             wordcount /hadoop/test/wc/input /hadoop/test/wc/output \
+                                             wordcount /hadoop/test/wc/input /hadoop/test/wc/output                                  \
                                              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
                                                                                       
     test_count=$("${HADOOP_HOME}/bin/hadoop" fs -cat /hadoop/test/wc/output/* | wc -l)
