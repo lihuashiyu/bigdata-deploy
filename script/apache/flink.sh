@@ -110,12 +110,12 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）正在加载 ......"
         
         # 3.2 启动 Flink 集群
-        "${FLINK_HOME}/bin/start-cluster.sh"  >> "${FLINK_HOME}/logs/${FLINK_LOG_FILE}" 2>&1
+        "${FLINK_HOME}/bin/start-cluster.sh"  >> "${FLINK_HOME}/log/${FLINK_LOG_FILE}" 2>&1
         
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         
         # 3.3 启动 Flink 的历史服务器
-        "${FLINK_HOME}/bin/historyserver.sh" start  >> "${FLINK_HOME}/logs/${HISTORY_LOG_FILE}" 2>&1
+        "${FLINK_HOME}/bin/historyserver.sh" start  >> "${FLINK_HOME}/log/${HISTORY_LOG_FILE}" 2>&1
         sleep 2
         
         # 3.4 判断所有程序启动是否成功
@@ -157,12 +157,12 @@ function service_stop()
         echo "    程序（${ALIAS_NAME}）正在停止 ......"
         
         # 3.2 关闭 Flink 的历史服务器
-        "${FLINK_HOME}/bin/historyserver.sh" stop  >> "${FLINK_HOME}/logs/${HISTORY_LOG_FILE}" 2>&1
+        "${FLINK_HOME}/bin/historyserver.sh" stop  >> "${FLINK_HOME}/log/${HISTORY_LOG_FILE}" 2>&1
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ......"
         
         # 3.3 关闭 Flink 集群
-        "${FLINK_HOME}/bin/stop-cluster.sh"  >> "${FLINK_HOME}/logs/${FLINK_LOG_FILE}" 2>&1
+        "${FLINK_HOME}/bin/stop-cluster.sh"  >> "${FLINK_HOME}/log/${FLINK_LOG_FILE}" 2>&1
         sleep 3
         
         # 3.4 判断所有程序是否关闭成功
