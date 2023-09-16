@@ -210,7 +210,7 @@ function get_version()
 }
 
 
-# 分发文件到其它节点（$1：需要分发的节点，$2：需要分发的文件路径）
+# 分发文件到其它节点（$1：需要分发的节点，$2：需要分发的文件路径，$3：启用 root 进行传输）
 function distribute_file()
 {
     echo "    ************************ 分发到其它节点 **************************    "
@@ -219,7 +219,7 @@ function distribute_file()
         {
             xync  "$1" "/etc/profile.d/${USER}.sh"
             xync  "$1" "$2" 
-            xcall  "source /etc/profile"
+            xcall  "$1" "source ${HOME}/.bashrc; source /etc/profile"
         } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
     else
         echo "    需要提前配置节点间免密登录：password-free-login.sh ...... "
@@ -252,11 +252,17 @@ function get_cpu_thread()
 # 集群间执行命令（$1：需要执行命令的节点，$2：命令）
 function xssh()
 {
-    ssh "${USER}@$1" "source ~/.bashrc; source /etc/profile; $2"
+    local password                                                             # 定义局部变量 
+    
+    if [ -n "$3" ]; then
+        echo "${password}" | sudo -S ssh "root@$1" "source ~/.bashrc; source /etc/profile; $2"
+    else 
+        ssh "${USER}@$1" "source ~/.bashrc; source /etc/profile; $2"
+    fi
 }
 
 
-# 集群间执行命令（$1：需要执行命令的集群节点，$2：命令）
+# 集群间执行命令（$1：需要执行命令的集群节点，$2：命令，$3：启用 root 进行传输）
 function xcall()
 {
     local host_list cmd host_name                                              # 定义局部变量 
@@ -265,21 +271,27 @@ function xcall()
     
     for host_name in ${host_list}
     do
-        xssh "${host_name}" "${cmd}"
+        echo "    ===================== ${host_name}：${cmd} =====================    "
+        xssh "${host_name}" "${cmd}" "$3"
     done
 }
 
 
-# 集群间数据同步（$1：需要数据同步的集群节点，$2：同步的数据目录）
+# 集群间数据同步（$1：需要数据同步的集群节点，$2：同步的数据目录，$3：启用 root 进行传输）
 function xync()
 {
-    local host_list host_name                                                  # 定义局部变量 
+    local host_list host_name password                                         # 定义局部变量 
     host_list=$(echo "$1" | tr "#" " ")                                        # 获取主机列表
+    password=$(get_param "server.password")                                    # 获取管理员密码
     
     for host_name in ${host_list}
     do
         echo "    ===================== 向（${host_name}）同步数据 =====================    "
-        rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
+        if [ -n "$3" ]; then
+            echo "${password}" | sudo -S rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
+        else 
+            rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
+        fi
     done
 }
 

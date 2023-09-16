@@ -22,6 +22,7 @@
     </property>
     <!-- 访问 HDFS 时的 host 和 port -->
     <property>
+        <!-- <name>fs.defaultFS</name> -->
         <name>fs.default.name</name>
         <value>hdfs://${namenode_host_port}</value>
     </property>

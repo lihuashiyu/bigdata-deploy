@@ -171,15 +171,14 @@ function hadoop_install()
 function spark_install()
 {
     echo "    ************************* 开始安装 Spark *************************    "
-    local hadoop_version spark_version spark_src_url folder host_list host host_name password name master_hosts namenode_host_port
+    local hadoop_version spark_version spark_src_url folder host_list master_list worker_list host_name password name namenode_host_port test_count
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     SCALA_HOME=$(get_param "scala.home")                                       # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
     SPARK_HOME=$(get_param "spark.home")                                       # 获取 Hadoop 安装路径
-    
-    hadoop_version=$(get_version "hadoop.url")
-    spark_version=$(get_version "spark.nohadoop.url")
+    hadoop_version=$(get_version "hadoop.url")                                 # 获取 Hadoop 版本
+    spark_version=$(get_version "spark.nohadoop.url")                          # Spark 源码路径
     
     echo "    ****************** 获取 Spark 的源码并应用补丁 *******************    "
     mkdir -p "${ROOT_DIR}/src"                                                 # 创建源码保存目录
@@ -191,66 +190,75 @@ function spark_install()
         git clone    "${spark_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     fi 
     
-    cd spark || exit                                                           # 进入 spark 源码路径
-    { git checkout "v${spark_version}"; mvn clean; }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+    name=$(get_name "spark.url")                                               # 获取软件名称
+    if [ ! -f "${ROOT_DIR}/package/${name}" ]; then
+        cd spark || exit                                                       # 进入 spark 源码路径    
+        { 
+            git fetch --all                                                    # 重置所有本地更改 
+            git reset --hard                                                   # 强制重置所有本地提交 
+            git pull                                                           # 将代码与远端保持一致
+            sleep 3                                                                
+            git checkout "v${spark_version}"                                   # 检出 特定版本的 Spark 分支
+            git fetch --all                                                    # 重置所有本地更改
+            git reset --hard                                                   # 强制重置所有本地提交 
+            mvn clean                                                          # 清除编译内容
+        }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        
+        # 应用补丁，包含 commit 内容
+        git apply --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        # git am "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
+        
+        echo "    ************************ 编译 Spark-${spark_version} ************************    "
+        rm -rf "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"
+        "${ROOT_DIR}/src/spark/dev/make-distribution.sh" --name build --tgz                               \
+                                                         -Phive-3.1 -Phive-thriftserver -Phadoop-3.2      \
+                                                         -Phadoop-provided -Pyarn -Pscala-2.12            \
+                                                         "-Dhadoop.version=${hadoop_version}" -DskipTests \
+                                                         >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        
+        cp -fpr "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"  "${ROOT_DIR}/package/${name}"                                                         
+    fi
     
-    # 应用补丁，包含 commit 内容
-    git apply --ignore-space-change --ignore-whitespace "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    # git am "${ROOT_DIR}/patch/spark-${spark_version}-hadoop-${hadoop_version}.patch"
-    
-    echo "    ************************ 编译 Spark-${spark_version} ************************    "
-    rm -rf "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"
-    
-    source /etc/profile                                                        # 生效当前环境变量
-    "${ROOT_DIR}/src/spark/dev/make-distribution.sh" --name build --tgz                               \
-                                                     -Phive-3.1 -Phive-thriftserver -Phadoop-3.2      \
-                                                     -Phadoop-provided -Pyarn -Pscala-2.12            \
-                                                     "-Dhadoop.version=${hadoop_version}" -DskipTests \
-                                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    
-    echo "    ************************* 解压安装 Spark *************************    "
-    name=$(get_name "spark.url")
-    cp -fpr "${ROOT_DIR}/src/spark/spark-${spark_version}-bin-build.tgz"  "${ROOT_DIR}/package/${name}"
-    file_decompress "spark.url" "${SPARK_HOME}"
+    file_decompress "spark.url" "${SPARK_HOME}"                                # 解压安装
     
     echo "    *********************** 修改 Spark 配置文件 ***********************    "
-    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"                    "${SPARK_HOME}/conf/"
-    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf"             "${SPARK_HOME}/conf/"
+    cp -fpr "${ROOT_DIR}/conf/spark-env.sh"        "${SPARK_HOME}/conf/"       # 复制 Spark 环境参数
+    cp -fpr "${ROOT_DIR}/conf/spark-defaults.conf" "${SPARK_HOME}/conf/"       # 复制 Spark 配置文件
+    cp -fpr "${ROOT_DIR}/script/apache/spark.sh"   "${SPARK_HOME}/bin/"        # 复制 Spark 脚本
     
-    master_hosts=$(get_param "spark.master.hosts")
-    namenode_host_port=$(get_param "namenode.host.port")
+    host_list=$(get_param "server.hosts" | tr ',' ' ')                         # Spark 安装节点
+    master_list=$(get_param "spark.master.hosts" | tr ',' ' ')                 # Spark Master 节点
+    worker_list=$(get_param "spark.worker.hosts" | tr ',' ' ')                 # Spark Worker 节点
+    namenode_host_port=$(get_param "namenode.host.port")                       # Hadoop NameNode
     sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"                    "${SPARK_HOME}/conf/spark-env.sh"
     sed -i "s|\${SCALA_HOME}|${SCALA_HOME}|g"                  "${SPARK_HOME}/conf/spark-env.sh"
     sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                "${SPARK_HOME}/conf/spark-env.sh"
     sed -i "s|\${SPARK_HOME}|${SPARK_HOME}|g"                  "${SPARK_HOME}/conf/spark-env.sh"
-    sed -i "s|\${spark_master_hosts}|${master_hosts}|g"        "${SPARK_HOME}/conf/spark-env.sh"
+    sed -i "s|\${spark_master_hosts}|${master_list}|g"         "${SPARK_HOME}/conf/spark-env.sh"
     sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${SPARK_HOME}/conf/spark-env.sh"
     sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${SPARK_HOME}/conf/spark-defaults.conf"
+    sed -i "s|\${master_list}|${master_list}|g"                "${SPARK_HOME}/bin/spark.sh"
+    sed -i "s|\${worker_list}|${worker_list}|g"                "${SPARK_HOME}/bin/spark.sh"
     
-    touch "${SPARK_HOME}/conf/workers"
-    host_list=$(get_param "server.hosts" | tr ',' ' ')
-    for host in ${host_list}
+    touch "${SPARK_HOME}/conf/workers"                                         # 创建 Workers 文件
+    for host_name in ${worker_list}
     do
-        host_name=$(echo "${host}" | awk -F ':' '{print $2}')
-        if [[ "${host_name}" =~ slave ]]; then
-            append_param "${host_name}" "${SPARK_HOME}/conf/workers"
-        fi
+        append_param "${host_name}" "${SPARK_HOME}/conf/workers"  
     done
     
-    password=$(get_password)
+    password=$(get_password)                                                   # 获取管理员用户密码
     append_env "spark.home" "${spark_version}"                                 # 添加环境变量
     echo "${password}" | sudo -S sed -i "s|\${SPARK_HOME}\/bin$|\${SPARK_HOME}\/bin:\${SPARK_HOME}\/sbin|g" "/etc/profile.d/${USER}.sh"
-    distribute_file "${SPARK_HOME}/"                                           # 将 Spark 目录同步到其它节点
+    distribute_file "${host_list}" "${SPARK_HOME}/"                            # 将 Spark 目录同步到其它节点
     
     echo "    ******************** 上传 Spark 依赖 到 HDFS *********************    "
     file_decompress "spark.nohadoop.url"                                       # 解压不带 Hadoop 的Spark 包
-    folder=$(ls -F | grep "/$")
-    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /spark/jars /spark/logs /spark/history
-    "${HADOOP_HOME}/bin/hadoop" fs -put   -f  "${ROOT_DIR}/package/${folder}jars"/* /spark/jars/
+    folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取 spark-no=hadoop 路径
     
-    echo "    ************************ 启动 Spark 集群 *************************    "
-    cp -fpr "${ROOT_DIR}/script/apache/spark.sh"  "${SPARK_HOME}/bin/"         # 复制 Spark 脚本
-     
+    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /spark/jars /spark/logs /spark/history
+    "${HADOOP_HOME}/bin/hadoop" fs -put   -f  "${folder}/jars"/*  /spark/jars/
+    
+    echo "    ************************ 启动 Spark 集群 *************************    " 
     # 启动 Spark 集群和历史服务器
     { "${SPARK_HOME}/sbin/start-all.sh"; "${SPARK_HOME}/sbin/start-history-server.sh"; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
     
@@ -258,15 +266,23 @@ function spark_install()
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
                                      --master local[*]                         \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
-                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
+                                     >> "${SPARK_HOME}/logs/pi-local.log" 2>&1
+    test_count=$(grep -nic "pi is roughly" "${SPARK_HOME}/logs/pi-local.log")
+    if [ "${test_count}" -ne "1" ]; then
+        echo "    *********************** Spark 本地测试失败 ***********************    "
+        return 1
+    fi
     
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
                                      --master      spark://master:7077         \
                                      --deploy-mode cluster                     \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
-                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "caused by" "${ROOT_DIR}/logs/${LOG_FILE}"
+                                     >> "${SPARK_HOME}/logs/pi-stand-alone.log" 2>&1
+    test_count=$(grep -nic "caused by" "${SPARK_HOME}/logs/pi-stand-alone.log")
+    if [ "${test_count}" -ge "1" ]; then
+        echo "    *********************** Spark 集群测试失败 ***********************    "
+        return 1
+    fi
     
     echo "    ********************** 测试 Spark Yarn 集群 **********************    "
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
@@ -277,8 +293,12 @@ function spark_install()
                                      --num-executors   3                       \
                                      --executor-cores  2                       \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
-                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "pi is roughly" "${ROOT_DIR}/logs/${LOG_FILE}"
+                                     >> "${SPARK_HOME}/logs/pi-yarn-cluster.log" 2>&1
+    test_count=$(grep -nic "pi is roughly" "${SPARK_HOME}/logs/pi-yarn-cluster.log")
+    if [ "${test_count}" -ge "1" ]; then
+        echo "    ****************** Spark Yarn Cluster 测试失败 *******************    "
+        return 1
+    fi
     
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
                                      --master          yarn                    \
@@ -288,8 +308,13 @@ function spark_install()
                                      --num-executors   3                       \
                                      --executor-cores  2                       \
                                      "${SPARK_HOME}/examples/jars/spark-examples_2.12-${spark_version}.jar" 100 \
-                                     >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    grep -ni "caused by" "${ROOT_DIR}/logs/${LOG_FILE}"
+                                     >> "${SPARK_HOME}/logs/pi-yarn-client.log" 2>&1
+    test_count=$(grep -nic "caused by" "${SPARK_HOME}/logs/pi-yarn-client.log")
+    if [ "${test_count}" -ge "1" ]; then
+        echo "    ******************* Spark Yarn Client 测试失败 *******************    "
+    else
+        echo "    ************************* Spark 测试成功 *************************    "
+    fi
 }
 
 
@@ -298,13 +323,13 @@ function flink_install()
 {
     echo "    ************************* 开始安装 Flink *************************    "
     local cpu_thread namenode_host_port zookeeper_hosts flink_version master_list worker_list host host_list 
-    local history_list job_manager test_result name_node
+    local history_list job_manager test_result
     
     FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
     file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
     
     # 创建必要的目录
-    mkdir -p "${FLINK_HOME}/data/execute-tmp" "${FLINK_HOME}/data/web-tmp" "${FLINK_HOME}/logs" 
+    mkdir -p "${FLINK_HOME}/data/execute-tmp" "${FLINK_HOME}/data/web-tmp" "${FLINK_HOME}/log" 
     
     echo "    ********************** 修改 Flink 配置文件 ***********************    "
     cp -fpr "${ROOT_DIR}/script/apache/flink.sh"  "${FLINK_HOME}/bin"          # 复制启停脚本
@@ -316,6 +341,7 @@ function flink_install()
     namenode_host_port=$(get_param "namenode.host.port")                       # 获取 NameNode 地址
     zookeeper_hosts=$(get_param "zookeeper.hosts" | awk '{gsub(/,/,":2181/kafka,");print $0}')
     
+    # 修改配置文件
     sed -i "s|\${JAVA_HOME}|${JAVA_HOME}|g"                    "${FLINK_HOME}/conf/flink-conf.yaml" 
     sed -i "s|\${HADOOP_HOME}|${HADOOP_HOME}|g"                "${FLINK_HOME}/conf/flink-conf.yaml" 
     sed -i "s|\${FLINK_HOME}|${FLINK_HOME}|g"                  "${FLINK_HOME}/conf/flink-conf.yaml" 
@@ -323,6 +349,7 @@ function flink_install()
     sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"  "${FLINK_HOME}/conf/flink-conf.yaml" 
     sed -i "s|\${zookeeper_hosts}|${zookeeper_hosts}|g"        "${FLINK_HOME}/conf/flink-conf.yaml" 
     
+    # 修改启停脚本
     master_list=$(get_param "flink.job.managers"  | tr ',' ' ')
     worker_list=$(get_param "flink.task.managers" | tr ',' ' ')
     history_list=$(get_param "flink.history.hosts" | tr ',' ' ')
@@ -345,11 +372,11 @@ function flink_install()
     done
     
     flink_version=$(get_version "flink.url")                                   # 获取 Flink 的版本
-    append_env "flink.home" "${flink_version}"                                 # 添加环境变量
-    distribute_file "${FLINK_HOME}"                                            # 分发到其它节点
+    host_list=$(get_param "flink.hosts" | tr ',' ' ')                          # Flink 安装的节点
+    append_env       "flink.home"   "${flink_version}"                         # 添加环境变量
+    distribute_file  "${host_list}" "${FLINK_HOME}/"                            # 分发到其它节点
     
     echo "    ********************* 修改 TaskManager 参数 **********************    "
-    host_list=$(get_param "flink.hosts" | tr ',' ' ')
     for host in ${host_list}
     do
          ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
@@ -392,6 +419,7 @@ function flink_install()
     echo "    ************************* 测试 Yarn 集群 *************************    "
     "${HADOOP_HOME}/bin/hadoop" fs -rm -r     /flink/test/yarn-cep/
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/test/yarn-cep/
+    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-test-1.0.jar"  /flink/test/yarn-cep/
     
     "${FLINK_HOME}/bin/flink" run-application --target yarn-application                              \
                               --class "run.CepTest"                                                  \
@@ -408,7 +436,6 @@ function flink_install()
         echo "    ************************* Yarn 测试成功 **************************    "
     else
         echo "    ************************* Yarn 测试失败 **************************    "
-        return 1
     fi    
 }
 
@@ -1070,6 +1097,8 @@ function doris_install()
 
 printf "\n================================================================================\n"
 if [ "$#" -gt 0 ]; then
+    export JAVA_HOME SCALA_HOME MAVEN_HOME
+    export HADOOP_HOME SPARK_HOME FLINK_HOME ZOOKEEPER_HOME KAFKA_HOME HIVE_HOME HBASE_HOME PHOENIX_HOME FLUME_HOME DORIS_HOME
     flush_env                                                                    # 刷新环境变量   
 fi
 

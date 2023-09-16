@@ -42,7 +42,7 @@
     <!-- 每个节点可用最大内存, 单位 MB, 默认 8192 MB -->
     <property>
         <name>yarn.scheduler.maximum-allocation-mb</name>
-        <value>2048</value>
+        <value>4096</value>
     </property>
     <!-- 容器允许管理的物理内存大小，单位 MB， 默认 4096 MB -->
     <property>
@@ -96,6 +96,14 @@
         <name>yarn.application.classpath</name>
         <value>${HADOOP_HOME}/etc/hadoop:${HADOOP_HOME}/share/hadoop/common/lib/*:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/hdfs:${HADOOP_HOME}/share/hadoop/hdfs/lib/*:${HADOOP_HOME}/share/hadoop/hdfs/*:${HADOOP_HOME}/share/hadoop/mapreduce/lib/*:${HADOOP_HOME}/share/hadoop/mapreduce/lib-examples/*:${HADOOP_HOME}/share/hadoop/mapreduce/*:${HADOOP_HOME}/share/hadoop/yarn:${HADOOP_HOME}/share/hadoop/yarn/lib/*:${HADOOP_HOME}/share/hadoop/yarn/*:${HADOOP_HOME}/share/hadoop/yarn/timelineservice/*</value>
     </property>
+    
+    <!-- 环境变量的继承 -->
+    <!--
+    <property>
+        <name>yarn.nodemanager.env-whitelist</name>
+        <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
+    </property>
+    -->
     
     <!-- 配置使用公平调度器 -->
     <!-- 
