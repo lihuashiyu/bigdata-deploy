@@ -395,6 +395,8 @@ function flink_install()
     "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-shaded-hadoop-3-uber-3.1.1.7.2.9.0-173-9.0.jar"  /flink/libs/custom
     
     echo "    ************************ 启动 Flink 集群 *************************    "
+    cp -fpr "${ROOT_DIR}/lib/commons-cli-1.5.0.jar"                                 "${FLINK_HOME}/lib/"
+    cp -fpr "${ROOT_DIR}/lib/flink-shaded-hadoop-3-uber-3.1.1.7.2.9.0-173-9.0.jar"  "${FLINK_HOME}/lib/"
     "${FLINK_HOME}/bin/start-cluster.sh"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     "${FLINK_HOME}/bin/historyserver.sh" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
