@@ -217,7 +217,7 @@ function distribute_file()
     
     if [ -d "$HOME/.ssh" ]; then
         {
-            xync  "$1" "/etc/profile.d/${USER}.sh"
+            xync  "$1" "/etc/profile.d/${USER}.sh" "env"
             xync  "$1" "$2" 
             xcall  "$1" "source ${HOME}/.bashrc; source /etc/profile"
         } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
@@ -253,6 +253,7 @@ function get_cpu_thread()
 function xssh()
 {
     local password                                                             # 定义局部变量 
+    password=$(get_param "server.password")                                    # 获取管理员密码
     
     if [ -n "$3" ]; then
         echo "${password}" | sudo -S ssh "root@$1" "source ~/.bashrc; source /etc/profile; $2"
@@ -288,7 +289,7 @@ function xync()
     do
         echo "    ===================== 向（${host_name}）同步数据 =====================    "
         if [ -n "$3" ]; then
-            echo "${password}" | sudo -S rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
+            echo "${password}" | sudo -S rsync -zav --delete  "$2"  "root@${host_name}:$2"
         else 
             rsync -zav --delete  "$2"  "${USER}@${host_name}:$2"
         fi

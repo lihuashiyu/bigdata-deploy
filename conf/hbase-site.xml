@@ -56,12 +56,12 @@
         <value>16010</value>
     </property>
     
-    <!-- 建立二级索引，将业务需要的数据联立建立索引，方便查询 -->
+    <!-- 建立二级索引，将业务需要的数据联立建立索引，方便查询 --><!-- phoenix
     <property>
         <name>hbase.regionserver.wal.codec</name>
         <value>org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec</value>
     </property>
-    
+    phoenix -->
     <!-- 如果使用了 hbase 中的自定义 namespace，不仅仅使用 default -->
     <!-- 那么在 phoenix 中与之对应的是 schema 的概念，但是默认并没有开启，需要在增加以下配置项 -->
     <property>

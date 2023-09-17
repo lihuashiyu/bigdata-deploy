@@ -17,6 +17,3 @@ alter table ${hive_database}.index_params     modify column param_value         
 -- 修改视图，支持视图中文
 alter table ${hive_database}.tbls             modify column view_expanded_text  mediumtext     character set utf8mb4;
 alter table ${hive_database}.tbls             modify column view_original_text  mediumtext     character set utf8mb4;
-
--- 刷新权限
-flush privileges;

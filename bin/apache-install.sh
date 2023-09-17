@@ -9,12 +9,12 @@
 #    Description   ：  安装数据库相关软件：apache 相关大数据组件
 # =========================================================================================
 
-
 SERVICE_DIR=$(dirname "$(readlink -e "$0")")                                   # Shell 脚本目录
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 项目根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="apache-install-$(date +%F).log"                                      # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
+
 
 # 刷新环境变量
 function flush_env()
@@ -55,6 +55,7 @@ function maven_jar_install()
                              -Dfile="${ROOT_DIR}/package/${file_name}"  \
                              >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     echo "    jar：${file_name} 安装完成 ...... "
+    # echo "    jar：${file_name} 安装完成 ...... " >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
@@ -260,7 +261,11 @@ function spark_install()
     
     echo "    ************************ 启动 Spark 集群 *************************    " 
     # 启动 Spark 集群和历史服务器
-    { "${SPARK_HOME}/sbin/start-all.sh"; "${SPARK_HOME}/sbin/start-history-server.sh"; } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
+    { 
+        "${HADOOP_HOME}/bin/hadoop.sh"    start
+        "${SPARK_HOME}/sbin/start-all.sh"
+        "${SPARK_HOME}/sbin/start-history-server.sh"
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
     
     echo "    ******************* 测试 Spark Standalone 集群 *******************    "
     "${SPARK_HOME}/bin/spark-submit" --class org.apache.spark.examples.SparkPi \
@@ -371,17 +376,6 @@ function flink_install()
         append_param "${host}" "${FLINK_HOME}/conf/workers"
     done
     
-    flink_version=$(get_version "flink.url")                                   # 获取 Flink 的版本
-    host_list=$(get_param "flink.hosts" | tr ',' ' ')                          # Flink 安装的节点
-    append_env       "flink.home"   "${flink_version}"                         # 添加环境变量
-    distribute_file  "${host_list}" "${FLINK_HOME}/"                            # 分发到其它节点
-    
-    echo "    ********************* 修改 TaskManager 参数 **********************    "
-    for host in ${host_list}
-    do
-         ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
-    done
-    
     echo "    ************************ 上传依赖到 HDFS *************************    "
     # 在 HDFS 上创建必要的目录
     "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/check-point  /flink/save-point    /flink/completed  \
@@ -394,11 +388,26 @@ function flink_install()
     "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/commons-cli-1.5.0.jar"  /flink/libs/custom
     "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-shaded-hadoop-3-uber-3.1.1.7.2.9.0-173-9.0.jar"  /flink/libs/custom
     
-    echo "    ************************ 启动 Flink 集群 *************************    "
+    echo "    ********************* 修改 TaskManager 参数 **********************    "
     cp -fpr "${ROOT_DIR}/lib/commons-cli-1.5.0.jar"                                 "${FLINK_HOME}/lib/"
     cp -fpr "${ROOT_DIR}/lib/flink-shaded-hadoop-3-uber-3.1.1.7.2.9.0-173-9.0.jar"  "${FLINK_HOME}/lib/"
-    "${FLINK_HOME}/bin/start-cluster.sh"        >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    "${FLINK_HOME}/bin/historyserver.sh" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    flink_version=$(get_version "flink.url")                                   # 获取 Flink 的版本
+    host_list=$(get_param "flink.hosts" | tr ',' ' ')                          # Flink 安装的节点
+    append_env       "flink.home"   "${flink_version}"                         # 添加环境变量
+    distribute_file  "${host_list}" "${FLINK_HOME}/"                           # 分发到其它节点
+    
+    for host in ${host_list}
+    do
+         xssh "${host}" "sed -i 's|\${task_host}|${host}|g' '${FLINK_HOME}/conf/flink-conf.yaml'" 
+    done
+        
+    echo "    ************************ 启动 Flink 集群 *************************    "
+    {
+        "${HADOOP_HOME}/bin/hadoop.sh"       start
+        "${FLINK_HOME}/bin/start-cluster.sh"
+        "${FLINK_HOME}/bin/historyserver.sh" start
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ********************** 测试 Standalone 集群 **********************    "
     "${HADOOP_HOME}/bin/hadoop" fs -rm -r  /flink/test/session-cep/  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
@@ -409,7 +418,7 @@ function flink_install()
                                   --class "run.CepTest" "${ROOT_DIR}/lib/flink-test-1.0.jar"  \
                                   "hdfs://${namenode_host_port}/flink/test/session-cep/"      \
                                   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    
+    sleep 15
     test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/session-cep/* | grep -ci "张三")
     if [[ "${test_result}" -gt 1 ]]; then
         echo "    ********************** Standalone 测试成功 ***********************    "
@@ -419,9 +428,11 @@ function flink_install()
     fi
     
     echo "    ************************* 测试 Yarn 集群 *************************    "
-    "${HADOOP_HOME}/bin/hadoop" fs -rm -r     /flink/test/yarn-cep/
-    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/test/yarn-cep/
-    "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-test-1.0.jar"  /flink/test/yarn-cep/
+    {
+        "${HADOOP_HOME}/bin/hadoop" fs -rm -r     /flink/test/yarn-cep/
+        "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p  /flink/test/yarn-cep/
+        "${HADOOP_HOME}/bin/hadoop" fs -put -f  "${ROOT_DIR}/lib/flink-test-1.0.jar"  /flink/test/yarn-cep/
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     "${FLINK_HOME}/bin/flink" run-application --target yarn-application                              \
                               --class "run.CepTest"                                                  \
@@ -432,7 +443,7 @@ function flink_install()
                               -Dyarn.application.name="FlinkCepTest"                                 \
                               -Dtaskmanager.numberOfTaskSlots=2                                      \
                               >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-                              
+    sleep 60                          
     test_result=$("${HADOOP_HOME}/bin/hadoop" fs -cat /flink/test/yarn-cep/data/* | grep -ci "张三")
     if [[ "${test_result}" -gt 1 ]]; then
         echo "    ************************* Yarn 测试成功 **************************    "
@@ -446,18 +457,19 @@ function flink_install()
 function zookeeper_install()
 {
     echo "    *********************** 开始安装 Zookeeper ***********************    "
-    local zookeeper_version host_list host id
+    local zookeeper_version host_list host id test_result
     
     ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装路径
     file_decompress "zookeeper.url" "${ZOOKEEPER_HOME}"                        # 解压 Zookeeper 安装包
     mkdir -p "${ZOOKEEPER_HOME}/data" "${ZOOKEEPER_HOME}/logs"                 # 创建必要的目录
     
-    echo "    ******************** 修改 zookeeper 配置文件 *********************    "
+    echo "    ******************** 修改 Zookeeper 配置文件 *********************    "
     cp -fpr "${ROOT_DIR}/script/apache/zookeeper.sh"         "${ZOOKEEPER_HOME}/bin"               # 复制启停脚本
     cp -fpr "${ROOT_DIR}/conf/zookeeper-zoo.cfg"             "${ZOOKEEPER_HOME}/conf/zoo.cfg"      # 复制配置文件
-    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"        "${ZOOKEEPER_HOME}/conf/zoo.cfg"      # 修改配置文件中的参数
     
-    host_list=$(get_param "zookeeper.hosts" | tr ',' ' ')
+    host_list=$(get_param "zookeeper.hosts" | tr ',' ' ')                      # 获取 Zookeeper 安装节点
+    sed -i "s|\${zookeeper_list}|${host_list}|g"       "${ZOOKEEPER_HOME}/bin/zookeeper.sh"
+    sed -i "s|\${ZOOKEEPER_HOME}|${ZOOKEEPER_HOME}|g"  "${ZOOKEEPER_HOME}/conf/zoo.cfg"
     
     # 添加 Zookeeper 服务器唯一标识
     id=1
@@ -469,19 +481,24 @@ function zookeeper_install()
     
     zookeeper_version=$(get_version "zookeeper.url")                           # 获取 zookeeper 的版本
     append_env "zookeeper.home" "${zookeeper_version}"                         # 添加环境变量
-    distribute_file "${ZOOKEEPER_HOME}"                                        # 分发到其它节点
+    distribute_file  "${host_list}" "${ZOOKEEPER_HOME}/"                       # 分发到其它节点
     
-    echo "    ******************** 修改 zookeeper 唯一标识 *********************    "
+    echo "    ******************** 修改 Zookeeper 唯一标识 *********************    "
     id=1
     for host in ${host_list}
     do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|${host}:2888:3888|0.0.0.0:2888:3888|g' '${ZOOKEEPER_HOME}/conf/zoo.cfg' "
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; echo '${id}' > ${ZOOKEEPER_HOME}/data/myid"
+        xssh "${host}" "sed -i 's|${host}:2888:3888|0.0.0.0:2888:3888|g' '${ZOOKEEPER_HOME}/conf/zoo.cfg'; echo '${id}' > ${ZOOKEEPER_HOME}/data/myid"
         id=$((id + 1))
     done
     
     echo "    ********************** 启动 zookeeper 集群 ***********************    "
-    "${ZOOKEEPER_HOME}/bin/zookeeper.sh" start
+    "${ZOOKEEPER_HOME}/bin/zookeeper.sh" start >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    test_result=$("${ZOOKEEPER_HOME}/bin/zookeeper.sh" status | grep -ci "正在运行")
+    if [ "${test_result}" -eq 1 ]; then
+        echo "    ********************* Zookeeper 集群安装成功 *********************    "
+    else
+        echo "    ********************* Zookeeper 集群安装失败 *********************    "
+    fi
 }
 
 
@@ -489,9 +506,11 @@ function zookeeper_install()
 function kafka_install()
 {
     echo "    ************************* 开始安装 Kafka *************************    "
-    local kafka_version host_list host id kafka_zookeeper_node bootstrap_servers
+    local kafka_version host_list host id kafka_zookeeper_node bootstrap_servers test_result
     
     KAFKA_HOME=$(get_param "kafka.home")                                       # 获取 Kafka 安装路径
+    host_list=$(get_param "kafka.hosts" | tr ',' ' ')                          # Kafka 安装节点
+    
     file_decompress "kafka.url" "${KAFKA_HOME}"                                # 解压 Kafka 安装包
     mkdir -p "${KAFKA_HOME}/data" "${KAFKA_HOME}/logs"                         # 创建必要的目录
     
@@ -512,21 +531,34 @@ function kafka_install()
     # 修改 Consumer 参数
     sed -i "s|bootstrap.servers=.*|bootstrap.servers=${bootstrap_servers}|g" "${KAFKA_HOME}/config/consumer.properties"
     
+    # 修改启停脚本
+    sed -i "s|\${kafka_list}|${host_list}|g" "${KAFKA_HOME}/bin/kafka.sh"
+    
     kafka_version=$(get_version "kafka.url")                                   # 获取 Kafka 的版本
-    append_env "kafka.home" "${kafka_version}"                                 # 添加环境变量
-    distribute_file "${KAFKA_HOME}"                                            # 分发到其它节点
+    append_env       "kafka.home"   "${kafka_version}"                         # 添加环境变量
+    distribute_file  "${host_list}" "${KAFKA_HOME}/"                           # 分发到其它节点
     
     echo "    ********************** 修改 Kafka 唯一标识 ***********************    "
-    host_list=$(get_param "kafka.hosts" | tr ',' ' ')
     id=1
     for host in ${host_list}
     do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; sed -i 's|\${id}|${id}|g' '${KAFKA_HOME}/config/server.properties'"
+        xssh "${host}" "sed -i 's|\${id}|${id}|g' '${KAFKA_HOME}/config/server.properties'"
         id=$((id + 1))
     done
     
     echo "    ************************ 启动 Kafka 集群 *************************    "
-    "${KAFKA_HOME}/bin/kafka.sh" start
+    ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装路径
+    {
+        "${ZOOKEEPER_HOME}/bin/zookeeper.sh" start
+        "${KAFKA_HOME}/bin/kafka.sh"         start
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    test_result=$("${KAFKA_HOME}/bin/kafka.sh" status | grep -ci "正在运行")
+    if [ "${test_result}" -eq 1 ]; then
+        echo "    *********************** Kafka 集群安装成功 ***********************    "
+    else
+        echo "    *********************** Kafka 集群安装失败 ***********************    "
+    fi
 }
 
 
@@ -534,9 +566,9 @@ function kafka_install()
 function hive_install()
 {
     echo "    ************************* 开始安装 Hive **************************    "
-    local spark_version hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port
+    local spark_version hive_version hive_src_url server2_host_port hive_password hive_user metastore_host_port host_list
     local namenode_host_port mysql_host mysql_port mysql_home mysql_user mysql_password root_password hive_mysql_host
-    local test_result server2_list meta_store_list
+    local test_result server2_list meta_store_list hive_mysql_database
     
     JAVA_HOME=$(get_param "java.home")                                         # 获取 java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
@@ -546,64 +578,78 @@ function hive_install()
     mkdir -p "${ROOT_DIR}/src"                                                 # 创建源码保存目录
     cd "${ROOT_DIR}/src" || exit                                               # 进入目录
     
-    # 将 Spark 源码克隆到本地
+    # 将 Hive 源码克隆到本地
     hive_src_url=$(get_param "hive.resource.url")                              # 获取 Hive 源码路径
-    if [ ! -e "${ROOT_DIR}/src/spark/.git" ]; then
+    if [ ! -d "${ROOT_DIR}/src/hive/.git" ]; then
         git clone "${hive_src_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 克隆代码到本地
     fi 
     
-    cd "${ROOT_DIR}/src/hive" || exit                                          # 进入 Hive 源码路径
-    spark_version=$(get_version "spark.nohadoop.url")                          # 获取 Spark 版本
-    
-    # 更新代码
     hive_version=$(get_version "hive.url")                                     # 获取 Hive 版本号
-    { 
-        git fetch --all                                                        # 重置所有本地更改 
-        git reset --hard                                                       # 强制重置所有本地提交 
-        git pull                                                               # 将代码与远端保持一致
-        sleep 3                                                                
-        git checkout "rel/release-${hive_version}"                             # 检出 特定版本的 Hive 分支
-        git fetch --all                                                        # 重置所有本地更改
-        git reset --hard                                                       # 强制重置所有本地提交 
-    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    if [ ! -f "${ROOT_DIR}/package/apache-hive-${hive_version}-bin.tar.gz" ]; then
+        cd "${ROOT_DIR}/src/hive" || exit                                      # 进入 Hive 源码路径
+        spark_version=$(get_version "spark.nohadoop.url")                      # 获取 Spark 版本
+        
+        # 更新代码
+        { 
+            git fetch --all                                                    # 重置所有本地更改 
+            git reset --hard                                                   # 强制重置所有本地提交 
+            git pull                                                           # 将代码与远端保持一致
+            sleep 3                                                                
+            git checkout "rel/release-${hive_version}"                         # 检出 特定版本的 Hive 分支
+            git fetch --all                                                    # 重置所有本地更改
+            git reset --hard                                                   # 强制重置所有本地提交 
+        }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        
+        # 复制缺失的代码，应用 git 补丁
+        cp -fpr   "${ROOT_DIR}/patch/ColumnsStatsUtils.java" "${ROOT_DIR}/src/hive/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/"
+        git apply --ignore-space-change --ignore-whitespace  "${ROOT_DIR}/patch/hive-${hive_version}-spark-${spark_version}.patch" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
+        
+        echo "    ************************** 离线安装依赖 **************************    "
+        source /etc/profile                                                    # 生效当前环境变量
+        maven_jar_install "pentaho-aggdesigner--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar"           "org.pentaho" "pentaho-aggdesigner"           "5.1.5-jhyde"
+        maven_jar_install "pentaho-aggdesigner-algorithm--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar" "org.pentaho" "pentaho-aggdesigner-algorithm" "5.1.5-jhyde"
+        
+        echo "    *************************** 编译 Hive ****************************    "
+        mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 编译 Hive
+        
+        # 复制 Hive 安装包
+        cp -fpr "${ROOT_DIR}/src/hive/packaging/target/apache-hive-${hive_version}-bin.tar.gz"  "${ROOT_DIR}/package/"        
+    fi
     
-    # 复制缺失的代码，应用 git 补丁
-    cp -fpr   "${ROOT_DIR}/patch/ColumnsStatsUtils.java" "${ROOT_DIR}/src/hive/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/columnstats/"
-    git apply --ignore-space-change --ignore-whitespace  "${ROOT_DIR}/patch/hive-${hive_version}-spark-${spark_version}.patch" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   
-    
-    echo "    ************************** 离线安装依赖 **************************    "
-    source /etc/profile                                                        # 生效当前环境变量
-    maven_jar_install "pentaho-aggdesigner--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar"           "org.pentaho" "pentaho-aggdesigner"           "5.1.5-jhyde"
-    maven_jar_install "pentaho-aggdesigner-algorithm--pentaho-aggdesigner-algorithm-5.1.5-jhyde.jar" "org.pentaho" "pentaho-aggdesigner-algorithm" "5.1.5-jhyde"
-    
-    echo "    *************************** 编译 Hive ****************************    "
-    mvn clean -DskipTests package -Pdist >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1          # 编译 Hive
-    
-    # 复制 Hive 安装包
-    cp -fpr "${ROOT_DIR}/src/hive/packaging/target/apache-hive-${hive_version}-bin.tar.gz"  "${ROOT_DIR}/package/"        
     file_decompress "hive.url"  "${HIVE_HOME}"                                 # 解压 Hive 并安装
     
     echo "    *********************** 修改 Hive 配置文件 ***********************    "
+    mkdir -p "${HIVE_HOME}/logs"                                               # 创建必要的目录
+    
     # 复制配置文件和启停脚本
     cp -fpr "${ROOT_DIR}/script/apache/hive.sh"       "${HIVE_HOME}/bin/"      # 用于 Hive 的启停
     cp -fpr "${ROOT_DIR}/conf/hive-beeline-site.xml"  "${HIVE_HOME}/conf/beeline-site.xml"
+    cp -fpr "${ROOT_DIR}/conf/hive-character.sql"     "${HIVE_HOME}/logs/"     # 用于 Hive 元数据支持中文
     cp -fpr "${ROOT_DIR}/conf/hive-site.xml"          "${HIVE_HOME}/conf/"     # Hive 主要配置文件
     cp -fpr "${SPARK_HOME}/conf/spark-defaults.conf"  "${HIVE_HOME}/conf/"     # 用于 Hive on Spark
     
-    # 修改 beeline-site.xml 配置
+    # 修改 hive-site.xml 配置
+    namenode_host_port=$(get_param "namenode.host.port")                       # NameNode  主机和端口
+    host_list=$(get_param "hive.hosts" | tr ',' ' ')                           # Hive 安装节点
+    
     server2_host_port=$(get_param "hive.server2.host.port")                    # Hive server2 的节点和端口
+    metastore_host_port=$(get_param "hive.metastore.host.port")                # MetaStore 主机和端口
     hive_user=$(get_param "hive.user")                                         # Hive 使用的用户名
     hive_password=$(get_param "hive.password")                                 # Hive 使用用户名的密码
+    hive_mysql_host=$(get_param "hive.mysql.host.port")                        # Hive 使用的 Mysql 主机名和端口号
+    mysql_user=$(get_param "mysql.user.name")                                  # Hive 使用的 Mysql 用户名
+    mysql_password=$(get_param "mysql.root.password")                          # Hive 使用的 Mysql 用户密码
+    hive_mysql_database=$(get_param "hive.mysql.database")                     # Hive 元数据库
+        
+    server2_list=$(echo "${server2_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g')      # Server2   节点
+    meta_store_list=$(echo "${metastore_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g') # MetaStore 节点
+        
+    # 修改 beeline-site.xml 配置
     sed -i "s|\${server2_host_port}|${server2_host_port}|g" "${HIVE_HOME}/conf/beeline-site.xml"
     sed -i "s|\${hive_user}|${hive_user}|g"                 "${HIVE_HOME}/conf/beeline-site.xml"
     sed -i "s|\${hive_password}|${hive_password}|g"         "${HIVE_HOME}/conf/beeline-site.xml"
     
     # 修改 hive-site.xml 配置
-    hive_mysql_host=$(get_param "hive.mysql.host.port")                        # Hive 使用的 Mysql 主机名和端口号
-    mysql_user=$(get_param "mysql.user.name")                                  # Hive 使用的 Mysql 用户名
-    mysql_password=$(get_param "mysql.root.password")                          # Hive 使用的 Mysql 用户密码
-    metastore_host_port=$(get_param "hive.metastore.host.port")                # MetaStore 主机和端口
-    namenode_host_port=$(get_param "namenode.host.port")                       # NameNode  主机和端口
     sed -i "s|\${hive_mysql_host}|${hive_mysql_host}|g"         "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_user}|${mysql_user}|g"                   "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${mysql_password}|${mysql_password}|g"           "${HIVE_HOME}/conf/hive-site.xml"
@@ -611,7 +657,9 @@ function hive_install()
     sed -i "s|\${hive_user}|${hive_user}|g"                     "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${hive_password}|${hive_password}|g"             "${HIVE_HOME}/conf/hive-site.xml"
     sed -i "s|\${namenode_host_port}|${namenode_host_port}|g"   "${HIVE_HOME}/conf/hive-site.xml"
+    sed -i "s|\${hive_mysql_database}|${hive_mysql_database}|g" "${HIVE_HOME}/conf/hive-site.xml"
     
+    # 配置 Hive on Spark
     cp -fpr "${SPARK_HOME}/conf/spark-defaults.conf"  "${HIVE_HOME}/conf/"     # 用于 Hive on Spark
     cp -fpr "${HIVE_HOME}/conf/hive-site.xml"         "${SPARK_HOME}/conf/"    # 用于 Hive on Spark
     cp -fpr "${ROOT_DIR}/script/apache/hive.sh"       "${HIVE_HOME}/bin/"      # 用于 Hive 的启停
@@ -624,19 +672,20 @@ function hive_install()
     append_param "HIVE_AUX_JARS_PATH=${HIVE_HOME}/lib" "${HIVE_HOME}/conf/hive-env.sh"
     
     # 修改 hive.sh 
-    server2_list=$(echo "${server2_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g')      # server2   节点
-    meta_store_list=$(echo "${metastore_host_port}" | tr ',' ' ' | sed 's|[^a-z A-Z]||g') # MetaStore 节点
+    sed -i "s|\${server2_list}|${server2_list}|g"        "${HIVE_HOME}/bin/hive.sh"
+    sed -i "s|\${meta_store_list}|${meta_store_list}|g"  "${HIVE_HOME}/bin/hive.sh"  
     
-    sed -i "s|\${server2_list}|${server2_list}|g"        "${HIVE_HOME}/conf/hive-site.xml"
-    sed -i "s|\${meta_store_list}|${meta_store_list}|g"  "${HIVE_HOME}/conf/hive-site.xml"
+    # 修改 hive-character.sql
+    sed -i "s|\${hive_database}|${hive_mysql_database}|g"  "${HIVE_HOME}/logs/hive-character.sql" 
     
-    # 创建必要的目录
-    mkdir -p "${HIVE_HOME}/logs/"                                              # 创建日志存储目录
-    "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /hive/data /hive/tmp /hive/logs   # 在 hdfs 上创建必要的目录 
-    "${HADOOP_HOME}/bin/hadoop" fs -chmod -R 777 /hive/                        # 授权目录
+    {
+        "${HADOOP_HOME}/bin/hadoop" fs -rm -r    /hive/                            # 删除 hdfs 上可能存在目录 
+        "${HADOOP_HOME}/bin/hadoop" fs -mkdir -p /hive/data /hive/tmp /hive/logs   # 在 hdfs 上创建必要的目录 
+        "${HADOOP_HOME}/bin/hadoop" fs -chmod -R 777 /hive/                        # 授权目录        
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     
     append_env "hive.home" "${hive_version}"                                   # 添加环境变量
-    distribute_file "${HIVE_HOME}/"                                            # 分发目录
+    distribute_file "${host_list}" "${HIVE_HOME}/"                             # 分发目录
     
     echo "    ************************** 初始化 Hive ***************************    "
     cp -fpr "${ROOT_DIR}/lib/mysql-connector-java-8.0.32.jar"  "${HIVE_HOME}/lib"
@@ -645,22 +694,31 @@ function hive_install()
     root_password=$(get_param "mysql.root.password")                           # 获取 Mysql root 账户密码
     
     # 启动 Mysql 并创建必要的数据库
-    mysql_host=$(echo "${hive_mysql_host}" | awk -F ':' "{print $1}")
-    mysql_port=$(echo "${hive_mysql_host}" | awk -F ':' "{print $2}")
-    "${mysql_home}/support-files/mysql.server" start  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-    "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user=root --password="${root_password}" \
-                              --execute="create database if not exists hive; grant all privileges on hive.* to '${mysql_user}'@'%'; flush privileges;"
+    mysql_host=$(echo "${hive_mysql_host}" | awk -F ':' '{print $1}')
+    mysql_port=$(echo "${hive_mysql_host}" | awk -F ':' '{print $2}')
+    sed -i "s|\${hive_mysql_database}|${hive_mysql_database}|g" "${HIVE_HOME}/conf/hive-site.xml"
     
-    # 初始化元数据
-    "${HIVE_HOME}/bin/schematool" -dbType mysql -initSchema -verbose >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
+    {
+        "${mysql_home}/support-files/mysql.server" start                       # 启动 Mysql
+        "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user=root --password="${root_password}" \
+                                  --execute="drop database if exists ${hive_mysql_database}; create database if not exists ${hive_mysql_database}; grant all privileges on ${hive_mysql_database}.* to '${mysql_user}'@'%'; flush privileges; "
+        
+        "${HIVE_HOME}/bin/schematool" -dbType mysql -initSchema -verbose       # 初始化元数据
+        echo "==========================================> "
+        "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user="${mysql_user}" --password="${mysql_password}" --database="${hive_mysql_database}" \
+                                  < "${HIVE_HOME}/logs/hive-character.sql"     # 修改字段注释字符集
+        echo "==========================================> "
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    # 修改字段注释字符集
-    "${mysql_home}/bin/mysql" --host="${mysql_host}" --port="${mysql_port}" --user="${mysql_user}" --password="${mysql_password}" \
-                              < "${ROOT_DIR}/conf/hive-character.sql"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    echo "    *************************** 启动 Hive ****************************    "
+    SPARK_HOME=$(get_param "spark.home")                                       # 获取 Spark  安装目录
+    {
+        "${HADOOP_HOME}/bin/hadoop.sh" start                                   # 启动 Hadoop
+        "${SPARK_HOME}/bin/spark.sh"   start                                   # 启动 Spark
+        "${HIVE_HOME}/bin/hive.sh"     start                                   # 启动 Hive
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
     
     echo "    *************************** 测试 Hive ****************************    "
-    "${HIVE_HOME}/bin/hive.sh" start                                           # 启动 Hive
-    
     # 打印测试 sql
     {    
         echo "create database if not exists test;                                   -- 创建 test 数据库"
@@ -677,25 +735,24 @@ function hive_install()
         echo "    remark varchar(1024) comment '备注' "
         echo ") comment '学生测试表'; "
         echo ""
-        echo "set mapreduce.map.java.opts='-Xmx4096m';                              -- 设置 map 堆内存"
-        echo "set mapreduce.reduce.java.opts='-Xms4096m';                           -- 设置 reduce 堆内存"
+        echo "set mapreduce.map.java.opts='-Xmx512m';                              -- 设置 map 堆内存"
+        echo "set mapreduce.reduce.java.opts='-Xms512m';                           -- 设置 reduce 堆内存"
         echo ""
         echo "set hive.execution.engine=mr;                                         -- 设置 MR 引擎"
         echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (1, '张三', 33, 1, 172.1, 48.9, 'zhangsan@qq.com', '学生');"
         echo ""
         echo "set hive.execution.engine=spark;                                      -- 设置 Spark 引擎"
-        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (2, '李四', 23, 0, 165.1, 53.9, 'lisi@qq.com', '学生');"
+        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (2, '李四', 23, 0, 165.1, 53.9, 'lisi@qq.com',   '学生');"
+        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (3, '王五', 28, 1, 168.3, 52.7, 'wangwu@qq.com', '教师');"
         echo ""
-        echo "insert into test.test (id, name, age, gender, hight, wight, email, remark) values (3, '王五', 28, 1, 168.3, 52.7, 'wangwu@qq.com', '学生');"
-        echo ""
-        echo "explain formatted select * from student;                              -- 测试执行计划"
+        echo "explain formatted select * from test.test;                              -- 测试执行计划"
         echo ""
         echo "select * from test.test limit 10;"
     }  > "${HIVE_HOME}/logs/test.sql"
     
     "${HIVE_HOME}/bin/hive" -f "${HIVE_HOME}/logs/test.sql" >> "${HIVE_HOME}/logs/test.log" 2>&1 
     
-    test_result=$(grep -nic "王五" "${HIVE_HOME}/logs/test.log")
+    test_result=$(grep -vi "insert" "${HIVE_HOME}/logs/test.log" | grep -ci "王五")
     if [[ ${test_result} -eq 1 ]]; then
         echo "    **************************** 测试成功 ****************************    "
     else    
@@ -708,7 +765,7 @@ function hive_install()
 function hbase_install()
 {
     echo "    ************************* 开始安装 HBase *************************    "
-    local namenode_host_port zookeeper_hosts hbase_version region_list region backup_list backup fail_count
+    local namenode_host_port zookeeper_hosts hbase_version host_list region_list region backup_list backup test_result
     
     HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
     file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
@@ -745,12 +802,12 @@ function hbase_install()
     done    
     
     # 修改修改 HMaster Backup 节点配置
-    cat /dev/null > "${HBASE_HOME}/conf/backup-masters"
-    if [ -z "${backup_list}" ]; then
+    if [ -n "${backup_list}" ]; then
+        cat /dev/null > "${HBASE_HOME}/conf/backup-masters"
         for backup in $(echo "${backup_list}" | tr ',' ' ')
         do
             append_param "${backup}"  "${HBASE_HOME}/conf/backup-masters"
-        done    
+        done 
     fi
     
     echo "    *********************** 解决与 Hadoop 依赖 ***********************    "
@@ -759,13 +816,25 @@ function hbase_install()
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml"                   "${HBASE_HOME}/conf/"     # 获取 NameNode 配置
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"                   "${HBASE_HOME}/conf/"     # 获取 HDFS     配置
     
+    host_list=$(get_param "hbase.hosts" | tr ',' ' ')                          # 获取 HBase 安装节点
     hbase_version=$(get_version "hbase.url")                                   # 获取 HBase 的版本
-    append_env "hbase.home" "${hbase_version}"                                 # 添加环境变量
-    distribute_file "${HBASE_HOME}"                                            # 分发到其它节点
+    append_env      "hbase.home"   "${hbase_version}"                          # 添加环境变量
+    distribute_file "${host_list}" "${HBASE_HOME}/"                            # 分发到其它节点
     
     echo "    **************************** 启动集群 ****************************    "
-    "${HBASE_HOME}/bin/start-hbase.sh" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 启动集群的 HMaster 和所有的 HRegionServer
-    "${HBASE_HOME}/bin/hbase.sh" status                                        # 查看集群信息
+    {
+        "${HADOOP_HOME}/bin/hadoop.sh"       start                             # 启动 Hadoop    集群
+        "${ZOOKEEPER_HOME}/bin/zookeeper.sh" start                             # 启动 Zookeeper 集群
+        "${HBASE_HOME}/bin/start-hbase.sh"                                     # 启动集群的 HMaster 和所有的 HRegionServer  
+        # "${HADOOP_HOME}/bin/hadoop"          fs -rm -r  /hbase/                # 删除 hdfs 上可能存在目录
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    sleep 30
+    
+    test_result=$("${HBASE_HOME}/bin/hbase.sh" status | grep -ci "正在运行")   # 查看集群信息
+    if [ "${test_result}" -ne 1 ]; then
+        echo "    ************************* HBase 启动失败 *************************    "
+        return 1
+    fi
     
     echo "    **************************** 测试集群 ****************************    "    
     { 
@@ -789,8 +858,8 @@ function hbase_install()
     
     "${HBASE_HOME}/bin/hbase" shell "${HBASE_HOME}/data/test.txt" > "${HBASE_HOME}/logs/test.log" 2>&1
     
-    fail_count=$(grep -nic "ERROR:" "${PHOENIX_HOME}/logs/test.log")
-    if [[ "${fail_count}" -eq 0 ]]; then
+    test_result=$(grep -ni "error:" "${HBASE_HOME}/logs/test.log" | grep -vinc "already exists")
+    if [[ "${test_result}" -eq 0 ]]; then
         echo "    *************************** 测试成功 *****************************    "
     else
         echo "    *************************** 测试失败 *****************************    "
@@ -802,7 +871,7 @@ function hbase_install()
 function phoenix_install()
 {
     echo "    ************************ 开始安装 Phoenix ************************    "
-    local hbase_version phoenix_version zookeeper_hosts sql_count success_count fail_count
+    local hbase_version host_list hbase_list phoenix_version zookeeper_hosts sql_count success_count fail_count
     
     PHOENIX_HOME=$(get_param "phoenix.home")                                   # 获取 Phoenix 安装路径
     file_decompress "phoenix.url" "${PHOENIX_HOME}"                            # 解压 Phoenix 安装包
@@ -812,16 +881,26 @@ function phoenix_install()
     hbase_version=$(get_version "hbase.url")                                   # 获取 HBase   的版本
     phoenix_version=$(get_version "phoenix.url")                               # 获取 Phoenix 的版本
     
+    hbase_list=$(get_param "hbase.hosts" | tr ',' ' ')                         # 获取 HBase 安装节点
+    sed -i "s|<\!-- phoenix||g"   "${HBASE_HOME}/conf/hbase-site.xml"          # 添加二级索引
+    sed -i "s|phoenix -->||g"     "${HBASE_HOME}/conf/hbase-site.xml"          # 添加二级索引
+    
     cp -fpr  "${HBASE_HOME}/conf/hbase-site.xml"       "${PHOENIX_HOME}/bin/"  # 复制 HBase 配置文件到 Phoenix 
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/core-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 core 配置文件到 Phoenix 
     cp -fpr  "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml" "${PHOENIX_HOME}/bin/"  # 复制 Hadoop 的 hdfs 配置文件到 Phoenix    
-    
     cp -fpr  "${PHOENIX_HOME}"/phoenix-server-hbase-*-"${phoenix_version}".jar "${HBASE_HOME}/lib/"          # 复制 驱动
-    mkdir -p "${PHOENIX_HOME}/logs"
+    
+    # 分发到其它节点
+    {
+        xync  "${hbase_list}"  "${HBASE_HOME}/conf/hbase-site.xml"              
+        xync  "${hbase_list}"  "${HBASE_HOME}/lib/"                   
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    mkdir -p "${PHOENIX_HOME}/logs"                                            # 创建必要的目录
             
     echo "    *********************** 分发 Phoenix 目录 ************************    "        
-    append_env "phoenix.home" "${phoenix_version}"                                 # 添加环境变量
-    distribute_file "${PHOENIX_HOME}"                                            # 分发到其它节点
+    host_list=$(get_param "hbase.hosts" | tr ',' ' ')                          # 获取 Phoenix 安装节点
+    append_env      "phoenix.home" "${phoenix_version}"                        # 添加环境变量
+    distribute_file "${host_list}" "${PHOENIX_HOME}/"                          # 分发到其它节点
     
     echo "    ************************* 测试 Phoenix  **************************    "    
     { 
@@ -839,8 +918,18 @@ function phoenix_install()
         echo "!exit"
     } > "${PHOENIX_HOME}/logs/test.sql" 
     
-    zookeeper_hosts=$(get_param "zookeeper.hosts" | sed -e 's|$|:2181|g' )
-    "${PHOENIX_HOME}/bin/sqlline.py"  "${zookeeper_hosts}" "${PHOENIX_HOME}/logs/test.sql" > "${PHOENIX_HOME}/logs/test.log" 2>&1
+    ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装目录    
+    zookeeper_hosts=$(get_param "zookeeper.hosts" | sed -e 's|$|:2181|g')      # 获取 Zookeeper 安装节点
+    {
+        "${HADOOP_HOME}/bin/hadoop.sh"        start                            # 启动 Hadoop 集群  
+        "${ZOOKEEPER_HOME}/bin/zookeeper.sh"  start                            # 启动 Zookeeper 集群  
+        # "${HBASE_HOME}/bin/hbase.sh"          restart                          # 重启 HBase 集群  
+        "${HBASE_HOME}/bin/stop-hbase.sh"  
+        "${HBASE_HOME}/bin/start-hbase.sh"  
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+     # 启动 Phoenix 测试 sql 
+    "${PHOENIX_HOME}/bin/sqlline.py"  "${zookeeper_hosts}" "${PHOENIX_HOME}/logs/test.sql"  > "${PHOENIX_HOME}/logs/test.log" 2>&1  
     
     sql_count=$(wc -l "${PHOENIX_HOME}/logs/test.sql" | awk '{print $1}')
     success_count=$(grep -nic "${sql_count}/${sql_count}" "${PHOENIX_HOME}/logs/test.log")
@@ -857,14 +946,15 @@ function phoenix_install()
 function flume_install()
 {
     echo "    ************************* 开始安装 Flume *************************    "
-    local flume_version number count
+    local host_list flume_version number test_result
     
+    HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
     FLUME_HOME=$(get_param "flume.home")                                       # 获取 Flume 安装路径
     file_decompress "flume.url" "${FLUME_HOME}"                                # 解压 Flume 安装包
     mkdir -p "${FLUME_HOME}/logs"                                              # 创建必要的目录
     
     echo "    ********************** 修改 Flume 配置文件 ***********************    "
-    cp -fpr "${ROOT_DIR}/conf/flume-file-console.properties"  "${FLUME_HOME}/conf/"
+    cp -fpr "${ROOT_DIR}/conf/flume-file-console.properties"  "${FLUME_HOME}/conf/file-console.properties"
     sed -i "s|\${FLUME_HOME}|${FLUME_HOME}|g"                 "${FLUME_HOME}/conf/file-console.properties"
     
     touch "${FLUME_HOME}/conf/flume-env.sh"
@@ -880,31 +970,30 @@ function flume_install()
     cp -fpr "${HADOOP_HOME}/etc/hadoop/core-site.xml"      "${FLUME_HOME}/conf/"
     cp -fpr "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"      "${FLUME_HOME}/conf/"
     
-    flume_version=$(get_version "flume.url")                                   # 获取 Kafka 的版本
-    append_env "flume.home" "${flume_version}"                                 # 添加环境变量
-    distribute_file "${FLUME_HOME}"                                            # 分发到其它节点
+    host_list=$(get_param "flume.hosts" | tr ',' ' ')                          # 获取 Flume 安装节点
+    flume_version=$(get_version "flume.url")                                   # 获取 Flume 的版本
+    append_env      "flume.home"    "${flume_version}"                         # 添加环境变量
+    distribute_file "${host_list}"  "${FLUME_HOME}/"                           # 分发到其它节点
     
     echo "    *************************** 测试 Flume ***************************    "
     touch "${FLUME_HOME}/logs/file-console.log"
     nohup "${FLUME_HOME}/bin/flume-ng" agent -c conf                                         \
                                              -f "${FLUME_HOME}/conf/file-console.properties" \
                                              -n a1 -Dflume.root.logger=INFO,console          \
-                                             > /dev/null 2>&1 &
+                                             > "${FLUME_HOME}/logs/test.log" 2>&1 &
     number=10
-    while [[ "${number}" -gt 0 ]] 
+    while [ "${number}" -gt 0 ] 
     do
         echo "Test whether the software is working"  >> "${FLUME_HOME}/logs/file-console.log"
         number=$((number - 1))
     done
     
-    sleep 1
+    sleep 10
     ps -aux | grep -i "${USER}" | grep -i "${FLUME_HOME}/conf/file-console.properties" | grep -viE "grep|$0" | awk '{print $2}'  | xargs kill
-    sleep 1
+    test_result=$(grep -cin "Test whether the" "${FLUME_HOME}/logs/test.log")
     
-    count=$(grep -cin "Test whether the software is working" "${FLUME_HOME}/logs/file-console.log")
-    
-    if [[ ${count} -eq 10 ]]; then
-        echo "    ************************* Flume 测试完成 *************************    "
+    if [[ ${test_result} -eq 10 ]]; then
+        echo "    ************************* Flume 测试成功 *************************    "
     else
         echo "    ************************* Flume 测试失败 *************************    "
     fi

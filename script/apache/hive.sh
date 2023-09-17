@@ -52,7 +52,7 @@ function service_status()
     for host_name in "${SERVER_2_LIST[@]}"
     do
         # 3.1 程序 HiveServer2 的 pid
-        server_2_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE '$0|grep' | grep -i '${HIVE_SERVER_2}'")
+        server_2_pid=$(ssh "${USER}@${host_name}" "source ~/.bashrc; source /etc/profile; ps -aux | grep -i '${USER}' | grep -viE '$0|grep' | grep -ci '${HIVE_SERVER_2}'")
         
         # 3.2 判断进程是否存在
         if [ "${server_2_pid}" -ne 1 ]; then
