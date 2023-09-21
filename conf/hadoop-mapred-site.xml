@@ -140,4 +140,19 @@
         <name>mapreduce.jobhistory.webapp.address</name>
         <value>0.0.0.0:19888</value>
     </property>
+    <!-- 限制 MapReduce 使用内存 -->
+    <!-- 
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>256</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>256</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.resource.mb</name>
+        <value>256</value>
+    </property>
+    -->
 </configuration>
