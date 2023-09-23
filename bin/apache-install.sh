@@ -1004,12 +1004,12 @@ function flume_install()
 function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
-    local doris_version priority_networks fe_list be_list host broker_list observer_list broker_list
+    local doris_version priority_networks host_list fe_list be_list host broker_list observer_list broker_list
     local leader_host doris_set_sql fe_count be_count broker_count
     local MYSQL_HOME doris_user doris_password doris_database_list db doris_root_password test_result
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
-    file_decompress "doris.url" "${DORIS_HOME}"                                # 解压 Doris 安装包
+    file_decompress "doris.url" "${DORIS_HOME}/"                               # 解压 Doris 安装包
     
     # 移动目录到指定路径
     mv "${DORIS_HOME}/extensions/apache_hdfs_broker"  "${DORIS_HOME}/broker"
@@ -1026,9 +1026,11 @@ function doris_install()
     cp -fpr "${ROOT_DIR}/script/apache/doris.sh" "${DORIS_HOME}/"              # 集群启停脚本
     
     priority_networks=$(get_param "server.gateway" | awk -F '.' '{print $1,$2}' | tr ' ' '.' | sed -e 's|$|\.0\.0/16|g')
+    host_list=$(get_param "doris.hosts" | tr ',' ' ')                          # 获取 Doris 安装节点
     fe_list=$(get_param "doris.fe.hosts" | tr ',' ' ')                         # 获取 FE 集群节点
     be_list=$(get_param "doris.be.hosts" | tr ',' ' ')                         # 获取 BE 集群节点
     broker_list=$(get_param "doris.broker.hosts" | tr ',' ' ')                 # 获取 Broker 集群节点
+    observer_list=$(get_param "doris.observer.hosts" | tr ',' ' ')             # 获取 Observer 集群节点
     sed -i "s|\${fe_list}|${fe_list}|g"                      "${DORIS_HOME}/doris.sh"
     sed -i "s|\${be_list}|${be_list}|g"                      "${DORIS_HOME}/doris.sh"
     sed -i "s|\${broker_list}|${broker_list}|g"              "${DORIS_HOME}/doris.sh"
@@ -1038,27 +1040,13 @@ function doris_install()
     sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/be/conf/be.conf"
     
     doris_version=$(get_version "doris.url")                                   # 获取 Doris 的版本
-    append_env "doris.home" "${doris_version}"                                 # 添加环境变量
-    distribute_file "${DORIS_HOME}"                                            # 分发到其它节点
+    append_env      "doris.home" "${doris_version}"                            # 添加环境变量
+    distribute_file "${host_list}" "${DORIS_HOME}"                             # 分发到其它节点
     
     echo "    **************************** 启动节点 ****************************    "
-    # 启动 FE 集群
-    for host in ${fe_list}
-    do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/fe/bin/start_fe.sh --daemon"
-    done
-    
-    # 启动 BE 集群
-    for host in ${be_list}
-    do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/be/bin/start_be.sh --daemon"
-    done
-    
-    # 启动 broker 集群
-    for host in ${broker_list}
-    do
-        ssh "${USER}@${host}" "source ~/.bashrc; source /etc/profile; ${DORIS_HOME}/broker/bin/start_broker.sh --daemon"
-    done
+    xcall "${fe_list}"     "${DORIS_HOME}/fe/bin/start_fe.sh --daemon"         # 启动 FE 集群
+    xcall "${be_list}"     "${DORIS_HOME}/be/bin/start_be.sh --daemon"         # 启动 BE 集群
+    xcall "${broker_list}" "${DORIS_HOME}/broker/bin/start_broker.sh --daemon" # 启动 Broker 集群
     sleep 60                                                                   # 暂停 2 min 确保所有节点启动正常
     
     echo "    **************************** 构建集群 ****************************    "
@@ -1070,59 +1058,54 @@ function doris_install()
     for host in ${fe_list}
     do
         if [[ ${host} != "${leader_host}" ]]; then
-            "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
-                --execute="alter system add follower '${host}:9010';" \
-                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+            "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root        \
+                                      --execute="alter system add follower '${host}:9010';"  \
+                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         fi 
     done
     
     # 添加 observer     
-    observer_list=$(get_param "doris.observer.hosts" | tr ',' ' ')
     for host in ${observer_list}
     do
-        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
-            --execute="alter system add observer '${host}:9010';" \
-            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root       \
+                                  --execute="alter system add observer '${host}:9010';" \
+                                  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done
     
     # 添加 be 
     for host in ${be_list}
     do
-        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
-            --execute="alter system add backend '${host}:9050';" \
-            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root      \
+                                  --execute="alter system add backend '${host}:9050';" \
+                                  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done
     
     # 添加 broker
     for host in ${broker_list}
     do
-        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root \
-            --execute="alter system add broker broker_name '${host}:8000';" \
-            >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root                 \
+                                  --execute="alter system add broker broker_name '${host}:8000';" \
+                                  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     done
     
     echo "    ************************** 查看集群状态 **************************    "
     # 查看 FE 状态
     fe_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/frontends';" | wc -l)
-    if [[ ${fe_count} -gt ${#fe_list[@]} ]]; then
-        echo "    FE 集群构建成功 ...... "
-    else
+    if [[ ${fe_count} -le ${#fe_list[@]} ]]; then
         echo "    FE 集群构建失败 ...... "
+        return 1
     fi
     
     # 查看 BE 状态
     be_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/backends';" | wc -l)
-    if [[ ${be_count} -gt ${#be_list[@]} ]]; then
-        echo "    BE 集群构建成功 ...... "
-    else
+    if [[ ${be_count} -le ${#be_list[@]} ]]; then
         echo "    FE 集群构建失败 ...... "
+        return 1
     fi
     
     # 查看 Broker 状态
     broker_count=$("${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --execute="show PROC '/brokers';" | wc -l)
-    if [[ ${broker_count} -gt ${#broker_list[@]} ]]; then
-        echo "    Broker 集群构建成功 ...... "
-    else
+    if [[ ${broker_count} -le ${#broker_list[@]} ]]; then
         echo "    FE 集群构建失败 ...... "
         return 1
     fi
@@ -1187,65 +1170,69 @@ function doris_install()
 
 
 printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+
+# 2. 刷新变量
 if [ "$#" -gt 0 ]; then
     export JAVA_HOME SCALA_HOME MAVEN_HOME
     export HADOOP_HOME SPARK_HOME FLINK_HOME ZOOKEEPER_HOME KAFKA_HOME HIVE_HOME HBASE_HOME PHOENIX_HOME FLUME_HOME DORIS_HOME
     flush_env                                                                    # 刷新环境变量   
 fi
 
-# 匹配输入参数
+# 3. 匹配输入参数
 case "$1" in
-    # 1. 安装 hadoop 
+    # 3.1 安装 hadoop 
     hadoop | -h)
         hadoop_install
     ;;
     
-    # 2. 安装 spark
+    # 3.2 安装 spark
     spark | -s)
         spark_install
     ;;
     
-    # 3. 安装 flink 
+    # 3.3 安装 flink 
     flink | -f)
         flink_install
     ;;
     
-    # 4. 安装 maven
+    # 3.4 安装 maven
     zookeeper | -z)
         zookeeper_install
     ;;
     
-    # 5. 安装 kafka
+    # 3.5 安装 kafka
     kafka | -k)
         kafka_install
     ;;
     
-    # 6. 安装 hive
+    # 3.6 安装 hive
     hive | -i)
         hive_install
     ;;
     
-    # 7. 安装 doris
+    # 3.7 安装 doris
     doris | -d)
         doris_install
     ;;
     
-    # 8. 安装 hbase
+    # 3.8 安装 hbase
     hbase | -b)
         hbase_install
     ;;
     
-    # 9. 安装 phoenix
+    # 3.9 安装 phoenix
     phoenix | -p)
         phoenix_install
     ;;
     
-    # 10. 安装 flume
+    # 3.10 安装 flume
     flume | -l)
         flume_install
     ;;
     
-    # 11. 安装必要的软件包
+    # 3.11 安装必要的软件包
     all | -a)
         hadoop_install
         spark_install
@@ -1259,7 +1246,7 @@ case "$1" in
         flume_install
     ;;
     
-    # 10. 其它情况
+    # 3.12 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
@@ -1279,5 +1266,12 @@ case "$1" in
         echo "        +----------+-------------------------+ "
     ;;
 esac
+
+# 4. 获取脚本执行结束时间，并计算脚本执行时间
+end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+if [ "$#" -ge 1 ]; then
+    echo "    脚本（$(basename "$0")）执行共消耗：$(( end - start ))s ...... "
+fi
+
 printf "================================================================================\n\n"
 exit 0
