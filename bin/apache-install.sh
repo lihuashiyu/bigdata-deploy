@@ -1065,7 +1065,7 @@ function doris_install()
         if [[ ${host} != "${leader_host}" ]]; then
             "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root        \
                                       --execute="alter system add follower '${host}:9010';"  \
-                                      
+                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
         fi 
     done
     
