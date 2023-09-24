@@ -2,7 +2,7 @@
 # shellcheck disable=SC2029
 
 # ==================================================================================================
-#    FileName      ：  gnu.sh
+#    FileName      ：  common.sh
 #    CreateTime    ：  2023-07-29 21:34
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com

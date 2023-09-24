@@ -304,7 +304,7 @@ case "$1" in
         install_rpm
     ;;
     
-    # 3.9 安装必要的软件包
+    # 3.9 初始化所有配置
     all | -a)
         network_init
         host_init

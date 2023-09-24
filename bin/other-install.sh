@@ -19,24 +19,25 @@ USER=$(whoami)                                                                 #
 
 # 刷新环境变量
 function flush_env()
-{
+{    
     mkdir -p "${ROOT_DIR}/logs"                                                # 创建日志目录
     
     echo "    ************************** 刷新环境变量 **************************    "
+    # 判断用户环境变量文件是否存在
     if [ -e "${HOME}/.bash_profile" ]; then
-        source "${HOME}/.bash_profile"
+        source "${HOME}/.bash_profile"                                         # RedHat 用户环境变量文件
     elif [ -e "${HOME}/.bashrc" ]; then
-        source "${HOME}/.bashrc"
+        source "${HOME}/.bashrc"                                               # Debian、RedHat 用户环境变量文件
     fi
     
-    source "/etc/profile"
+    source "/etc/profile"                                                      # 系统环境变量文件路径
     
     echo "    ************************** 获取公共函数 **************************    "
     # shellcheck source=./common.sh
-    source "${ROOT_DIR}/bin/common.sh"
+    source "${ROOT_DIR}/bin/common.sh"                                         # 当前程序使用的公共函数
     
-    export -A PARAM_LIST=()
-    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"
+    export -A PARAM_LIST=()                                                    # 初始化 配置文件 参数
+    read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"                               # 读取配置文件，获取参数        
 }
 
 
@@ -44,7 +45,7 @@ function flush_env()
 function nginx_install()
 {
     echo "    ************************* 开始安装 Nginx *************************    "
-    local nginx_home folder nginx_host nginx_port result_count
+    local nginx_home folder nginx_host nginx_port nginx_version result_count
      
     nginx_home=$(get_param "nginx.home")                                       # Nginx 安装路径
     file_decompress "nginx.url"                                                # 解压 Nginx 源码包
@@ -66,6 +67,9 @@ function nginx_install()
     cp -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"         # 复制 启停脚本
     cp -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"        # 复制 配置文件
     
+    nginx_version=$(get_version "redis.url")                                   # 获取 Nginx 版本
+    append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
+    
     echo "    **************************** 启动程序 ****************************    "
     "${nginx_home}/bin/nginx" -c "${nginx_home}/conf/nginx.conf"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     sleep 3
@@ -84,23 +88,28 @@ function nginx_install()
 
 
 printf "\n================================================================================\n"
+# 1. 获取脚本执行开始时间
+start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+
+# 2. 刷新变量
 if [ "$#" -gt 0 ]; then
-    flush_env                                                                    # 刷新环境变量   
+    export NGINX_HOME 
+    flush_env                                                                  # 刷新环境变量    
 fi
 
-# 匹配输入参数
+# 3. 匹配输入参数
 case "$1" in
-    # 1. 安装 hadoop 
+    # 3.1 安装 nginx
     nginx | -n)
         nginx_install
     ;;
     
-    # 11. 安装必要的软件包
+    # 3.2 安装以上所有
     all | -a)
         nginx_install
     ;;
     
-    # 10. 其它情况
+    # 3.3 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
@@ -111,5 +120,12 @@ case "$1" in
         echo "        +----------+-------------------------+ "
     ;;
 esac
+
+# 4. 获取脚本执行结束时间，并计算脚本执行时间
+end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
+if [ "$#" -ge 1 ]; then
+    echo "    脚本（$(basename "$0")）执行共消耗：$(( end - start ))s ...... "
+fi
+
 printf "================================================================================\n\n"
 exit 0

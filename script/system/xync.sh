@@ -42,7 +42,7 @@ do
     if ${ENABLE_LOGGING}; then
         rsync -zav --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
     else
-        rsync -zav --delete  "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}" > /dev/null 2>&1
+        rsync -za --delete   "${TARGET_PATH}"  "${USER}@${host_name}:${TARGET_PATH}"
     fi
     
     end=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)

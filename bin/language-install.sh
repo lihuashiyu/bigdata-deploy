@@ -2,7 +2,7 @@
 # shellcheck disable=SC2024
 
 # =========================================================================================
-#    FileName      ：  language-install
+#    FileName      ：  language-install.sh
 #    CreateTime    ：  2023-07-10 09:17:31
 #    Author        ：  lihua shiyu
 #    Email         ：  lihuashiyu@github.com
@@ -15,11 +15,6 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="language-install-$(date +%F).log"                                    # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
-JAVA_HOME="/opt/java/jdk"                                                      # JAVA 默认安装路径 
-PYTHON_HOME="/opt/python"                                                      # Python 默认安装路径 
-SCALA_HOME="/opt/java/scala"                                                   # Scala  默认安装路径 
-MAVEN_HOME="/opt/apache/maven"                                                 # Maven  默认安装路径 
-GRADLE_HOME="/opt/apache/gradle"                                               # Gradle 默认安装路径 
 
 
 # 刷新环境变量
@@ -268,6 +263,7 @@ start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 
 # 2. 刷新变量
 if [ "$#" -gt 0 ]; then
+    export JAVA_HOME PYTHON_HOME SCALA_HOME MAVEN_HOME GRADLE_HOME 
     flush_env                                                                  # 刷新环境变量    
 fi
 

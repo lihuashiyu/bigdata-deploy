@@ -14,11 +14,6 @@ ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               #
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="database-install-$(date +%F).log"                                    # 程序操作日志文件
 USER=$(whoami)                                                                 # 当前登录使用的用户
-REDIS_HOME="/opt/db/redis"                                                     # Redis 默认安装路径 
-MYSQL_HOME="/opt/db/mysql"                                                     # Mysql 默认安装路径 
-PGSQL_HOME="/opt/db/pgsql"                                                     # Mysql 默认安装路径 
-MONGO_HOME="/opt/db/mongodb"                                                   # Mysql 默认安装路径 
-ORACLE_HOME="/opt/db/oracle"                                                   # Mysql 默认安装路径 
 
 
 # 刷新环境变量
@@ -278,6 +273,7 @@ start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 
 # 2. 刷新变量
 if [ "$#" -gt 0 ]; then
+    export REDIS_HOME MYSQL_HOME PGSQL_HOME MONGO_HOME ORACLE_HOME 
     flush_env                                                                  # 刷新环境变量    
 fi
 
