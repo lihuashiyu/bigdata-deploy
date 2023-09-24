@@ -1005,7 +1005,7 @@ function doris_install()
 {
     echo "    ************************* 开始安装 Doris *************************    "
     local doris_version priority_networks host_list fe_list be_list host broker_list observer_list broker_list
-    local leader_host doris_set_sql fe_count be_count broker_count
+    local password leader_host doris_set_sql fe_count be_count broker_count
     local MYSQL_HOME doris_user doris_password doris_database_list db doris_root_password test_result
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
@@ -1039,20 +1039,25 @@ function doris_install()
     sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/fe/conf/fe.conf"
     sed -i "s|\${priority_networks}|${priority_networks}|g"  "${DORIS_HOME}/be/conf/be.conf"
     
-    doris_version=$(get_version "doris.url")                                   # 获取 Doris 的版本
-    append_env      "doris.home" "${doris_version}"                            # 添加环境变量
-    distribute_file "${host_list}" "${DORIS_HOME}"                             # 分发到其它节点
+    doris_version=$(get_version "doris.url")                                   # 获取 Doris 的版本    
+    password=$(get_password)                                                   # 获取管理员密码
+    append_env      "doris.home" "${doris_version}"                            # 添加环境变量 
+    echo "${password}" | sudo -S sed -i "s|\${DORIS_HOME}/bin$|\${DORIS_HOME}:\${DORIS_HOME}/fe/bin:\${DORIS_HOME}/be/bin:\${DORIS_HOME}/broker/bin|g" "/etc/profile.d/${USER}.sh"
+    echo ""                                                                    #
+    distribute_file "${host_list}" "${DORIS_HOME}/"                            # 分发到其它节点
     
     echo "    **************************** 启动节点 ****************************    "
-    xcall "${fe_list}"     "${DORIS_HOME}/fe/bin/start_fe.sh --daemon"         # 启动 FE 集群
-    xcall "${be_list}"     "${DORIS_HOME}/be/bin/start_be.sh --daemon"         # 启动 BE 集群
-    xcall "${broker_list}" "${DORIS_HOME}/broker/bin/start_broker.sh --daemon" # 启动 Broker 集群
-    sleep 60                                                                   # 暂停 2 min 确保所有节点启动正常
+    {
+        xcall "${fe_list}"     "${DORIS_HOME}/fe/bin/start_fe.sh --daemon"               # 启动 FE 集群
+        xcall "${be_list}"     "${DORIS_HOME}/be/bin/start_be.sh --daemon"               # 启动 BE 集群
+        xcall "${broker_list}" "${DORIS_HOME}/broker/bin/start_broker.sh --daemon"       # 启动 Broker 集群        
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    sleep 10                                                                   # 暂停 30s 确保所有节点启动正常
     
     echo "    **************************** 构建集群 ****************************    "
     MYSQL_HOME=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
     leader_host=$(get_param "doris.fe.hosts" | awk -F ',' '{print $1}')        # 获取 leader
-    sleep 65                                                                   # 暂停 2 min 确保所有节点启动正常
+    sleep 5                                                                    # 暂停 2 min 确保所有节点启动正常
     
     # 添加 flower 
     for host in ${fe_list}
@@ -1060,7 +1065,7 @@ function doris_install()
         if [[ ${host} != "${leader_host}" ]]; then
             "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root        \
                                       --execute="alter system add follower '${host}:9010';"  \
-                                      >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+                                      
         fi 
     done
     
@@ -1156,7 +1161,7 @@ function doris_install()
         echo "select * from test.test order by id;"                             
     }  > "${DORIS_HOME}/fe/log/test.sql"
     
-    sleep 30
+    sleep 10
     "${MYSQL_HOME}/bin/mysql" --host="${leader_host}" --port=9030 --user=root --password="${doris_root_password}" \
                              < "${DORIS_HOME}/fe/log/test.sql" > "${DORIS_HOME}/fe/log/test.log" 2>&1
     
