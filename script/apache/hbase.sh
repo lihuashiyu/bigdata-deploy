@@ -34,8 +34,8 @@ function xssh()
     
     echo "${result}"
 }
-
-
+    
+    
 # 服务状态检测
 function service_status()
 {
@@ -101,7 +101,7 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
         
         # 3.1 启动 HBase 集群
-        "${HBASE_HOME}/sbin/start-hbase.sh"  >> "${HBASE_HOME}/logs/${LOG_FILE}" 2>&1
+        "${HBASE_HOME}/bin/start-hbase.sh"  >> "${HBASE_HOME}/logs/${LOG_FILE}" 2>&1
         
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
         sleep 3
@@ -141,9 +141,9 @@ function service_stop()
         echo "    程序（${ALIAS_NAME}）已经停止 ...... "
     elif [ "${status}" == "${RUNNING}" ]; then
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
-                        
+        
         # 3.2 关闭 HBase 集群
-        "${HBASE_HOME}/sbin/stop-all.sh"  >> "${HBASE_HOME}/logs/${LOG_FILE}" 2>&1
+        "${HBASE_HOME}/bin/stop-hbase.sh"  >> "${HBASE_HOME}/logs/${LOG_FILE}" 2>&1
         
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
         sleep 3
@@ -163,7 +163,6 @@ function service_stop()
         done
     fi
 }
-    
     
     
 printf "\n================================================================================\n"
@@ -210,7 +209,7 @@ case "$1" in
     
     # 2.5 其它情况
     *)
-        echo "    脚本可传入一个参数，如下所示：              "
+        echo "    脚本可传入一个参数，如下所示：            "
         echo "        +-----------------------------------+ "
         echo "        |  start | stop | restart | status  | "
         echo "        +-----------------------------------+ "
