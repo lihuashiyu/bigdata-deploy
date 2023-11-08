@@ -199,7 +199,7 @@
 
 ## 4. 修改系统限制
 
-### 4.1 修改打开文件限制：etc/security/limits.conf
+### 4.1 修改打开文件限制：/etc/security/limits.conf
 
 ```bash
     *    soft    nproc      65536
@@ -219,8 +219,8 @@
 
 ```bash
     vim  /proc/sys/fs/file-max
-    sudo echo "65536"               >> /proc/sys/fs/file-max                   # RedHat 7 系列
-    sudo echo "9223372036854775807" >> /proc/sys/fs/file-max                   # RedHat 8 系列
+    sudo echo "12993683"            >> /proc/sys/fs/file-max   # RedHat 7 系列
+    sudo echo "9223372036854775807" >> /proc/sys/fs/file-max   # RedHat 8/9 系列
 ```
 
 ### 4.3 优化内核参数：/etc/sysctl.conf
