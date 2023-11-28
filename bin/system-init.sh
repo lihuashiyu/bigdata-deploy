@@ -112,9 +112,13 @@ function close_protect()
 # 解除文件读写限制
 function unlock_limit()
 {
-    echo "    ************************ 修改打开文件限制 ************************    "
-    
+    echo "    ************************ 修改打开文件限制 ************************    "    
     cp -fpr "${ROOT_DIR}/conf/limits.conf" /etc/security/limits.d/             # 配置用户打开文件限制
+    
+    ulimit -l 134217728                                                        # 设置内存块大小（B）
+    ulimit -n 65536                                                            # 设置打开文件限制
+    ulimit -s 20480                                                            # 设置堆栈大小（B）
+    ulimit -u 65536                                                            # 设置最大线程限制
     
     # 系统限制的文件最大值，RedHat 9 系列无需操作
     # append_param "65536" /proc/sys/fs/file-max                               # RedHat 9 默认值：9223372036854775807
@@ -165,7 +169,13 @@ function add_user()
     fi
     chmod u-w /etc/sudoers                                                     # 取消可编辑权限
     
-    { echo '#!/usr/bin/env bash'; echo ''; } > "/etc/profile.d/${user}.sh"     # 为用户添加环境变量配置文件
+    { 
+        echo "#!/usr/bin/env bash" 
+        echo ""
+        echo "alias ll='ls -lh --color=auto' 2>/dev/null"
+        echo "" 
+    }  > "/etc/profile.d/${user}.sh"                                           # 为用户添加环境变量配置文件
+    
     chmod 755 "/etc/profile.d/${user}.sh"                                      # 修改配置文件权限
     chown -R "${user}:${user}" "/etc/profile.d/${user}.sh"                     # 将文件的权限授予新添加的用户
     
@@ -198,7 +208,7 @@ function dnf_mirror()
             -i.bak /etc/yum.repos.d/almalinux*.repo
     fi
     
-    # 先，然后更新源缓存和软件 
+    # 先清除缓存，然后更新源缓存和软件 
     { 
         dnf clean     all                                                      # 清除原来的缓存
         dnf makecache                                                          # 建立新的数据缓存
@@ -221,6 +231,59 @@ function install_rpm()
         echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${rpm}    "
         dnf install "${rpm}" -y    >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 使用 dnf 命令安装软件包
     done    
+}
+
+
+# 更新新内核
+function upgrade_kernel()
+{
+    echo "    **************************** 更新内核 ****************************    "	
+	# 安装新内核
+	{
+        # RedHat 下使用 ELRepo 第三方的仓库，可以将内核升级到最新版本
+        rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org                       # 导入公钥
+        dnf install -y https://www.elrepo.org/elrepo-release-9.el9.elrepo.noarch.rpm     # 安装 ELRepo 的 rpm
+        
+        # 修改仓库镜像地址
+        sed -e "s|^mirrorlist=|# mirrorlist=|g"                  \
+            -e "s|^         http://.*||g"                        \
+            -e "s|^         https://.*||g"                       \
+            -e "s|elrepo.org/linux|mirrors.aliyun.com/elrepo|g"  \
+            -i.bak /etc/yum.repos.d/elrepo.repo
+                    
+        dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available      # 列出可用的内核相关包
+        
+        dnf -y --enablerepo=elrepo-kernel install kernel-ml                    # 安装最新的主线稳定内核
+        # dnf -y --enablerepo=elrepo-kernel install kernel-lt                  # 安装最新的长期支持内核
+        
+        #  5. 设置第一个内核将作为默认内核
+        sed -i  "s|^GRUB_DEFAULT=saved|GRUB_DEFAULT=saved\n|GRUB_DEFAULT=0|g"  /etc/default/grub
+        
+        grub2-mkconfig -o /boot/grub2/grub.cfg                                 # 重新创建内核配置
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+}
+
+
+# 更新新内核，删除老内核
+function remove_kernel()
+{
+    echo "    *************************** 移除旧内核 ***************************    "
+    local kernel_version kernel_list kernel                                    # 定义局部变量    
+	
+    # 删除旧内核
+    {
+        kernel_version=$(uname -r)                                             # 内核版本
+        
+        kernel_list=$(rpm -qa | grep -i kernel | grep -vi 5.14.0-284.30.1.el9_2.x86_64 | grep -vi srpm-macros)    # 查询系统已安装的内核
+        
+        for kernel in ${kernel_list}
+        do
+            echo "    +>+>+>+>+>+>+>+>+>+> 卸载内核：${kernel}    "
+            dnf remove -y "${kernel}"                                          # 删除旧内核
+        done    
+        
+        grub2-mkconfig -o /boot/grub2/grub.cfg                                 # 重新编译引导            
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
@@ -304,7 +367,17 @@ case "$1" in
         install_rpm
     ;;
     
-    # 3.9 初始化所有配置
+    # 3.9 更新内核删除旧内核
+    upgrade | -p)
+        upgrade_kernel
+    ;;
+    
+    # 3.10 更新内核删除旧内核
+    remove | -r)
+        remove_kernel
+    ;;
+    
+    # 3.11 初始化所有配置
     all | -a)
         network_init
         host_init
@@ -314,9 +387,10 @@ case "$1" in
         add_user
         dnf_mirror
         install_rpm
+        remove_kernel
     ;;
     
-    # 3.10 其它情况
+    # 3.12 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：     "
         echo "        +-------------+--------------+ "
@@ -330,6 +404,8 @@ case "$1" in
         echo "        |   add       |   添加用户   | "
         echo "        |   dnf       |   替换镜像   | "
         echo "        |   install   |   安装软件   | "
+        echo "        |   upgrade   |   升级内核   | "
+        echo "        |   remove    |   删除内核   | "
         echo "        |   all       |   执行全部   | "
         echo "        +-------------+--------------+ "
     ;;
