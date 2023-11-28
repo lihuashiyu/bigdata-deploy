@@ -1,0 +1,149 @@
+# https://www.elastic.co/guide/en/elasticsearch/reference/index.html
+# 
+# ---------------------------------- Cluster -----------------------------------
+# 集群名称，集群名称必须相同
+cluster.name: issac
+# 
+# 
+# ------------------------------------ Node ------------------------------------
+# 节点名称
+node.name: issac_${id}
+#
+# 当前节点是否可以被选举为 master 节点，master 做协调作用，协调集群的状态,数据的读取时由集群的各个节点共同完成的,但是数据的修改只能master完成是：true、否：false
+node.master: true
+# 
+# 当前节点是否用于存储数据，是：true、否：false
+node.data: true
+# 
+# Add custom attributes to the node:
+# node.attr.rack: r1
+#
+# 设置一台服务器能运行的节点数
+node.max_local_storage_nodes: 1
+# 
+# 
+# ----------------------------------- Paths ------------------------------------
+# 定义配置文件的设置
+# path.conf: ${ELASTIC_SEARCH_HOME}/conf
+# 
+# 索引数据 存储的位置
+path.data: ${ELASTIC_SEARCH_HOME}/data
+# 
+# 定义临时文件的位置
+# path.work: ${ELASTIC_SEARCH_HOME}/tmp
+# 
+# 日志存储的位置:
+path.logs: ${ELASTIC_SEARCH_HOME}/logs
+# 
+# 定义插件的位置
+# path.plugins: ${ELASTIC_SEARCH_HOME}/plugins
+# 
+# 
+# ----------------------------------- Plugin -----------------------------------
+# 各个插件的名称：如果该值里的所列的插件没安装，则该节点不能启动，默认是没有插件
+# plugin.mandatory: mapper-attachments,lang-groovy
+# 
+# 
+# ----------------------------------- Memory -----------------------------------
+# 需求锁住物理内存，是：true、否：false
+# bootstrap.memory_lock: true
+#
+# SecComp 检测，是：true、否：false
+# bootstrap.system_call_filter: false
+#
+#
+# ---------------------------------- Network -----------------------------------
+# elasticsearch 节点绑定的地址
+# network.bind_host: 192.168.0.1
+# 
+# elasticsearch 和其他节点通信的地址，如果不设置的话 会自动获取
+# network.publish_host: 192.168.0.1
+# 
+# 允许访问的 IP，0.0.0.0 表示所有，为了安全，可以指定允许访问的 IP，并且可以设置多个
+network.host: 0.0.0.0
+# 
+# 监听端口号，默认：9200
+http.port: ${elasticsearch_port}
+# 
+# 设置节点之间通信的端口
+# transport.tcp.port: 9300
+# 
+# 定义是否压缩 tcp 传输时的数据
+# transport.tcp.compress: true
+# 
+# 
+# --------------------------------- Discovery ----------------------------------
+# 入候选主节点的设备地址，在开启服务后可以被选为主节点：["127.0.0.1", "[::1]"]
+discovery.seed_hosts: [${elasticsearch_host_ports}]
+# 
+# 设置在集群中的所有节点名称，集群中初始化的主节点，来选举 master，这里与 node.name 即可
+cluster.initial_master_nodes: ["issac_${id}"]
+# 
+# 设置一个节点的并发数量
+# cluster.routing.allocation.node_initial_primaries_recoveries: 4
+# cluster.routing.allocation.node_concurrent_recoveries: 2
+# 
+# 恢复数据时，限制的宽带流量：0，无限制
+# indices.recovery.max_bytes_per_sec: 20mb
+# 
+# 从其他分片恢复数据时，最大打开并发的值
+# indices.recovery.concurrent_streams: 5
+# 
+# 
+# ---------------------------------- Various -----------------------------------
+# 开始自动创建索引，7.14.0 版本开始推荐配置这个属性
+action.destructive_requires_name: true
+# 
+# 
+# ---------------------------------- http -----------------------------------
+# 是否支持跨域，是：true，在使用 head 插件时需要此配置
+http.cors.enabled: true
+# 
+# "*" 表示支持所有域名
+http.cors.allow-origin: "*"
+# 
+# 设置 http 交互中传输内容的最大长度
+# http.max_content_length: 100mb
+# 
+# 是否启用http协议，如果不想让 elasticsearch 走 http 协议就设置为 false
+# http.enabled: false
+# 
+# 是否启用 jsonp 验证
+# http.jsonp.enable: true
+# 
+# ---------------------------------- Gateway -----------------------------------
+# elasticsearch 底层持久化，默认本地，也可以设置为 aws 的 s3
+# gateway.type: local
+# 
+# 控制集群在达到多少个节点之后才会开始数据恢复，通过这个设置可以避免集群自动相互发现的初期，shard 分片不全的问题
+# gateway.recover_after_nodes: 1
+# 
+# 初始化数据恢复的超时时间：节点全部启动后，再过 5 分钟开始数据恢复
+# gateway.recover_after_time: 5m
+# 
+# 启动几个节点后开始数据恢复，假如 gateway.recover_after_nodes 这个参数设置为 5，那么等到这 5 个节点全部启动后直接可以数据恢复,不，用等待 gateway.recover_after_time 设置的时间
+# gateway.expected_nodes: 2
+# 
+# 
+# ----------------------------------- Log ------------------------------------
+# index.search.slowlog.threshold.query.warn: 10s
+# index.search.slowlog.threshold.query.info: 5s
+# index.search.slowlog.threshold.query.debug: 2s
+# index.search.slowlog.threshold.query.trace: 500ms
+# 
+# index.search.slowlog.threshold.fetch.warn: 1s
+# index.search.slowlog.threshold.fetch.info: 800ms
+# index.search.slowlog.threshold.fetch.debug: 500ms
+# index.search.slowlog.threshold.fetch.trace: 200ms
+# 
+# index.indexing.slowlog.threshold.index.warn: 10s
+# index.indexing.slowlog.threshold.index.info: 5s
+# index.indexing.slowlog.threshold.index.debug: 2s
+#  
+# monitor.jvm.gc.young.warn: 1000ms
+# monitor.jvm.gc.young.info: 700ms
+# monitor.jvm.gc.young.debug: 400ms
+# monitor.jvm.gc.old.warn: 10s
+# monitor.jvm.gc.old.info: 5s
+# monitor.jvm.gc.old.debug: 2s
+#  
