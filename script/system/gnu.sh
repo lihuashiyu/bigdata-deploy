@@ -55,14 +55,20 @@ function gcc_install()
     cd "${folder}" || exit                                                     # 进入源码包
     ./contrib/download_prerequisites  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 下载依赖
     
-    echo "    ************************* $(date '+%T')：编译源码 *************************    "
+    echo "    ********************** $(date '+%T')：生成 MakeFile ***********************    "
     cd "${folder}" || exit                                                     # 进入源码包
     gcc_home=$(get_param "gcc.home")                                           # 获取 gcc 安装路径
     cpu_thread=$(get_cpu_thread)                                               # 获取 cpu 逻辑核心数
-    {
-        ./configure -prefix="${gcc_home}" --enable-checking=release --enable-languages=c,c++ --disable-multilib   # 生成 Makefile 文件
-        make "-j${cpu_thread}"                                                 # 编译源码
-    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    # 生成 Makefile 文件
+    ./configure -prefix="${gcc_home}"                      \
+                --enable-checking=release                  \
+                --enable-languages=c,c++                   \
+                --disable-multilib                         \
+                >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1             
+    
+    echo "    ************************* $(date '+%T')：编译源码 *************************    "    
+    make "-j${cpu_thread}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+
     sleep 5
     
     echo "    *************************** $(date '+%T')：安装 ***************************    "
@@ -73,10 +79,10 @@ function gcc_install()
     password=$(get_param "server.password")                                    # 获取管理员密码
     gcc_version=$(get_param "gcc.url" | awk -F '/' '{print $NF}' | awk -F '.' '{print $1}' | grep -oP "\d*") # 获取 gcc 主版本号
     echo "${password}" | sudo -S ln -s "${gcc_home}/bin/gcc" "/usr/bin/gcc${gcc_version}"                    # 创建 gcc 软连接
-    echo "${password}" | sudo -S ln -s "${gcc_home}/bin/g++" "/usr/bin/gcc${g++_version}"                    # 创建 g++ 软连接
+    echo "${password}" | sudo -S ln -s "${gcc_home}/bin/g++" "/usr/bin/g++${gcc_version}"                    # 创建 g++ 软连接
         
-    gcv=$("gcc${gcc_version}" --version | grep -ci "gcc|${gcc_version}")       # gcc 版本号
-    gpv=$("g++${gcc_version}" --version | grep -ci "gcc|${gcc_version}")       # g++ 版本号
+    gcv=$("gcc${gcc_version}" --version | grep -i "gcc" | grep -ci "${gcc_version}")     # gcc 版本号
+    gpv=$("g++${gcc_version}" --version | grep -i "g++" | grep -ci "${gcc_version}")     # g++ 版本号
     if [ "${gcv}" -ne 1 ] || [ "${gpv}" -ne 1 ]; then
         echo "    ****************************** 安装失败 ******************************    "
         return 1
