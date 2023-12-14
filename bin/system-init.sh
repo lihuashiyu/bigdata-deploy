@@ -121,7 +121,7 @@ function unlock_limit()
     ulimit -u 65536                                                            # 设置最大线程限制
     
     # 系统限制的文件最大值，RedHat 9 系列无需操作
-    # append_param "65536" /proc/sys/fs/file-max                               # RedHat 9 默认值：9223372036854775807
+    # append_param "5702400" /proc/sys/fs/file-max                               # RedHat 9 默认值：9223372036854775807
 }
 
 
@@ -129,22 +129,18 @@ function unlock_limit()
 function kernel_optimize()
 {
     echo "    **************************** 优化内核 ****************************    "
-    local line param                                                           # 定义局部变量
+    local param param_list                                                     # 定义局部变量
     
-    # 读取文件进行内核修改
-    while read -r line
-    do 
-        param=$(echo "${line}" | awk -F '#' '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+    param_list=$(read_file "${ROOT_DIR}/conf/sysctl.conf")                     # 读取文件进行内核修改
+    for param in ${param_list}
+    do
+        { 
+            sysctl -w  "${param//\$/ }"                                        # 对内核进行临时修改，仅当前会话生效
+            sysctl -p                                                          # 刷新配置
+        } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1    
         
-        if [ -n "${param}" ]; then
-            { 
-                sysctl -w  "${param}"                                          # 对内核进行临时修改，仅当前会话生效
-                sysctl -p                                                      # 刷新配置
-            } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1                            
-            
-            append_param "${param}" /etc/sysctl.conf                          # 对内核进行永久修改，仅重启后才生效
-        fi
-    done < "${ROOT_DIR}/conf/sysctl.conf"
+        append_param "${param//\$/ }" /etc/sysctl.conf                         # 对内核进行永久修改，仅重启后才生效
+    done
 }
 
 
@@ -152,7 +148,7 @@ function kernel_optimize()
 function add_user()
 {
     echo "    **************************** 添加用户 ****************************    "
-    local user password exist software_home                                    # 定义局部变量
+    local user password exist software_home param param_list vim_conf          # 定义局部变量
     
     user=$(get_param "server.user")                                            # 获取用户名
     password=$(get_param "server.password")                                    # 获取密码
@@ -181,8 +177,21 @@ function add_user()
     
     software_home=$(get_param "server.software.home")                          # 获取软件安装根路径
     chown -R "${user}:${user}" "${software_home}"                              # 将软件安装路径的权限授予新添加的用户
+}
+
+
+# 替换 dnf 镜像
+function vim_config()
+{
+    if [ -f "/etc/vimrc.local" ]; then                                         # 添加 vim 配置文件路径
+        cp -fpr /etc/vimrc.local /etc/vimrc.local.back                         # 备份原始文件
+        cat /etc/vimrc.local.back         >  /etc/vimrc.local                  # 添加原来备份
+        cat "${ROOT_DIR}/conf/vimrc.conf" >> "/etc/vimrc.local"                # 配置文件存在就添加        
+    else
+        cp -fpr "${ROOT_DIR}/conf/vimrc.conf"  "/etc/vimrc.local"              # 配置文件不存在就直接复制
+    fi   
     
-    append_param "set number" /etc/vimrc                                       # 添加 vim 显示行号配置
+    cp -fpr "${ROOT_DIR}/conf/molokai.vim" /usr/share/vim/vim*/colors/molokai.vim
 }
 
 
@@ -300,8 +309,8 @@ function add_execute()
         dos2unix  "${ROOT_DIR}"/conf/*                                         # 将配置文件修改为 UNIX 换行        
     }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/bin/                   # 将 集群间查看命令 脚本复制到系统路径
-    cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/bin/                   # 将 集群之间进行文件同步 脚本复制到系统路径
+    cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/local/bin/             # 将 集群间查看命令 脚本复制到系统路径
+    cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/local/bin/             # 将 集群之间进行文件同步 脚本复制到系统路径
     
     # 获取所有主机名
     for item in $(get_param "server.hosts" | tr "," " ")
@@ -309,8 +318,8 @@ function add_execute()
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
     
-    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xcall.sh           # 修改集群 主机列表
-    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/bin/xync.sh            # 修改集群 主机列表
+    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall.sh     # 修改集群 主机列表
+    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync.sh      # 修改集群 主机列表
     chmod 755  /usr/bin/xcall.sh /usr/bin/xync.sh                              # 添加执行权限
 }
 
@@ -357,27 +366,32 @@ case "$1" in
         add_user
     ;;
     
-    # 3.7 替换 dnf 镜像
+    # 3.7 添加管理员
+    vim | -v)
+        vim_config
+    ;;
+    
+    # 3.8 替换 dnf 镜像
     dnf | -d)
         dnf_mirror
     ;;
     
-    # 3.8 安装必要的软件包
+    # 3.9 安装必要的软件包
     install | -i)
         install_rpm
     ;;
     
-    # 3.9 更新内核删除旧内核
+    # 3.10 更新内核删除旧内核
     upgrade | -p)
         upgrade_kernel
     ;;
     
-    # 3.10 更新内核删除旧内核
+    # 3.11 更新内核删除旧内核
     remove | -r)
         remove_kernel
     ;;
     
-    # 3.11 初始化所有配置
+    # 3.12 初始化所有配置
     all | -a)
         network_init
         host_init
@@ -385,6 +399,7 @@ case "$1" in
         unlock_limit
         kernel_optimize
         add_user
+        vim_config
         dnf_mirror
         install_rpm
         remove_kernel
@@ -393,21 +408,22 @@ case "$1" in
     # 3.12 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：     "
-        echo "        +-------------+--------------+ "
-        echo "        |    参 数    |    描  述    | "
-        echo "        +-------------+--------------+ "
-        echo "        |   network   |   配置网卡   | "
-        echo "        |   host      |   主机映射   | "
-        echo "        |   close     |   关闭保护   | "
-        echo "        |   unlock    |   解除限制   | "
-        echo "        |   kernel    |   优化内核   | "
-        echo "        |   add       |   添加用户   | "
-        echo "        |   dnf       |   替换镜像   | "
-        echo "        |   install   |   安装软件   | "
-        echo "        |   upgrade   |   升级内核   | "
-        echo "        |   remove    |   删除内核   | "
-        echo "        |   all       |   执行全部   | "
-        echo "        +-------------+--------------+ "
+        echo "        +----------------+--------------+ "
+        echo "        |     参  数     |    描  述    | "
+        echo "        +----------------+--------------+ "
+        echo "        |   -n|network   |   配置网卡   | "
+        echo "        |   -h|host      |   主机映射   | "
+        echo "        |   -l|close     |   关闭保护   | "
+        echo "        |   -u|unlock    |   解除限制   | "
+        echo "        |   -k|kernel    |   优化内核   | "
+        echo "        |   -c|add       |   添加用户   | "
+        echo "        |   -v|vim       |   配置 vim   | "
+        echo "        |   -d|dnf       |   替换镜像   | "
+        echo "        |   -i|install   |   安装软件   | "
+        echo "        |   -p|upgrade   |   升级内核   | "
+        echo "        |   -r|remove    |   删除内核   | "
+        echo "        |   -a|all       |   执行全部   | "
+        echo "        +----------------+--------------+ "
     ;;
 esac
 

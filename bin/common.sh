@@ -10,11 +10,27 @@
 # ==================================================================================================
 
 
-# 读取配置文件，获取配置参数
+# 读取配置文件，获取配置参数（$1：读取文件的绝对路径，$2：注释开始标识，$3：键值对分割标识）
 function read_param()
 {
     # 1. 定义局部变量
-    local line string param key value
+    local file_path="" annotation_symbol="#" separator="=" line string param key value
+    
+    if [ "$#" -eq 0 ]; then
+        echo "    必须输入文件路径 ...... "
+        exit 1
+    elif [ "$#" -eq 1 ]; then
+        file_path=$1
+    elif [ "$#" -eq 2 ]; then
+        file_path=$1
+        annotation_symbol=$2               
+    elif [ "$#" -eq 3 ]; then
+        file_path=$1
+        annotation_symbol=$2
+        separator=$3
+    else
+        echo "    从第 4 个参数开始无效 ...... "
+    fi
     
     # 2. 读取配置文件
     while read -r line
@@ -23,21 +39,43 @@ function read_param()
         string=$(echo "${line}" | sed -e 's/\r//g' | sed -e 's/\n//g' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
         
         # 4. 判断是否为注释文字，是否为空行
-        if [[ ! ${string} =~ ^# ]] && [ "" != "${string}" ]; then
+        if [[ ! ${string} =~ ^${annotation_symbol} ]] && [ "" != "${string}" ]; then
             # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F '#' '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+            param=$(echo "${string}" | awk -F "${annotation_symbol}" '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
             
             # 6. 将参数添加到参数列表
             if [ -n "${param}" ]; then
                 # 7. 获取参数的键值对
-                key=$(echo "${param}"   | awk -F '=' '{print $1}'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
-                value=$(echo "${param}" | awk -F '=' '{print $NF}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+                key=$(echo "${param}"   | awk -F "${separator}" '{print $1}'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
+                value=$(echo "${param}" | awk -F "${separator}" '{print $NF}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
                 
                 # 8. 将键值对添加到 数组（Map）
                 PARAM_LIST["${key}"]="${value}"
             fi
         fi
+    done < "${file_path}"
+}
+
+
+# 读取文件（$1：读取文件的绝对路径）
+function read_file()
+{
+    # 1. 定义局部变量
+    local line line_value result_list=()
+    
+    # 2. 读取配置文件
+    while read -r line
+    do
+        # 3. 去除行尾的回车、换行符，行首 和 行尾 的 空格 和 制表符
+        line_value=$(echo "${line}" | sed -e 's/\r//g' | sed -e 's/\n//g' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+        
+        # 4. 判断是否为空行
+        if [ -n "${line_value}" ]; then
+            result_list[${#result_list[@]}]="${line_value// /\$}"
+        fi
     done < "$1"
+    
+    echo "${result_list[*]}"
 }
 
 
