@@ -180,18 +180,11 @@ function add_user()
 }
 
 
-# 替换 dnf 镜像
+# 修改 Vim 配置文件
 function vim_config()
-{
-    if [ -f "/etc/vimrc.local" ]; then                                         # 添加 vim 配置文件路径
-        cp -fpr /etc/vimrc.local /etc/vimrc.local.back                         # 备份原始文件
-        cat /etc/vimrc.local.back         >  /etc/vimrc.local                  # 添加原来备份
-        cat "${ROOT_DIR}/conf/vimrc.conf" >> "/etc/vimrc.local"                # 配置文件存在就添加        
-    else
-        cp -fpr "${ROOT_DIR}/conf/vimrc.conf"  "/etc/vimrc.local"              # 配置文件不存在就直接复制
-    fi   
-    
-    cp -fpr "${ROOT_DIR}/conf/molokai.vim" /usr/share/vim/vim*/colors/molokai.vim
+{    
+    cp -fpr "${ROOT_DIR}/conf/vimrc.conf"  "/etc/vimrc.local"    
+    cp -fpr "${ROOT_DIR}/conf/molokai.vim" /usr/share/vim/vim82/colors/molokai.vim
 }
 
 
