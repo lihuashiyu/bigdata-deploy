@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2029
+# shellcheck disable=SC2029,SC2120
 
 # ==================================================================================================
 #    FileName      ：  common.sh
@@ -167,21 +167,21 @@ function get_password()
 # 下载软件包（$1：配置文件中软件包 url 的 key）
 function download()
 {
-    local url file_name                                                        # 定义局部变量
+    local url file_name is_exist                                               # 定义局部变量
     url=$(get_param "$1")                                                      # 软件下载的 url
     
     # 下载软件包
     if [[ -n ${url} ]]; then
         file_name=$(echo "${url}" | sed 's/.*\/\([^\/]*\)$/\1/')               # 获取文件名
-        
-        # 查看安装包是否存在，存在就删除
-        if [[ -f "${ROOT_DIR}/package/${file_name}" ]]; then
-            rm -rf "${ROOT_DIR}/package/${file_name}"
-        fi
+        rm -rf "${ROOT_DIR}/package/${file_name}"                              # 删除已经存在的安装包
         
         echo "    ********** 开始下载：${file_name} ********** "
-        # wget -P "${ROOT_DIR}/package" "${url}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        curl --parallel --parallel-immediate -k -L -C - -o "${ROOT_DIR}/package/${file_name}" "${url}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        is_exist=$(command -v "curl" | wc -l)                                  # 判断 curl 命令是否存在
+        if [ "${is_exist}" -eq 0 ]; then
+            wget -P "${ROOT_DIR}/package" "${url}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        else
+            curl --parallel --parallel-immediate -k -L -C - -o "${ROOT_DIR}/package/${file_name}" "${url}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+        fi        
     else
         echo "    ********** ${CONFIG_FILE} 中没有 $1 ********** "
     fi
