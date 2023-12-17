@@ -183,8 +183,8 @@ function add_user()
 # 修改 Vim 配置文件
 function vim_config()
 {    
-    cp -fpr "${ROOT_DIR}/conf/vimrc.conf"  "/etc/vimrc.local"    
-    cp -fpr "${ROOT_DIR}/conf/molokai.vim" /usr/share/vim/vim82/colors/molokai.vim
+    cp -fpr "${ROOT_DIR}/conf/vimrc.conf"      /etc/vimrc.local                          # vim 配置文件
+    cp -fpr "${ROOT_DIR}/conf/vim-molokai.vim" /usr/share/vim/vim82/colors/molokai.vim   # vim 主题
 }
 
 

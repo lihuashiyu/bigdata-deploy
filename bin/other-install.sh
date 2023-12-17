@@ -87,6 +87,36 @@ function nginx_install()
 }
 
 
+# Vim 安装插件 YouCompleteMe
+function vim_plugin_ycm()
+{
+    echo "    ********************* 开始安装 YouCompleteMe *********************    "
+    local vim_plugin_home ycm_url pass_word
+     
+    vim_plugin_home=$(get_param "vim.plugin.home")                             # Vim 插件安装路径
+    ycm_url=$(get_param "vim.ycm.url")                                         # ycm 源码地址
+    pass_word=$(get_password)                                                  # 管理员密码
+    
+    echo "    **************************** 下载源码 ****************************    "
+    rm -rf "${vim_plugin_home}/YouCompleteMe"                                  # 若存在 ycm 路径就删除
+    echo "${pass_word}" | sudo -S mkdir -p "${vim_plugin_home}"                # 创建 插件路径
+    echo "${pass_word}" | sudo -S chown -R "${USER}:${USER}" "${vim_plugin_home}"   # 将创建的文件夹授权给用户 
+    cd "${vim_plugin_home}" || exit                                            # 进入插件目录、
+    git clone "${ycm_url}"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1            # 克隆源码
+    
+    echo "    **************************** 下载依赖 ****************************    "
+    cd "${vim_plugin_home}/YouCompleteMe" || exit                              # 进入 ycm 源码目录、
+    git submodule update --init --recursive >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 下载依赖 
+    
+    echo "    **************************** 编译源码 ****************************    "
+    cd "${vim_plugin_home}/YouCompleteMe" || exit                              # 进入 ycm 源码目录、
+    python3 install.py --all --verbose >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 编译源码
+    
+    echo "    ************************** 修改配置文件 **************************    "
+    echo "${pass_word}" | sudo -S sed -i "s|\"set runtimepath.*|set runtimepath+=${vim_plugin_home}/YouCompleteMe|g"  /etc/vimrc.local 
+}
+
+
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
@@ -103,19 +133,24 @@ case "$1" in
     nginx | -n)
         nginx_install
     ;;
+    # 3.2 安装 nginx
+    vim | -v)
+        vim_plugin_ycm
+    ;;
     
-    # 3.2 安装以上所有
+    # 3.3 安装以上所有
     all | -a)
         nginx_install
     ;;
     
-    # 3.3 其它情况
+    # 3.4 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
         echo "        |  参  数  |         描   述         | "
         echo "        +----------+-------------------------+ "
         echo "        |    -n    |  安装 nginx             | "
+        echo "        |    -v    |  安装 vim 插件          | "
         echo "        |    -a    |  安装以上所有           | "
         echo "        +----------+-------------------------+ "
     ;;
