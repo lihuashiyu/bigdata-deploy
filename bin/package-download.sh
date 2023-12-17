@@ -41,30 +41,6 @@ function flush_env()
 }
 
 
-# 下载软件包（$1：配置文件中软件包 url 的 key）
-function download()
-{
-    local url file_name                                                        # 定义局部变量
-    url=$(get_param "$1")                                                      # 软件下载的 url
-    
-    # 下载软件包
-    if [[ -n ${url} ]]; then
-        file_name=$(echo "${url}" | sed 's/.*\/\([^\/]*\)$/\1/')               # 获取文件名
-        
-        # 查看安装包是否存在，存在就删除
-        if [[ -f "${ROOT_DIR}/package/${file_name}" ]]; then
-            rm -rf "${ROOT_DIR}/package/${file_name}"
-        fi
-        
-        echo "    ********** 开始下载：${file_name} ********** "
-        # wget -P "${ROOT_DIR}/package" "${url}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
-        curl --parallel --parallel-immediate -k -L -C - -o "${ROOT_DIR}/package/${file_name}" "${url}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
-    else
-        echo "    ********** ${CONFIG_FILE} 中没有 $1 ********** "
-    fi
-}
-
-
 printf "\n================================================================================\n" 
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)                            # 获取脚本执行开始时间
 flush_env                                                                      # 刷新环境变量

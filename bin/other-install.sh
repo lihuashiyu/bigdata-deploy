@@ -91,7 +91,7 @@ function nginx_install()
 function vim_plugin_ycm()
 {
     echo "    ********************* 开始安装 YouCompleteMe *********************    "
-    local vim_plugin_home ycm_url pass_word
+    local vim_plugin_home ycm_url pass_word                                    # 定义局部变量
      
     vim_plugin_home=$(get_param "vim.plugin.home")                             # Vim 插件安装路径
     ycm_url=$(get_param "vim.ycm.url")                                         # ycm 源码地址
@@ -117,6 +117,31 @@ function vim_plugin_ycm()
 }
 
 
+#  安装 micro 编辑器
+function micro_install()
+{
+    echo "    ************************* 开始安装 micro *************************    "
+    local micro_home micro_url pass_word folder result_count                   # 定义局部变量
+     
+    micro_home=$(get_param "micro.home")                                       # Micro 插件安装路径
+    micro_url=$(get_param "micro.url")                                         # micro 下载地址
+    pass_word=$(get_password)                                                  # 管理员密码
+    
+    echo "    **************************** 安装软件 ****************************    "
+    file_decompress "micro.url"                                                # 解压 micro 压缩包
+    folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取解压目录
+    cd "${folder}" || exit                                                     # 进入 micro 解压目录    
+    echo "${pass_word}" | sudo -S cp -fpr "${folder}/micro" /usr/local/bin/micro    # 安装软件
+    
+    result_count=$(micro --version | grep -nic "version")
+    if [ "${result_count}" -ne 1 ]; then
+        echo "    **************************** 验证失败 ****************************    "
+    else
+        echo "    **************************** 验证成功 ****************************    "
+    fi 
+}
+
+
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
@@ -133,12 +158,18 @@ case "$1" in
     nginx | -n)
         nginx_install
     ;;
-    # 3.2 安装 nginx
+    
+    # 3.2 安装 vim 插件
     vim | -v)
         vim_plugin_ycm
     ;;
     
-    # 3.3 安装以上所有
+    # 3.3 安装 micro
+    micro | -m)
+        micro_install
+    ;;
+    
+    # 3.4 安装以上所有
     all | -a)
         nginx_install
     ;;
@@ -151,6 +182,7 @@ case "$1" in
         echo "        +----------+-------------------------+ "
         echo "        |    -n    |  安装 nginx             | "
         echo "        |    -v    |  安装 vim 插件          | "
+        echo "        |    -m    |  安装 micro             | "
         echo "        |    -a    |  安装以上所有           | "
         echo "        +----------+-------------------------+ "
     ;;
