@@ -61,7 +61,7 @@ function execute_file()
 # 执行 sql 目录（$1：sql 文件所在的目录）
 function execute_folder()
 {
-    local file_list file_path suffix table_name                                # 定义局部变量
+    local file_list file_path suffix                                           # 定义局部变量
     file_list=$(find "$1" -iname "*")                                          # 获取目录下所有的 sql 文件
     
     # 遍历文件，执行文件
