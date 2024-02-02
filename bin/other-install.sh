@@ -77,11 +77,15 @@ function nginx_install()
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ************************** 修改配置文件 **************************    "
-    mkdir -p    "${nginx_home}/conf" "${nginx_home}/data" "${nginx_home}/logs" # 创建必要的目录
-    cp    -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"      # 复制 启停脚本
-    cp    -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"     # 复制 配置文件
-    mv "${nginx_home}/sbin" "${nginx_home}/bin"                                # 修改目录名称
-    mv "${nginx_home}/html" "${nginx_home}/data"                               # 移动目录
+    # 创建必要的目录
+    mkdir -p    "${nginx_home}/data/file"            "${nginx_home}/data/upload" "${nginx_home}/logs"
+    cp    -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"           # 复制 启停脚本
+    cp    -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"          # 复制 配置文件
+    cp    -fpr  "${ROOT_DIR}/lib/nginx-rename.py"    "${nginx_home}/data/upload"    # 复制 重命名 文件
+    mv          "${nginx_home}/sbin"                 "${nginx_home}/bin"            # 修改目录名称
+    mv          "${nginx_home}/html"                 "${nginx_home}/data"           # 移动目录
+    tar   -zxf  "${ROOT_DIR}/lib/upload.tar.gz"  -C  "${nginx_home}/data/upload"    # 上传页面
+    tar   -zxf  "${ROOT_DIR}/lib/hive.tar.gz"    -C  "${nginx_home}/data/hive"      # Hive 计划可视化页面
     
     nginx_version=$(get_version "nginx.url")                                   # 获取 Nginx 版本
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
