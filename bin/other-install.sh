@@ -53,21 +53,37 @@ function nginx_install()
     echo "    **************************** 编译源码 ****************************    "
     folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取解压目录
     cd "${folder}" || exit                                                     # 进入 Nginx 源码目录
+    git clone https://github.com/fdintino/nginx-upload-module.git              # 获取 上传文件 模块源码
+    git clone https://github.com/masterzen/nginx-upload-progress-module.git    # 获取
     rm -rf  "${nginx_home}"                                                    # 删除可能存在的安装目录
     
     {
-        ./configure --prefix="${nginx_home}"                                   # 指定安装路径
+        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录
+        # 指定安装路径和编译模块
+        ./configure --prefix="${nginx_home}"         --add-dynamic-module="${folder}/nginx-upload-module" \
+                    --with-compat                    --with-http_gzip_static_module                       \
+                    --with-stream                    --with-http_image_filter_module                      \
+                    --with-file-aio                  --with-http_ssl_module                               \
+                    --with-http_realip_module        --with-http_addition_module                          \
+                    --with-http_sub_module           --with-http_dav_module                               \
+                    --with-http_flv_module           --with-http_mp4_module                               \
+                    --with-http_gunzip_module        --with-http_gzip_static_module                       \
+                    --with-http_random_index_module  --with-http_secure_link_module                       \
+                    --with-http_stub_status_module   --with-http_auth_request_module 
+        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录             
         make                                                                   # 编译源码
+        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录
         make install                                                           # 安装到指定路径
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    ************************** 修改配置文件 **************************    "
+    mkdir -p    "${nginx_home}/conf" "${nginx_home}/data" "${nginx_home}/logs" # 创建必要的目录
+    cp    -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"      # 复制 启停脚本
+    cp    -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"     # 复制 配置文件
     mv "${nginx_home}/sbin" "${nginx_home}/bin"                                # 修改目录名称
-    mkdir -p "${nginx_home}/conf" "${nginx_home}/data" "${nginx_home}/logs"    # 创建必要的目录
-    cp -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"         # 复制 启停脚本
-    cp -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"        # 复制 配置文件
+    mv "${nginx_home}/html" "${nginx_home}/data"                               # 移动目录
     
-    nginx_version=$(get_version "redis.url")                                   # 获取 Nginx 版本
+    nginx_version=$(get_version "nginx.url")                                   # 获取 Nginx 版本
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
     
     echo "    **************************** 启动程序 ****************************    "
@@ -75,7 +91,7 @@ function nginx_install()
     sleep 3
     
     nginx_host=$(hostname)
-    nginx_port=$(grep -niE "^[ ]+ listen.*;" "${nginx_home}/conf/nginx.conf" | awk '{print $NF}' | awk -F ';' '{print $1}')
+    nginx_port=$(grep -m 1 -niE "^[ ]+ listen.*;" "${nginx_home}/conf/nginx.conf" | awk '{print $3}' | awk -F ';' '{print $1}' | awk '{print $1}' )
     curl -o "${nginx_home}/logs/test.log" "http://${nginx_host}:${nginx_port}/index.html" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     result_count=$(grep -nic "thank you" "${nginx_home}/logs/test.log")

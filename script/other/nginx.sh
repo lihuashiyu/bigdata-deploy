@@ -42,7 +42,7 @@ function service_status()
     
     # 3.1 获取程序 Worker 的 pid 数量是否正确
     worker_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${WORKER}")
-    worker_count=$(grep -ni "worker_processes" "${NGINX_HOME}/conf/nginx.conf" | awk '{print $NF}' | awk -F ';' '{print $1}')
+    worker_count=$(grep -ni "worker_processes" "${NGINX_HOME}/conf/nginx.conf" | awk -F ';' '{print $1}' | awk '{print $NF}')
     
     # 3.2 判断进程 worker_pid 数量是否正确
     if [ "${worker_pid}" -ne "${worker_count}" ]; then
