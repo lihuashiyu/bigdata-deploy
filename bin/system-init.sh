@@ -242,6 +242,8 @@ function upgrade_kernel()
     echo "    **************************** 更新内核 ****************************    "	
 	# 安装新内核
 	{
+	    local kernel_header
+	    
         # RedHat 下使用 ELRepo 第三方的仓库，可以将内核升级到最新版本
         rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org                       # 导入公钥
         dnf install -y https://www.elrepo.org/elrepo-release-9.el9.elrepo.noarch.rpm     # 安装 ELRepo 的 rpm
@@ -252,14 +254,23 @@ function upgrade_kernel()
             -e "s|^         https://.*||g"                       \
             -e "s|elrepo.org/linux|mirrors.aliyun.com/elrepo|g"  \
             -i.bak /etc/yum.repos.d/elrepo.repo
-                    
+        
+        kernel_header=$(rpm -qa | grep -i "kernel-headers-$(uname -r)")        # 获取当前内核 kernel-header 版本
+        
         dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available      # 列出可用的内核相关包
         
-        dnf -y --enablerepo=elrepo-kernel install kernel-ml                    # 安装最新的主线稳定内核
-        # dnf -y --enablerepo=elrepo-kernel install kernel-lt                  # 安装最新的长期支持内核
+        # 安装内核
+        dnf -y --enablerepo=elrepo-kernel install kernel-lt kernel-lt-devel kernel-lt-tools kernel-lt-tools-libs kernel-lt-tools-libs-devel     # 安装最新的长期支持内核
+        # dnf -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel kernel-ml-tools kernel-ml-tools-libs kernel-ml-tools-libs-devel   # 安装最新的主线稳定内核        
+        dnf -y remove "${kernel_header}"                                       # 卸载当前的 kernel-headers        
+        dnf -y install pciutils-libs                                           # 安装因内核工具卸载，缺失的工具
+        dnf -y --enablerepo=elrepo-kernel install kernel-lt-headers            # 安装最新的长期支持内核 kernel-headers
+        # dnf -y --enablerepo=elrepo-kernel install kernel-ml-headers          # 安装最新的主线稳定内核 kernel-headers
         
-        #  5. 设置第一个内核将作为默认内核
-        sed -i  "s|^GRUB_DEFAULT=saved|GRUB_DEFAULT=saved\n|GRUB_DEFAULT=0|g"  /etc/default/grub
+        grub2-set-default 0                                                    # 设置第一个内核将作为默认内核
+        
+        cp  -fpr  /etc/default/grub                      /etc/default/grub.bak # 备份内核配置文件
+        sed -i    "s|^GRUB_DEFAULT=.*|GRUB_DEFAULT=0|g"  /etc/default/grub     # 设置第一个内核将作为默认内核
         
         grub2-mkconfig -o /boot/grub2/grub.cfg                                 # 重新创建内核配置
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
@@ -276,7 +287,7 @@ function remove_kernel()
     {
         kernel_version=$(uname -r)                                             # 内核版本
         
-        kernel_list=$(rpm -qa | grep -i kernel | grep -vi 5.14.0-284.30.1.el9_2.x86_64 | grep -vi srpm-macros)    # 查询系统已安装的内核
+        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "${kernel_version}") # 查询系统已安装的旧内核
         
         for kernel in ${kernel_list}
         do
