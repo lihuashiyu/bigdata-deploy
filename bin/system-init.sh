@@ -281,13 +281,11 @@ function upgrade_kernel()
 function remove_kernel()
 {
     echo "    *************************** 移除旧内核 ***************************    "
-    local kernel_version kernel_list kernel                                    # 定义局部变量    
-	
+    local kernel_list kernel                                                   # 定义局部变量
+    
     # 删除旧内核
     {
-        kernel_version=$(uname -r)                                             # 内核版本
-        
-        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "${kernel_version}") # 查询系统已安装的旧内核
+        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "$(uname -r) ")      # 查询系统已安装的旧内核
         
         for kernel in ${kernel_list}
         do

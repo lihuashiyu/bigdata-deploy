@@ -81,7 +81,7 @@ function es_install()
     for host in ${elasticsearch_list}
     do
         id=$((id + 1))
-        xssh "${host}" "sed -i 's|\${id}|${id}|g' '${ELASTIC_SEARCH_HOME}/config/elasticsearch.yml'"
+        xssh "${host}" "sed -i 's|\${host}|${host}|g' '${ELASTIC_SEARCH_HOME}/config/elasticsearch.yml'"
     done
     
     echo "    **************************** 启动 ES *****************************    "
