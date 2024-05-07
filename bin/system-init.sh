@@ -239,22 +239,27 @@ function install_rpm()
 # 更新新内核
 function upgrade_kernel()
 {
-    echo "    **************************** 更新内核 ****************************    "	
+    echo "    **************************** 更新内核 ****************************    "
+    local kernel_key kernel_url kernel_header	                               # 定义局部变量
+            
+    # 修改仓库镜像地址
+    sed -e "s|^mirrorlist=|# mirrorlist=|g"                          \
+        -e "s|^        http://.*||g"                                 \
+        -e "s|^\thttp://.*||g"                                       \
+        -e "s|^        https://.*||g"                                \
+        -e "s|^\thttps://.*||g"                                      \
+        -e "s|elrepo.org/linux|mirrors.aliyun.com/elrepo|g"          \
+        -i.bak /etc/yum.repos.d/elrepo.repo
+    
+    kernel_key=$(get_param "kernel.key")                                       # 新内核公钥
+    kernel_url=$(get_param "kernel.url")                                       # 新内核 ELRepo 地址
+            
 	# 安装新内核
 	{
-	    local kernel_header
-	    
         # RedHat 下使用 ELRepo 第三方的仓库，可以将内核升级到最新版本
-        rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org                       # 导入公钥
-        dnf install -y https://www.elrepo.org/elrepo-release-9.el9.elrepo.noarch.rpm     # 安装 ELRepo 的 rpm
-        
-        # 修改仓库镜像地址
-        sed -e "s|^mirrorlist=|# mirrorlist=|g"                  \
-            -e "s|^         http://.*||g"                        \
-            -e "s|^         https://.*||g"                       \
-            -e "s|elrepo.org/linux|mirrors.aliyun.com/elrepo|g"  \
-            -i.bak /etc/yum.repos.d/elrepo.repo
-        
+        rpm  --import          "${kernel_key}"                                 # 导入公钥
+        dnf  -y       install  "${kernel_url}"                                 # 安装 ELRepo 的 rpm
+                
         kernel_header=$(rpm -qa | grep -i "kernel-headers-$(uname -r)")        # 获取当前内核 kernel-header 版本
         
         dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available      # 列出可用的内核相关包
@@ -267,10 +272,10 @@ function upgrade_kernel()
         dnf -y --enablerepo=elrepo-kernel install kernel-lt-headers            # 安装最新的长期支持内核 kernel-headers
         # dnf -y --enablerepo=elrepo-kernel install kernel-ml-headers          # 安装最新的主线稳定内核 kernel-headers
         
-        grub2-set-default 0                                                    # 设置第一个内核将作为默认内核
+        grub2-set-default 0                                                    # 设置第一个内核将作为默认内核，临时生效
         
         cp  -fpr  /etc/default/grub                      /etc/default/grub.bak # 备份内核配置文件
-        sed -i    "s|^GRUB_DEFAULT=.*|GRUB_DEFAULT=0|g"  /etc/default/grub     # 设置第一个内核将作为默认内核
+        sed -i    "s|^GRUB_DEFAULT=.*|GRUB_DEFAULT=0|g"  /etc/default/grub     # 设置第一个内核将作为默认内核，永久生效
         
         grub2-mkconfig -o /boot/grub2/grub.cfg                                 # 重新创建内核配置
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
@@ -281,20 +286,19 @@ function upgrade_kernel()
 function remove_kernel()
 {
     echo "    *************************** 移除旧内核 ***************************    "
-    local kernel_list kernel                                                   # 定义局部变量
+    local kernel_list kernel kernel_version                                    # 定义局部变量
+    
+    kernel_version=$(uname -r | awk -F '.' '{$NF=""; print $0}' | tr " " ".")  # 查询系统已安装的旧内核版本
+    kernel_list=$(rpm -qa | grep -i kernel | grep -vi "${kernel_version}")     # 查询系统已安装的旧内核包
     
     # 删除旧内核
-    {
-        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "$(uname -r)")       # 查询系统已安装的旧内核
-        
-        for kernel in ${kernel_list}
-        do
-            echo "    +>+>+>+>+>+>+>+>+>+> 卸载内核：${kernel}    "
-            dnf remove -y "${kernel}"                                          # 删除旧内核
-        done    
-        
-        grub2-mkconfig -o /boot/grub2/grub.cfg                                 # 重新编译引导            
-    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    for kernel in ${kernel_list}
+    do
+        echo "    +>+>+>+>+>+>+>+>+>+> 卸载内核：${kernel}    "
+        dnf remove -y "${kernel}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 删除旧内核
+    done    
+    
+    grub2-mkconfig -o /boot/grub2/grub.cfg >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1        # 重新编译引导             
 }
 
 
