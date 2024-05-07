@@ -285,7 +285,7 @@ function remove_kernel()
     
     # 删除旧内核
     {
-        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "$(uname -r) ")      # 查询系统已安装的旧内核
+        kernel_list=$(rpm -qa | grep -i kernel | grep -vi "$(uname -r)")       # 查询系统已安装的旧内核
         
         for kernel in ${kernel_list}
         do
