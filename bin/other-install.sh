@@ -113,7 +113,7 @@ function node_install()
     echo "    ************************ 开始安装 NodeJs *************************    "
     local node_home node_version mirror_url result_count                       # 定义局部变量
     
-    node_home=$(get_param "nodejs.home")                                       # Nginx 安装路径    
+    node_home=$(get_param "nodejs.home")                                       # NodeJs 安装路径    
     node_version=$(get_version "nodejs.url")                                   # 获取 NodeJs 版本
     
     echo "    *************************** 安装 NodeJS **************************    " 
@@ -180,6 +180,7 @@ function micro_install()
     pass_word=$(get_password)                                                  # 管理员密码
     
     echo "    **************************** 安装软件 ****************************    "
+    download        "micro.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载软件
     file_decompress "micro.url"                                                # 解压 micro 压缩包
     folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取解压目录
     cd "${folder}" || exit                                                     # 进入 micro 解压目录    
@@ -212,7 +213,7 @@ case "$1" in
     ;;
     
     # 3.1 安装 nginx
-    node | -o)
+    node | -j)
         node_install
     ;;
     
@@ -238,6 +239,7 @@ case "$1" in
         echo "        |  参  数  |         描   述         | "
         echo "        +----------+-------------------------+ "
         echo "        |    -n    |  安装 nginx             | "
+        echo "        |    -j    |  安装 node-js           | "
         echo "        |    -v    |  安装 vim 插件          | "
         echo "        |    -m    |  安装 micro             | "
         echo "        |    -a    |  安装以上所有           | "
