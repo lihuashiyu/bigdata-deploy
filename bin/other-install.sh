@@ -130,7 +130,7 @@ function node_install()
     
     echo "const hello = 'Hello world'"  >>  "${node_home}/data/hello.js" 
     echo "console.log(hello)"           >>  "${node_home}/data/hello.js"     
-    result_count=$("${node_home}/bin/npm" "${node_home}/data/hello.js" | grep -ic "Hello world")    
+    result_count=$("${node_home}/bin/node" "${node_home}/data/hello.js" | grep -ic "Hello world")    
     if [ "${result_count}" -ne 1 ]; then
         echo "    **************************** 验证失败 ****************************    "
     else
