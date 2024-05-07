@@ -119,7 +119,7 @@ function node_install()
     echo "    *************************** 安装 NodeJS **************************    " 
     download        "nodejs.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 下载软件
     file_decompress "nodejs.url"   "${node_home}"                              # 解压 NodeJs 包
-    append_env      "nodejs.home"  "${node_version}"                           # 添加环境变量
+    append_env      "nodejs.home"  "${node_version}"  "env"                    # 添加环境变量
     
     echo "    ************************** 修改配置文件 **************************    "
     mkdir -p  "${node_home}/data/cache" "${node_home}/data/global"             # 创建 存储目录
