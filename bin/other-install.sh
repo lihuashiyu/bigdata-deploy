@@ -107,6 +107,38 @@ function nginx_install()
 }
 
 
+# 安装并初始化 NodeJs
+function node_install()
+{
+    echo "    ************************ 开始安装 NodeJs *************************    "
+    local node_home node_version mirror_url result_count                       # 定义局部变量
+    
+    node_home=$(get_param "nodejs.home")                                       # Nginx 安装路径    
+    node_version=$(get_version "nodejs.url")                                   # 获取 NodeJs 版本
+    
+    echo "    *************************** 安装 NodeJS **************************    " 
+    download        "nodejs.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 下载软件
+    file_decompress "nodejs.url"   "${node_home}"                              # 解压 NodeJs 包
+    append_env      "nodejs.home"  "${node_version}"                           # 添加环境变量
+    
+    echo "    ************************** 修改配置文件 **************************    "
+    mkdir -p  "${node_home}/data/cache" "${node_home}/data/global"             # 创建 存储目录
+    mirror_url=$(get_param "npm.mirror")                                       # 获取 npm 国内镜像地址 
+    "${node_home}/bin/npm"  config  set registry  "${mirror_url}"              # 设置 npm 国内镜像
+    "${node_home}/bin/npm"  config  set prefix    "${node_home}/data/global"   # 设置 npm 下载缓存路径
+    "${node_home}/bin/npm"  config  set cache     "${node_home}/data/cache"    # 设置 npm 存储路径
+    
+    echo "const hello = 'Hello world'"  >>  "${node_home}/data/hello.js" 
+    echo "console.log(hello)"           >>  "${node_home}/data/hello.js"     
+    result_count=$("${node_home}/bin/npm" "${node_home}/data/hello.js" | grep -ic "Hello world")    
+    if [ "${result_count}" -ne 1 ]; then
+        echo "    **************************** 验证失败 ****************************    "
+    else
+        echo "    **************************** 验证成功 ****************************    "
+    fi
+}
+
+
 # Vim 安装插件 YouCompleteMe
 function vim_plugin_ycm()
 {
@@ -179,22 +211,27 @@ case "$1" in
         nginx_install
     ;;
     
-    # 3.2 安装 vim 插件
+    # 3.1 安装 nginx
+    node | -o)
+        node_install
+    ;;
+    
+    # 3.3 安装 vim 插件
     vim | -v)
         vim_plugin_ycm
     ;;
     
-    # 3.3 安装 micro
+    # 3.4 安装 micro
     micro | -m)
         micro_install
     ;;
     
-    # 3.4 安装以上所有
+    # 3.5 安装以上所有
     all | -a)
         nginx_install
     ;;
     
-    # 3.4 其它情况
+    # 3.6 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
