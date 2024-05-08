@@ -148,7 +148,7 @@ function kernel_optimize()
 function add_user()
 {
     echo "    **************************** 添加用户 ****************************    "
-    local user password exist software_home param param_list vim_conf          # 定义局部变量
+    local user password exist software_home                                    # 定义局部变量
     
     user=$(get_param "server.user")                                            # 获取用户名
     password=$(get_param "server.password")                                    # 获取密码
@@ -302,6 +302,20 @@ function remove_kernel()
 }
 
 
+# 添加便捷的命令别名
+function add_alias()
+{
+    echo "    **************************** 添加别名 ****************************    "
+    local user                                                                 # 定义局部变量    
+    user=$(get_param "server.user")                                            # 获取用户名
+    
+    cp    -fpr  "${ROOT_DIR}/conf/zalias.sh" /etc/profile.d/                   # 复制别名文件    
+    chown -R    "${user}:${user}"            /etc/profile.d/zalias.sh          # 权限授予用户
+    
+    source   /etc/profile                                                      # 使环境变量生效
+}
+
+
 # 给 Shell 脚本添加可执行权限，安装集群操作脚本
 function add_execute()
 {
@@ -397,7 +411,12 @@ case "$1" in
         remove_kernel
     ;;
     
-    # 3.12 初始化所有配置
+    # 3.12 添加命令别名
+    alias | -s)
+        add_alias
+    ;;
+    
+    # 3.13 初始化所有配置
     all | -a)
         network_init
         host_init
@@ -409,9 +428,10 @@ case "$1" in
         dnf_mirror
         install_rpm
         remove_kernel
+        add_alias
     ;;
     
-    # 3.12 其它情况
+    # 3.14 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：     "
         echo "        +----------------+--------------+ "
@@ -428,6 +448,7 @@ case "$1" in
         echo "        |   -i|install   |   安装软件   | "
         echo "        |   -p|upgrade   |   升级内核   | "
         echo "        |   -r|remove    |   删除内核   | "
+        echo "        |   -s|alias     |   添加别名   | "
         echo "        |   -a|all       |   执行全部   | "
         echo "        +----------------+--------------+ "
     ;;
