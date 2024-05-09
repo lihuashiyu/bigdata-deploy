@@ -302,6 +302,37 @@ function remove_kernel()
 }
 
 
+# 添加中文支持
+function add_chinese()
+{
+    echo "    ************************** 添加中文支持 **************************    "
+    local language_count chinese zh result_count                               # 定义局部变量
+    
+    language_count=$(localectl list-locales | grep -ic "zh_CN")                # 查看系统是否安装简体中文语言包
+    if [ "${language_count}" -eq 1 ]; then
+        echo "    *************************** 中文已安装 ***************************    "
+    else
+        {
+            chinese=$(dnf list | grep -i "glibc-langpack" | grep -i "zh")      # 筛选出需要的中文语言包
+            for zh in ${chinese}
+            do
+                dnf  install  -y  "${zh}"                                      # 安装中文语言包
+            done
+            
+            localectl  set-locale  LANG="zh_CN.utf8"                           # 修改当前生效语言包为中文zh_CN.utf8
+        }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
+    fi    
+    
+    cd "${ROOT_DIR}" || exit                                                   # 进入项目根路径
+    result_count=$(git log | grep -ic "添加简体中文支持")                       # 检查中文是否生效
+    if [ "${result_count}" -eq 1 ]; then
+        echo "    **************************** 添加成功 ****************************    "
+    else
+        echo "    **************************** 添加失败 ****************************    "        
+    fi    
+}
+
+
 # 添加便捷的命令别名
 function add_alias()
 {
@@ -416,7 +447,12 @@ case "$1" in
         add_alias
     ;;
     
-    # 3.13 初始化所有配置
+    # 3.13 添加中文支持
+    chinese | -z)
+        add_chinese
+    ;;
+    
+    # 3.14 初始化所有配置
     all | -a)
         network_init
         host_init
@@ -429,9 +465,10 @@ case "$1" in
         install_rpm
         remove_kernel
         add_alias
+        add_chinese
     ;;
     
-    # 3.14 其它情况
+    # 3.15 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：     "
         echo "        +----------------+--------------+ "
@@ -449,6 +486,7 @@ case "$1" in
         echo "        |   -p|upgrade   |   升级内核   | "
         echo "        |   -r|remove    |   删除内核   | "
         echo "        |   -s|alias     |   添加别名   | "
+        echo "        |   -z|chinese   |   添加中文   | "
         echo "        |   -a|all       |   执行全部   | "
         echo "        +----------------+--------------+ "
     ;;
