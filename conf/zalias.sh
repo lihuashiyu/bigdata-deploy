@@ -29,6 +29,9 @@ alias netg="netstat -tunlp | grep -vi 'grep'          | grep -i " 2> /dev/null
 alias psg="ps -aux         | grep -viE 'grep|ps -aux' | grep -i " 2> /dev/null
 alias jps="jps -l          | sort -t ' ' -k 2         | grep -vi sun.tools.jps.Jps"
 
+# ================================================== git ================================================== #
+alias gfrp="git fetch --all  &&  git reset --hard  &&  git pull"
+
 # ================================================= fuck ================================================== #
 eval "$(thefuck --alias fuck)"
 
