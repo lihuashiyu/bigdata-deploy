@@ -351,7 +351,7 @@ function add_alias()
 function add_execute()
 {
     echo "    ************************* 添加可执行权限 *************************    "
-    local item server_hosts                                                    # 定义局部变量
+    local item server_hosts result_count                                       # 定义局部变量
     
     {
         find "${ROOT_DIR}" -iname "*.sh" -type f -exec dos2unix {} + -exec chmod +x {} + # 将 shell  文件换行符改为 UNIX 格式，并赋予执行权限
@@ -369,8 +369,16 @@ function add_execute()
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
     
-    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall.sh     # 修改集群 主机列表
-    sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync.sh      # 修改集群 主机列表
+    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xcall.sh)        # 判断是否存在未修改
+    if [ "${result_count}" -ne 1 ]; then        
+        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall.sh # 修改集群 主机列表
+    fi
+    
+    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xync.sh)         # 判断是否存在未修改
+    if [ "${result_count}" -ne 1 ]; then            
+        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync.sh  # 修改集群 主机列表
+    fi
+        
     chmod 755  /usr/bin/xcall.sh /usr/bin/xync.sh                              # 添加执行权限
 }
 
