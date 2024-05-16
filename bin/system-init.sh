@@ -347,6 +347,35 @@ function add_alias()
 }
 
 
+# 安装常用字体
+function font_install
+{
+    local font_list font user                 	                               # 定义局部变量
+    user=$(get_param "server.user")                                            # 获取用户名
+    
+    echo "    **************************** 字体管理 ****************************    "
+    dnf -y install fontconfig mkfontscale  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1        # 安装字体管理工具
+    
+    echo "    **************************** 安装字体 ****************************    "
+    mkdir -p "/usr/share/fonts/${user}"                                        # 创建字体存放路径
+    font_list=$(ls "${ROOT_DIR}"/lib/*.ttf)                                    # 获取字体路径
+    
+    for font in ${font_list}
+    do
+        echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${font}    "
+        cp -fpr "${font}"  "/usr/share/fonts/${user}/"                         # 安装字体
+    done
+        
+    echo "    **************************** 刷新缓存 ****************************    "
+    {
+        chown -R "${user}:${user}" "/usr/share/fonts/${user}"                  # 将文件的权限授予新用户
+        mkfontscale                                                            # 字体大小
+        mkfontdir                                                              # 字体路径
+        fc-cache -fv                                                           # 刷新字体缓存
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+}
+
+
 # 给 Shell 脚本添加可执行权限，安装集群操作脚本
 function add_execute()
 {
@@ -380,34 +409,6 @@ function add_execute()
     fi
         
     chmod 755  /usr/bin/xcall.sh /usr/bin/xync.sh                              # 添加执行权限
-}
-
-
-# 安装常用字体
-function font_install
-{
-    local font_list font user                 	                               # 定义局部变量
-    user=$(get_param "server.user")                                            # 获取用户名
-    
-    echo "    **************************** 字体管理 ****************************    "
-    dnf -y install fontconfig mkfontscale  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1        # 安装字体管理工具
-    
-    echo "    **************************** 安装字体 ****************************    "
-    mkdir -p "/usr/share/fonts/${user}"                                        # 创建字体存放路径
-    font_list=$(ls "${ROOT_DIR}"/lib/*.ttf)                                    # 获取字体路径
-    
-    for font in ${font_list}
-    do
-        echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${font}    "
-        cp -fpr "${font}"  "/usr/share/fonts/${user}/"                         # 安装字体
-    done
-        
-    {
-        chown -R "${user}:${user}" "/usr/share/fonts/${user}"                  # 将文件的权限授予新用户
-        mkfontscale                                                            # 字体大小
-        mkfontdir                                                              # 字体路径
-        fc-cache -fv                                                           # 刷新字体缓存
-    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
 
