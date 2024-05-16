@@ -362,7 +362,7 @@ function font_install
     
     for font in ${font_list}
     do
-        echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${font}    "
+        echo "    +>+>+>+>+>+>+>+> 安装 $(echo "${font}" | awk -F '/' '{print $NF}')    " 
         cp -fpr "${font}"  "/usr/share/fonts/${user}/"                         # 安装字体
     done
         
