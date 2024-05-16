@@ -530,6 +530,7 @@ case "$1" in
         echo "        |   -r|remove    |   删除内核   | "
         echo "        |   -s|alias     |   添加别名   | "
         echo "        |   -z|chinese   |   添加中文   | "
+        echo "        |   -f|font      |   安装字体   | "
         echo "        |   -a|all       |   执行全部   | "
         echo "        +----------------+--------------+ "
     ;;
