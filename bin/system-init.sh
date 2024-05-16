@@ -383,6 +383,34 @@ function add_execute()
 }
 
 
+# 安装常用字体
+function font_install
+{
+    local font_list font user                 	                               # 定义局部变量
+    user=$(get_param "server.user")                                            # 获取用户名
+    
+    echo "    **************************** 字体管理 ****************************    "
+    dnf -y install fontconfig mkfontscale  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1        # 安装字体管理工具
+    
+    echo "    **************************** 安装字体 ****************************    "
+    mkdir -p "/usr/share/fonts/${user}"                                        # 创建字体存放路径
+    font_list=$(ls "${ROOT_DIR}"/lib/*.ttf)                                    # 获取字体路径
+    
+    for font in ${font_list}
+    do
+        echo "    +>+>+>+>+>+>+>+>+>+> 安装 ${font}    "
+        cp -fpr "${font}"  "/usr/share/fonts/${user}/"                         # 安装字体
+    done
+        
+    {
+        chown -R "${user}:${user}" "/usr/share/fonts/${user}"                  # 将文件的权限授予新用户
+        mkfontscale                                                            # 字体大小
+        mkfontdir                                                              # 字体路径
+        fc-cache -fv                                                           # 刷新字体缓存
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+}
+
+
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
@@ -460,6 +488,11 @@ case "$1" in
         add_chinese
     ;;
     
+    # 3.13 添加中文支持
+    font | -f)
+        font_install
+    ;;
+    
     # 3.14 初始化所有配置
     all | -a)
         network_init
@@ -474,6 +507,7 @@ case "$1" in
         remove_kernel
         add_alias
         add_chinese
+        font_install
     ;;
     
     # 3.15 其它情况
