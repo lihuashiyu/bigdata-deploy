@@ -240,38 +240,58 @@ function install_rpm()
 function upgrade_kernel()
 {
     echo "    **************************** 更新内核 ****************************    "
-    local kernel_key kernel_url kernel_header	                               # 定义局部变量
+    local kernel_key kernel_url kernel_header kernel_image kernel_list         # 定义局部变量
             
-    # 修改仓库镜像地址
-    sed -e "s|^mirrorlist=|# mirrorlist=|g"                          \
-        -e "s|^        http://.*||g"                                 \
-        -e "s|^\thttp://.*||g"                                       \
-        -e "s|^        https://.*||g"                                \
-        -e "s|^\thttps://.*||g"                                      \
-        -e "s|elrepo.org/linux|mirrors.aliyun.com/elrepo|g"          \
-        -i.bak /etc/yum.repos.d/elrepo.repo
+    kernel_image=$(get_param "kernel.image")                                   # 获取 EL 内核镜像地址
+    if [ -e "/etc/yum.repos.d/elrepo.repo" ]; then                             # 修改仓库镜像地址        
+        sed -e "s|^mirrorlist=|# mirrorlist=|g"                      \
+            -e "s|^        http://.*||g"                             \
+            -e "s|^\thttp://.*||g"                                   \
+            -e "s|^        https://.*||g"                            \
+            -e "s|^\thttps://.*||g"                                  \
+            -e "s|elrepo.org/linux|${kernel_image}|g"                \
+            -i.bak /etc/yum.repos.d/elrepo.repo
+    fi
     
     kernel_key=$(get_param "kernel.key")                                       # 新内核公钥
     kernel_url=$(get_param "kernel.url")                                       # 新内核 ELRepo 地址
-            
-	# 安装新内核
-	{
+    
+    echo "    **************************** 导入仓库 ****************************    "        
+	{	    
         # RedHat 下使用 ELRepo 第三方的仓库，可以将内核升级到最新版本
         rpm  --import          "${kernel_key}"                                 # 导入公钥
         dnf  -y       install  "${kernel_url}"                                 # 安装 ELRepo 的 rpm
                 
+        # 修改仓库镜像地址
+        sed -e "s|^mirrorlist=|# mirrorlist=|g"                      \
+            -e "s|^        http://.*||g"                             \
+            -e "s|^\thttp://.*||g"                                   \
+            -e "s|^        https://.*||g"                            \
+            -e "s|^\thttps://.*||g"                                  \
+            -e "s|elrepo.org/linux|${kernel_image}|g"                \
+            -i.bak /etc/yum.repos.d/elrepo.repo
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    echo "    **************************** 升级内核 ****************************    "
+    kernel_list=$(dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available | grep -i "kernel-lt-" | awk '{print $1}')   # 获取最新的长期支持内核
+    # kernel_list=$(dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available | grep -i "kernel-ml-" | awk '{print $1}') # 获取最新的主线稳定内核
+    for kernel in ${kernel_list}
+    do
+        echo "    +>+>+>+>+>+>+>+>+>+> 升级内核：${kernel}    "
+        dnf -y --enablerepo=elrepo-kernel install  "${kernel}"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 安装最新的长期支持内核
+    done    
+    
+    echo "    ********************** 升级 kernel-headers ***********************    "
+    {        
         kernel_header=$(rpm -qa | grep -i "kernel-headers-$(uname -r)")        # 获取当前内核 kernel-header 版本
-        
-        dnf --disablerepo="*" --enablerepo="elrepo-kernel" list available      # 列出可用的内核相关包
-        
-        # 安装内核
-        dnf -y --enablerepo=elrepo-kernel install kernel-lt kernel-lt-devel kernel-lt-tools kernel-lt-tools-libs kernel-lt-tools-libs-devel     # 安装最新的长期支持内核
-        # dnf -y --enablerepo=elrepo-kernel install kernel-ml kernel-ml-devel kernel-ml-tools kernel-ml-tools-libs kernel-ml-tools-libs-devel   # 安装最新的主线稳定内核        
         dnf -y remove "${kernel_header}"                                       # 卸载当前的 kernel-headers        
         dnf -y install pciutils-libs                                           # 安装因内核工具卸载，缺失的工具
         dnf -y --enablerepo=elrepo-kernel install kernel-lt-headers            # 安装最新的长期支持内核 kernel-headers
         # dnf -y --enablerepo=elrepo-kernel install kernel-ml-headers          # 安装最新的主线稳定内核 kernel-headers
-        
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1    
+    
+    echo "    **************************** 重建内核 ****************************    "
+    {
         grub2-set-default 0                                                    # 设置第一个内核将作为默认内核，临时生效
         
         cp  -fpr  /etc/default/grub                      /etc/default/grub.bak # 备份内核配置文件
@@ -289,7 +309,7 @@ function remove_kernel()
     local kernel_list kernel kernel_version                                    # 定义局部变量
     
     kernel_version=$(uname -r | awk -F '.' '{$NF=""; print $0}' | tr " " ".")  # 查询系统已安装的旧内核版本
-    kernel_list=$(rpm -qa | grep -i kernel | grep -vi "${kernel_version}")     # 查询系统已安装的旧内核包
+    kernel_list=$(rpm -qa | grep -iE "kernel|elrepo-release-" | grep -viE "srpm-macros|${kernel_version}")   # 查询系统已安装的旧内核包
     
     # 删除旧内核
     for kernel in ${kernel_list}
@@ -553,3 +573,4 @@ fi
 
 printf "================================================================================\n\n"
 exit 0
+
