@@ -22,8 +22,8 @@ PASSWORD="111111"                                                              #
     
 SERVICE_DIR=$(dirname "$(readlink -e "$0")")                                   # Shell 脚本目录
 LOG_DIRECTORY="${SERVICE_DIR}/gcc-log"                                         # 程序操作日目录名
-FILE_NAME=$(echo "${URL}" | awk -F '/' '{ print $NF}')                         # 获取下载的压缩包路径
-FILE_DIRECTORY=$(echo "${FILE_NAME}" | awk -F '.' '{ print $1"."$2"."$3}')     # 文件解压路径
+FILE_NAME=$(echo "${URL}" | awk -F '/' '{ print $NF }')                        # 获取下载的压缩包路径
+FILE_DIRECTORY=$(echo "${FILE_NAME}" | awk -F '.' '{ print $1"."$2"."$3 }')    # 文件解压路径
 GCC_VERSION=$(echo "${FILE_NAME}" | awk -F '.' '{print $1}' | grep -oP "\d*")  # 获取 GCC 主版本号
     
 
@@ -48,7 +48,7 @@ function flush_env()
 # 下载软件包
 function download()
 {
-    local is_exist log_file                                                    # 定义局部变量
+    local is_exist log_file is_text                                            # 定义局部变量
     log_file="${LOG_DIRECTORY}/download.log"                                   # 下载 GCC 软件包的日志
     
     # 下载软件包
@@ -64,7 +64,14 @@ function download()
             curl --parallel --parallel-immediate -k -L -C - -o "${SERVICE_DIR}/${FILE_NAME}" "${URL}" \
                 >> "${log_file}" 2>&1
         fi
-        echo "    **************** $(date '+%T')：${FILE_NAME} 下载完成 ******************    "
+        
+        is_text=$(file "${SERVICE_DIR}/${FILE_NAME}" | grep -ci "text")        # 判断下载内容
+        if [ "${is_text}" -eq 0 ]; then
+            echo "    **************** $(date '+%T')：${FILE_NAME} 下载完成 ******************    "
+        else
+            echo "    **************** $(date '+%T')：${FILE_NAME} 下载失败 ******************    "
+            exit 1
+        fi
     else
         echo "    ****************************** url 不存在 ******************************    "
         exit 1
