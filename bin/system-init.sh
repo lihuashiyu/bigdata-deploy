@@ -409,8 +409,13 @@ function add_execute()
         dos2unix  "${ROOT_DIR}"/conf/*                                         # 将配置文件修改为 UNIX 换行        
     }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/local/bin/             # 将 集群间查看命令 脚本复制到系统路径
-    cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/local/bin/             # 将 集群之间进行文件同步 脚本复制到系统路径
+    if [ ! -f /usr/local/bin/xcall ]; then
+        cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/local/bin/xcall    # 将 集群间查看命令 脚本复制到系统路径
+    fi
+    
+    if [ ! -f /usr/local/bin/xync ]; then
+        cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/local/bin/xync     # 将 集群之间进行文件同步 脚本复制到系统路径
+    fi
     
     # 获取所有主机名
     for item in $(get_param "server.hosts" | tr "," " ")
@@ -418,17 +423,17 @@ function add_execute()
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
     
-    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xcall.sh)        # 判断是否存在未修改
-    if [ "${result_count}" -ne 1 ]; then        
-        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall.sh # 修改集群 主机列表
+    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xcall)           # 判断是否存在未修改
+    if [ "${result_count}" -eq 1 ]; then        
+        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall    # 修改集群 主机列表
+        chmod 755                                      /usr/local/bin/xcall    # 添加执行权限
     fi
     
-    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xync.sh)         # 判断是否存在未修改
-    if [ "${result_count}" -ne 1 ]; then            
-        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync.sh  # 修改集群 主机列表
+    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xync)            # 判断是否存在未修改
+    if [ "${result_count}" -eq 1 ]; then            
+        sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync     # 修改集群 主机列表
+        chmod 755                                      /usr/local/bin/xync     # 添加执行权限
     fi
-        
-    chmod 755  /usr/bin/xcall.sh /usr/bin/xync.sh                              # 添加执行权限
 }
 
 
@@ -439,7 +444,9 @@ start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 # 2. 刷新变量
 if [ "$#" -gt 0 ]; then
     flush_env                                                                  # 刷新环境变量
-    add_execute                                                                # 给脚本添加可执行权限
+    if [ ! -x "${ROOT_DIR}/bin/common.sh" ]; then
+        add_execute                                                            # 给脚本添加可执行权限
+    fi
 fi
 
 # 3. 匹配输入参数
