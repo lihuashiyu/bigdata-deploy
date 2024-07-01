@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2029,SC1090
 
 # ==================================================================================================
 #    FileName      ：  password-free-login.sh
@@ -15,7 +14,6 @@ CONFIG_FILE="server.conf"                                                      #
 LOG_FILE="password-free-login-$(date +%F).log"                                 # 程序操作日志文件
 SSH_PORT="22"                                                                  # SSH 端口号
 SCP_PORT="${SSH_PORT}"                                                         # SCP 端口号
-USER=$(whoami)                                                                 # 当前使用的用户
 
 
 # 刷新环境变量
@@ -47,13 +45,14 @@ function remove_key()
 {
     expect -c \
     " 
-        set timeout 30;
-        spawn ssh -p ${SSH_PORT} $1@$3 rm -rf ${HOME}/.ssh;
-        expect {
-            *yes/no*     { send  --  yes\r;  exp_continue; }
-            *password*   { send  --  $2\r;   exp_continue; }
+        set timeout 10
+        spawn ssh -p ${SSH_PORT} $1@$3 rm -rf ${HOME}/.ssh
+        expect \
+        {
+            *yes/no*     { send  --  yes\r;  exp_continue }
+            *password*   { send  --  $2\r;   exp_continue }
             eof          { exit 0 }
-        };
+        }
     "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
@@ -63,14 +62,15 @@ function create_keygen()
 {
     expect -c \
     " 
-        set timeout 30;
-        spawn ssh -p ${SSH_PORT} $1@$3 ssh-keygen -t rsa -P '' -f ${HOME}/.ssh/id_rsa;
-        expect {
-            *Overwrite*  { send  --  y\r;    exp_continue; }
-            *yes/no*     { send  --  yes\r;  exp_continue; }
-            *password*   { send  --  $2\r;   exp_continue; }
+        set timeout 10
+        spawn ssh -p ${SSH_PORT} $1@$3 ssh-keygen -t rsa -P '' -f ${HOME}/.ssh/id_rsa
+        expect \
+        {
+            *Overwrite*  { send  --  y\r;    exp_continue }
+            *yes/no*     { send  --  yes\r;  exp_continue }
+            *password*   { send  --  $2\r;   exp_continue }
             eof          { exit 0 }
-        };
+        }
     "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
@@ -80,13 +80,14 @@ function ssh_copy_id()
 {
     expect -c \
     "
-        set timeout 30;
-        spawn ssh -p ${SSH_PORT} $1@$4 ssh-copy-id -f $1@$3;              
-        expect {
-            *yes/no*    { send  --  yes\r; exp_continue; }
-            *password*  { send  --  $2\r;  exp_continue; }  
-            eof         { exit 0; }
-        };
+        set timeout 10
+        spawn ssh -p ${SSH_PORT} $1@$4 ssh-copy-id -f $1@$3
+        expect \
+        {
+            *yes/no*    { send  --  yes\r;  exp_continue }
+            *password*  { send  --  $2\r;   exp_continue }  
+            eof         { exit 0 }
+        }
     "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 }
 
@@ -96,13 +97,14 @@ function scp_copy_pub()
 {
     expect -c \
     "
-        set timeout 30;
-        spawn scp -P -p ${SCP_PORT} $1@$3:${HOME}/.ssh/id_rsa.pub ${HOME}/.ssh/id_rsa.pub.$3; 
-        expect {
-            *yes/no*    { send  --  yes\r; exp_continue; }
-            *password*  { send  --  $2\r;  exp_continue; }    
-            eof         { exit 0; }
-        };
+        set timeout 10
+        spawn scp -P -p ${SCP_PORT} $1@$3:${HOME}/.ssh/id_rsa.pub ${HOME}/.ssh/id_rsa.pub.$3
+        expect \
+        {
+            *yes/no*    { send  --  yes\r;  exp_continue }
+            *password*  { send  --  $2\r;   exp_continue }    
+            eof         { exit 0 }
+        }
     "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  
 }
 
@@ -112,13 +114,14 @@ function scp_copy_keys()
 {
     expect -c \
     "
-        set timeout -1;
-        spawn scp -P ${SCP_PORT} ${HOME}/.ssh/authorized_keys $1@$3:${HOME}/.ssh/;                              
-        expect {
-            *yes/no*    { send  --  yes\r; exp_continue; }
-            *password* { send -- $2\r;  exp_continue; }  
-            eof         { exit 0; }
-        };
+        set timeout 10
+        spawn scp -P ${SCP_PORT} ${HOME}/.ssh/authorized_keys $1@$3:${HOME}/.ssh/
+        expect \
+        {
+            *yes/no*    { send  --  yes\r; exp_continue }
+            *password*  { send  --  $2\r;  exp_continue }  
+            eof         { exit 0 }
+        }
     "  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1 
 }
 
@@ -141,7 +144,7 @@ function sync_keygen()
     echo "    *********************** 发送公钥到 Master ************************    "
     for host in ${HOST_LIST}
     do
-        if [[ "${master}" != "${host}" ]]; then
+        if [ "${master}" != "${host}" ]; then
             ssh_copy_id   "${USER}" "${password}" "${master}" "${host}"        # 将秘钥 ID 复制到 Master
             scp_copy_pub  "${USER}" "${password}" "${host}"                    # 将公钥发送到 Master
         fi
@@ -153,7 +156,7 @@ function sync_keygen()
     echo "    ************************** 分发合成公钥 **************************    "
     for host in ${HOST_LIST}
     do
-        if [[ "${master}" != "${host}" ]]; then
+        if [ "${master}" != "${host}" ]; then
             scp_copy_keys  "${USER}" "${password}" "${host}"                   # 分发合成公钥
         fi
     done
