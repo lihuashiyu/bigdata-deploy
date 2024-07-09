@@ -192,22 +192,29 @@ function vim_config()
 function dnf_mirror()
 {
     echo "    *************************** 替换镜像源 ***************************    "
-    local mirror exist                                                         # 定义局部变量
+    local mirror exist epel_image                                              # 定义局部变量
     
     mirror=$(get_param "dnf.image")                                            # 获取 rpm 仓库镜像源路径
     exist=$(echo "${mirror}" | grep -i "rocky")                                # 判断镜像是 rocky 还是 alma
     
     # 备份原来的源，并修改源
     if [[ -n "${exist}" ]]; then
-        sed -e "s|^mirrorlist=|# mirrorlist=|g"                                         \
-            -e "s|^#baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
-            -e "s|^#baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
-            -i.bak /etc/yum.repos.d/[Rr]ocky*.repo
+        sed -e      "s|^mirrorlist=|# mirrorlist=|g"                                               \
+            -Ee     "s|^#[ \t]*baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
+            -Ee     "s|^#[ \t]*baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
+            -i.bak  /etc/yum.repos.d/[Rr]ocky*.repo
     else
-        sed -e "s|^mirrorlist=|# mirrorlist=|g"                              \
-            -e "s|^# baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"  \
-            -e "s|^# baseurl=https://repo.almalinux.org|baseurl=${mirror}|g" \
-            -i.bak /etc/yum.repos.d/almalinux*.repo
+        sed -e      "s|^mirrorlist=|# mirrorlist=|g"                                     \
+            -Ee     "s|^#[ \t]*baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"    \
+            -Ee     "s|^#[ \t]*baseurl=https://repo.almalinux.org|baseurl=${mirror}|g"   \
+            -i.bak  /etc/yum.repos.d/almalinux*.repo
+    fi
+    
+    epel_image=$(get_param "dnf.epel.image")                                   # epel 国内镜像源
+    if [ -f "/etc/yum.repos.d/epel.repo" ]; then        
+        sed -e      "s|^metalink|# metalink|"                                                 \
+            -Ee     "s|^#[ \t]*baseurl=https://download.example/pub|baseurl=${epel_image}|g"  \
+            -i.bak  /etc/yum.repos.d/epel*
     fi
     
     # 先清除缓存，然后更新源缓存和软件 
@@ -244,13 +251,10 @@ function upgrade_kernel()
             
     kernel_image=$(get_param "kernel.image")                                   # 获取 EL 内核镜像地址
     if [ -e "/etc/yum.repos.d/elrepo.repo" ]; then                             # 修改仓库镜像地址        
-        sed -e "s|^mirrorlist=|# mirrorlist=|g"                      \
-            -e "s|^        http://.*||g"                             \
-            -e "s|^\thttp://.*||g"                                   \
-            -e "s|^        https://.*||g"                            \
-            -e "s|^\thttps://.*||g"                                  \
-            -e "s|elrepo.org/linux|${kernel_image}|g"                \
-            -i.bak /etc/yum.repos.d/elrepo.repo
+        sed -e      "s|^mirrorlist=|# mirrorlist=|g"            \
+            -Ee     "s|^[ \t]*http[s]*://.*||g"                 \
+            -e      "s|elrepo.org/linux|${kernel_image}|g"      \
+            -i.bak  /etc/yum.repos.d/elrepo.repo
     fi
     
     kernel_key=$(get_param "kernel.key")                                       # 新内核公钥
@@ -263,13 +267,10 @@ function upgrade_kernel()
         dnf  -y       install  "${kernel_url}"                                 # 安装 ELRepo 的 rpm
                 
         # 修改仓库镜像地址
-        sed -e "s|^mirrorlist=|# mirrorlist=|g"                      \
-            -e "s|^        http://.*||g"                             \
-            -e "s|^\thttp://.*||g"                                   \
-            -e "s|^        https://.*||g"                            \
-            -e "s|^\thttps://.*||g"                                  \
-            -e "s|elrepo.org/linux|${kernel_image}|g"                \
-            -i.bak /etc/yum.repos.d/elrepo.repo
+        sed -e      "s|^mirrorlist=|# mirrorlist=|g"            \
+            -Ee     "s|^[ \t]*http[s]*://.*||g"                 \
+            -e      "s|elrepo.org/linux|${kernel_image}|g"      \
+            -i.bak  /etc/yum.repos.d/elrepo.repo
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
     echo "    **************************** 升级内核 ****************************    "
