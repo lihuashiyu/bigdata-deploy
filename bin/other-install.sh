@@ -88,7 +88,7 @@ function nginx_install()
     cp    -fpr  "${ROOT_DIR}/lib/nginx-rename.py"    "${nginx_home}/data/upload"    # 复制 重命名 文件    
     mv          "${nginx_home}/html"                 "${nginx_home}/data"           # 移动目录
     # tar   -zxf  "${ROOT_DIR}/lib/upload.tar.gz"  -C  "${nginx_home}/data/upload"  # 上传页面
-    tar   -zxf  "${ROOT_DIR}/lib/hive.tar.gz"    -C  "${nginx_home}/data/hive"      # Hive 计划可视化页面
+    tar   -zxf  "${ROOT_DIR}/lib/hive.tar.gz"    -C  "${nginx_home}/data/"          # Hive 计划可视化页面
     
     nginx_version=$(get_version "nginx.url")                                   # 获取 Nginx 版本
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
