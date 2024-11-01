@@ -48,6 +48,7 @@ function nginx_install()
     local nginx_home folder nginx_host nginx_port nginx_version result_count
      
     nginx_home=$(get_param "nginx.home")                                       # Nginx 安装路径
+    download        "nginx.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Nginx 源码    
     file_decompress "nginx.url"                                                # 解压 Nginx 源码包
     
     echo "    **************************** 编译源码 ****************************    "
