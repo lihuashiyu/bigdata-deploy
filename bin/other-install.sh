@@ -90,6 +90,7 @@ function nginx_install()
     # tar   -zxf  "${ROOT_DIR}/lib/upload.tar.gz"  -C  "${nginx_home}/data/upload"  # 上传页面
     tar   -zxf  "${ROOT_DIR}/lib/hive.tar.gz"    -C  "${nginx_home}/data/"          # Hive 计划可视化页面
     
+    chmod  +x "${nginx_home}/bin/nginx.sh"                                     # 添加可执行权限
     nginx_version=$(get_version "nginx.url")                                   # 获取 Nginx 版本
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
     
