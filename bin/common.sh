@@ -10,6 +10,18 @@
 # ==================================================================================================
 
 
+# 判断命令是否存在（$1：需要查找的命令）
+function create_dir()
+{
+    local service_dir root_dir                                                 # 定义局部变量
+    
+    service_dir=$(dirname "$(readlink -e "$0")")                               # Shell 脚本目录
+    root_dir=$(cd "${service_dir}/../" || exit; pwd)                           # 项目根目录
+    
+    mkdir -p "${root_dir}/logs"  "${root_dir}/package"                         # 创建日志目录和包下载目录   
+}
+
+
 # 读取配置文件，获取配置参数（$1：读取文件的绝对路径，$2：注释开始标识，$3：键值对分割标识）
 function read_param()
 {
@@ -414,3 +426,6 @@ function command_exist()
         echo "    ***************** 推荐使用命令：sudo dnf install git *****************    "
     fi
 }
+
+
+create_dir
