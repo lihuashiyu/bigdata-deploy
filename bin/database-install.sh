@@ -133,6 +133,8 @@ function mysql_init()
 {
     local temporary_password root_password set_sql alter_root_pass_sql alter_root_host_sql flush_sql 
     local mysql_user mysql_password database_list database test_count
+    
+    MYSQL_HOME=$(get_param "mysql.home")                                       # 获取 Mysql 安装路径
     cd "${MYSQL_HOME}" || exit
     
     echo "    ************************** Mysql 初始化 **************************    "
