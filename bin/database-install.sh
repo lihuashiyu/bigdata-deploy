@@ -236,7 +236,7 @@ function redis_install()
     cp -fpr "${ROOT_DIR}/conf/redis-redis.conf"     "${REDIS_HOME}/conf/redis.conf"      # 复制 Redis 的配置文件
     cp -fpr "${ROOT_DIR}/conf/redis-sentinel.conf"  "${REDIS_HOME}/conf/sentinel.conf"   # 复制 哨兵 的配置文件
     
-    sed -i "s|\${host_list}|${redis_list}|g"        "${REDIS_HOME}/bin/redis.sh"         # 修改启停脚本的节点
+    sed -i "s|\${redis_list}|${redis_list}|g"       "${REDIS_HOME}/bin/redis.sh"         # 修改启停脚本的节点
     sed -i "s|\${REDIS_HOME}|${REDIS_HOME}|g"       "${REDIS_HOME}/conf/redis.conf"      # 修改配置文件中的路径
     sed -i "s|\${REDIS_HOME}|${REDIS_HOME}|g"       "${REDIS_HOME}/conf/sentinel.conf"   # 修改配置文件中的路径
     
