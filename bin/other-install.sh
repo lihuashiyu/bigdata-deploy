@@ -45,7 +45,7 @@ function flush_env()
 function nginx_install()
 {
     echo "    ************************* 开始安装 Nginx *************************    "
-    local nginx_home folder nginx_host nginx_port nginx_version result_count
+    local nginx_home folder nginx_host nginx_port nginx_version result_count server_name
      
     nginx_home=$(get_param "nginx.home")                                       # Nginx 安装路径
     download        "nginx.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Nginx 源码    
@@ -90,8 +90,10 @@ function nginx_install()
     # tar   -zxf  "${ROOT_DIR}/lib/upload.tar.gz"  -C  "${nginx_home}/data/upload"  # 上传页面
     tar   -zxf  "${ROOT_DIR}/lib/hive.tar.gz"    -C  "${nginx_home}/data/"          # Hive 计划可视化页面    
     
+    server_name=$(hostname)                                                         # 获取主机名
     chmod +x  "${nginx_home}/bin/nginx.sh"                                          # 添加可执行权限
-    sed   -i  "s|\${nginx_home}|${nginx_home}|g" "${nginx_home}/conf/nginx.conf"    # 修改参数
+    sed   -i  "s|\${nginx_home}|${nginx_home}|g"   "${nginx_home}/conf/nginx.conf"  # 修改参数
+    sed   -i  "s|\${server_name}|${server_name}|g" "${nginx_home}/conf/nginx.conf"  # 修改主机名
     
     nginx_version=$(get_version "nginx.url")                                   # 获取 Nginx 版本
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
