@@ -72,6 +72,7 @@ function java_install()
     java_version=$(get_version "java.url")                                     # 获取 Java 版本号
     password=$(get_password)                                                   # 获取管理员密码
     
+    download        "java.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1        # 下载 Java 安装包
     file_decompress "java.url" "${JAVA_HOME}"                                  # 解压 Java 安装包
     
     append_env "java.home" "${java_version}"                                   # 添加 Java 到环境变量
@@ -99,6 +100,7 @@ function python_install()
     if [[ "${system_version}" -lt "9" ]]; then
         echo "    ************************* 开始安装 Python *************************    "
         PYTHON_HOME=$(get_param "python.home")                                 # 获取 Python 安装路径
+        download        "python.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 下载 Python 源码
         file_decompress "python.url"                                           # 解压 Python 安装包
         
         echo "    *********************** 生成 Makefile 文件 ************************    "
@@ -186,6 +188,7 @@ function scala_install()
     SCALA_HOME=$(get_param "scala.home")                                       # 获取 Scala 安装路径
     scala_version=$(get_version "scala.url")                                   # 获取 Scala 版本号
     
+    download        "scala.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Scala 安装包
     file_decompress "scala.url" "${SCALA_HOME}"                                # 解压 Scala 安装包
     
     append_env "scala.home" "${scala_version}"                                 # 添加 Scala 到环境变量
@@ -211,6 +214,7 @@ function maven_install()
     MAVEN_HOME=$(get_param "maven.home")                                       # 获取 Maven 安装路径
     maven_version=$(get_version "maven.url")                                   # 获取 Maven 版本号
     
+    download        "maven.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Maven 软件包
     file_decompress "maven.url" "${MAVEN_HOME}"                                # 解压 Maven 安装包
      
     echo "    *********************** 修改 Maven 为阿里云 ***********************    "
@@ -238,6 +242,7 @@ function gradle_install()
     GRADLE_HOME=$(get_param "gradle.home")                                     # 获取 Gradle 安装路径
     gradle_version=$(get_version "gradle.url")                                  # 获取 Maven 版本号
     
+    download        "gradle.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 下载 Gradle 安装包
     file_decompress "gradle.url" "${GRADLE_HOME}"                              # 解压 Gradle 安装包
     
     echo "    ********************** 修改 Gradle 为阿里云 **********************    "

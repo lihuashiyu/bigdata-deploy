@@ -68,6 +68,8 @@ function hadoop_install()
     
     JAVA_HOME=$(get_param "java.home")                                     # 获取 Java   安装路径
     HADOOP_HOME=$(get_param "hadoop.home")                                 # 获取 Hadoop 安装路径
+    
+    download        "hadoop.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 下载 Hadoop 安装包
     file_decompress "hadoop.url" "${HADOOP_HOME}"                          # 解压 Hadoop 安装包
     
     echo "    ********************* 修改 Hadoop 配置文件 ***********************    "
@@ -331,6 +333,7 @@ function flink_install()
     local history_list job_manager test_result
     
     FLINK_HOME=$(get_param "flink.home")                                       # 获取 flink 安装路径
+    download        "flink.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 flink 安装包
     file_decompress "flink.url" "${FLINK_HOME}"                                # 解压 flink 安装包
     
     # 创建必要的目录
@@ -460,6 +463,7 @@ function zookeeper_install()
     local zookeeper_version host_list host id test_result
     
     ZOOKEEPER_HOME=$(get_param "zookeeper.home")                               # 获取 Zookeeper 安装路径
+    download        "zookeeper.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1   # 下载 Zookeeper 安装包
     file_decompress "zookeeper.url" "${ZOOKEEPER_HOME}"                        # 解压 Zookeeper 安装包
     mkdir -p "${ZOOKEEPER_HOME}/data" "${ZOOKEEPER_HOME}/logs"                 # 创建必要的目录
     
@@ -511,7 +515,8 @@ function kafka_install()
     KAFKA_HOME=$(get_param "kafka.home")                                       # 获取 Kafka 安装路径
     host_list=$(get_param "kafka.hosts" | tr ',' ' ')                          # Kafka 安装节点
     
-    file_decompress "kafka.url" "${KAFKA_HOME}"                                # 解压 Kafka 安装包
+    download        "kafka.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Kafka 安装包
+    file_decompress "kafka.url"   "${KAFKA_HOME}"                              # 解压 Kafka 安装包
     mkdir -p "${KAFKA_HOME}/data" "${KAFKA_HOME}/logs"                         # 创建必要的目录
     
     echo "    ********************** 修改 kafka 配置文件 ***********************    "
@@ -768,6 +773,7 @@ function hbase_install()
     local namenode_host_port zookeeper_hosts hbase_version host_list region_list region backup_list backup test_result
     
     HBASE_HOME=$(get_param "hbase.home")                                       # 获取 HBase 安装路径
+    download        "hbase.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 HBase 安装包
     file_decompress "hbase.url" "${HBASE_HOME}"                                # 解压 HBase 安装包
     mkdir -p "${HBASE_HOME}/data" "${HBASE_HOME}/logs"                         # 创建必要的目录 
     
@@ -874,6 +880,7 @@ function phoenix_install()
     local hbase_version host_list hbase_list phoenix_version zookeeper_hosts sql_count success_count fail_count
     
     PHOENIX_HOME=$(get_param "phoenix.home")                                   # 获取 Phoenix 安装路径
+    download        "phoenix.url" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Phoenix 安装包
     file_decompress "phoenix.url" "${PHOENIX_HOME}"                            # 解压 Phoenix 安装包
     
     echo "    ********************* 修改 Phoenix 配置文件 **********************    "
@@ -950,6 +957,7 @@ function flume_install()
     
     HADOOP_HOME=$(get_param "hadoop.home")                                     # 获取 Hadoop 安装路径
     FLUME_HOME=$(get_param "flume.home")                                       # 获取 Flume 安装路径
+    download        "flume.url" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1         # 下载 Flume 安装包
     file_decompress "flume.url" "${FLUME_HOME}"                                # 解压 Flume 安装包
     mkdir -p "${FLUME_HOME}/logs"                                              # 创建必要的目录
     
@@ -1009,6 +1017,7 @@ function doris_install()
     local MYSQL_HOME doris_user doris_password doris_database_list db doris_root_password test_result
     
     DORIS_HOME=$(get_param "doris.home")                                       # 获取 Doris 安装路径
+    download        "doris.url" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1         # 下载 Doris 安装包
     file_decompress "doris.url" "${DORIS_HOME}/"                               # 解压 Doris 安装包
     
     # 移动目录到指定路径

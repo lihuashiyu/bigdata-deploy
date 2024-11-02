@@ -87,6 +87,7 @@ function mysql_install()
     mysql_list=$(get_param "mysql.hosts" | tr "," " ")                         # 获取 Mysql 安装节点
     mysql_version=$(get_param "mysql.url")                                     # 获取 Mysql 安装节点
     
+    download        "mysql.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1       # 下载 Mysql 安装包
     file_decompress "mysql.url" "${MYSQL_HOME}"                                # 解压 Mysql 安装包
     
     echo "    ********************** 修改 Mysql 配置文件 ***********************    "
@@ -214,6 +215,7 @@ function redis_install()
     REDIS_HOME=$(get_param "redis.home")                                       # 获取 Redis 安装路径
     redis_version=$(get_version "redis.url")                                   # 获取 Redis 版本
     
+    download         "redis.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 下载 Redis 源码包
     file_decompress  "redis.url"                                               # 解压 Redis 源码包
     src_folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)     # 获取 Redis 源码的绝对路径
     
