@@ -6,15 +6,15 @@
 
 ```shell
     bigdata-deploy                                                             # 根目录
-      ├──bin                                                                # 部署脚本目录
-      ├──conf                                                               # 配置文件目录
-      ├──doc                                                                # 部署文档目录
-      ├──lib                                                                # 部署过程中使用到的 jar 
-      ├──patch                                                              # git 补丁
-      └──script                                                             # 部署的软件启停脚本
-              ├─apache                                                       # Apache  软件启停脚本
-              ├─database                                                     # 数据库  软件启停脚本
-              ├─elastic                                                      # Elastic 软件启停脚本
-              ├─other                                                        # 其它    软件启停脚本
-              └─system                                                       # 系统软件编译安装脚本
+      ├──bin                                                                   # 部署脚本目录
+      ├──conf                                                                  # 配置文件目录
+      ├──doc                                                                   # 部署文档目录
+      ├──lib                                                                   # 部署过程中使用到的 jar 
+      ├──patch                                                                 # git 补丁
+      └──script                                                                # 部署的软件启停脚本
+              ├─apache                                                         # Apache  软件启停脚本
+              ├─database                                                       # 数据库  软件启停脚本
+              ├─elastic                                                        # Elastic 软件启停脚本
+              ├─other                                                          # 其它    软件启停脚本
+              └─system                                                         # 系统软件编译安装脚本
 ```
