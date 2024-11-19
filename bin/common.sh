@@ -10,7 +10,7 @@
 # ==================================================================================================
 
 
-# 判断命令是否存在（$1：需要查找的命令）
+# 创建必要的文件夹
 function create_dir()
 {
     local service_dir root_dir                                                 # 定义局部变量
@@ -19,6 +19,100 @@ function create_dir()
     root_dir=$(cd "${service_dir}/../" || exit; pwd)                           # 项目根目录
     
     mkdir -p "${root_dir}/logs"  "${root_dir}/package"                         # 创建日志目录和包下载目录   
+}
+
+
+# 截取参数，将参数分组，支持 GNU 短参数，长参数（$@）
+function argument_group()
+{
+    local param_list number n argument option param value result               # 定义局部变量
+    
+    param_list=("$@")                                                          # 使用数组存储参数
+    number=${#param_list[@]}                                                   # 获取参数的数量
+    
+    # 倒序输出参数
+    for ((n = number - 1; n >= 0; n--))
+    do
+        argument="${param_list[${n}]}"                                         # 获取函数参数值
+        
+        # 1. 支持长参数
+        if [[ "${argument}" =~ ^-- ]] && [[ ! "${argument}" =~ ^[-]{3} ]]; then
+            result=$(long_argument "${argument} ${param}")                     # 处理长参数
+            param=""          
+        # 2. 支持短参数
+        elif [[ "${argument}" =~ ^- ]] && [[ ! "${argument}" =~ ^[-]{2} ]]; then
+            result=$(short_argument "${argument} ${param}")                     # 处理短参数
+            param=""
+        # 3. 参数值
+        elif [[ "${argument}" =~ ^[a-zA-Z0-9] ]]; then
+            param="${argument} ${param}"                                       # 处理参数值
+        # 4. 错误参数
+        else 
+            echo "    命令支持短参数和长参数，参数格式如下：    "
+            echo "        command -o [arg1 arg2 arg3 ...], command --option=[arg1,arg2,arg3 ...]   "
+        fi
+        
+        # 6. 将参数放进参数组，并删除前后的空格
+        if [ -n "${result}" ]; then            
+            option=$(echo "${result}" | awk -F '@' '{ print $1 }'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
+            value=$(echo  "${result}" | awk -F '@' '{ print $NF }' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
+            
+            ARGUMENT_MAP["${option}"]="${value}"
+        fi
+    done
+}
+
+
+# 处理长参数（$1：多个参数）
+function long_argument()
+{
+    local argument option value                                                # 定义局部变量
+    
+    for argument in $*
+    do
+        # 获取长选项的值
+        if [[ "${argument}" =~ -- ]]; then
+            option=$(echo "${argument}@" | awk -F '=' '{print $1}' | awk -F ',' '{print $1}')
+            
+            # 获取长选项的参数
+            if [[ "${argument}" =~ = ]]; then                            
+                value="$(echo "${argument}" | awk -F '=' '{print $NF}' | awk '{print $1}' | tr ' ' '#' | tr ',' ' ')"
+                break
+            fi
+        fi
+    done
+    
+    # 舍去空值
+    if [ -n "${value}" ]; then
+        echo "${option}@${value}"
+    else    
+        echo "${option}"
+    fi
+}
+
+
+# 处理短参数（$@：多个参数）
+function short_argument()
+{ 
+    local argument option value                                                # 定义局部变量
+    
+    for argument in $*
+    do
+        # 获取短选项的值
+        if [[ "${argument}" =~ - ]]; then
+            option=$(echo "${argument}@" | awk -F '=' '{print $1}' | awk -F ',' '{print $1}')
+            
+            if [[ "${argument}" =~ = ]] || [[ "${argument}" =~ "#" ]] || [[ "${argument}" =~ , ]]; then            
+                echo ""
+                return
+            fi    
+        # 获取短选项的参数
+        else            
+            value="${value} $(echo "${argument}" | tr ' ' '#')"
+        fi  
+    done
+    
+    echo "${option}${value}"
 }
 
 
