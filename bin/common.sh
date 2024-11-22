@@ -22,23 +22,52 @@ function create_dir()
 }
 
 
+# 拆分选项，删除不符合的参数，支持 GNU 短参数，长参数（$@）
+function argument_split()
+{
+    local param argument argument_list               # 定义局部变量
+
+    # 拆分选项
+    for param in "$@"
+    do
+        # 1. 支持带有横线的参数
+        if [[ "${param}" =~ ^- ]] && [[ ! "${param}" =~ ^[-]{3} ]]; then
+            argument=$(echo "${param}" | awk -F '@' '{ print $1 }'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
+        # 2. 支持不带横线的参数
+        elif [[ "${param}" =~ ^[a-zA-Z0-9] ]]; then
+            argument=$(echo "${param}" | awk -F '@' '{ print $NF }' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
+        # 3. 错误参数
+        else 
+            echo "    命令支持短参数和长参数，参数格式如下：    "
+            echo "        command -o [arg1 arg2 arg3 ...], command --option=[arg1,arg2,arg3 ...]   "
+            return
+        fi
+        
+        # 4. 将参数放进参数组，并删除前后的空格
+        if [ -n "${param}" ]; then
+            ARGUMENT_MAP[${#ARGUMENT_MAP[@]}]="${argument// /\$}"
+        fi
+    done
+}
+
+
 # 截取参数，将参数分组，支持 GNU 短参数，长参数（$@）
 function argument_group()
 {
     local param_list number n argument option param value result               # 定义局部变量
-    
+
     param_list=("$@")                                                          # 使用数组存储参数
     number=${#param_list[@]}                                                   # 获取参数的数量
-    
+
     # 倒序输出参数
     for ((n = number - 1; n >= 0; n--))
     do
         argument="${param_list[${n}]}"                                         # 获取函数参数值
-        
+
         # 1. 支持长参数
         if [[ "${argument}" =~ ^-- ]] && [[ ! "${argument}" =~ ^[-]{3} ]]; then
             result=$(long_argument "${argument} ${param}")                     # 处理长参数
-            param=""          
+            param=""
         # 2. 支持短参数
         elif [[ "${argument}" =~ ^- ]] && [[ ! "${argument}" =~ ^[-]{2} ]]; then
             result=$(short_argument "${argument} ${param}")                     # 处理短参数
@@ -47,16 +76,16 @@ function argument_group()
         elif [[ "${argument}" =~ ^[a-zA-Z0-9] ]]; then
             param="${argument} ${param}"                                       # 处理参数值
         # 4. 错误参数
-        else 
+        else
             echo "    命令支持短参数和长参数，参数格式如下：    "
             echo "        command -o [arg1 arg2 arg3 ...], command --option=[arg1,arg2,arg3 ...]   "
         fi
-        
+
         # 6. 将参数放进参数组，并删除前后的空格
-        if [ -n "${result}" ]; then            
+        if [ -n "${result}" ]; then
             option=$(echo "${result}" | awk -F '@' '{ print $1 }'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
             value=$(echo  "${result}" | awk -F '@' '{ print $NF }' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
-            
+
             ARGUMENT_MAP["${option}"]="${value}"
         fi
     done
@@ -64,6 +93,7 @@ function argument_group()
 
 
 # 处理长参数（$1：多个参数）
+# shellcheck disable=SC2048
 function long_argument()
 {
     local argument option value                                                # 定义局部变量
@@ -92,6 +122,7 @@ function long_argument()
 
 
 # 处理短参数（$@：多个参数）
+# shellcheck disable=SC2048
 function short_argument()
 { 
     local argument option value                                                # 定义局部变量
