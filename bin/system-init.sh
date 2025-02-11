@@ -29,7 +29,13 @@ function flush_env()
     fi
     
     source "/etc/profile"                                                      # 系统环境变量文件路径
-    
+
+    # 检查是否以 root 身份运行
+    if [ "$EUID" -ne 0 ]; then
+        echo "    ***************** 请使用 sudo 或以 root 用户运行 ******************    "
+        exit 1
+    fi
+
     echo "    ************************** 获取公共函数 **************************    "
     # shellcheck source=./common.sh
     source "${ROOT_DIR}/bin/common.sh"                                         # 当前程序使用的公共函数

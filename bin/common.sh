@@ -173,18 +173,18 @@ function read_param()
     while read -r line
     do
         # 3. 去除行尾的回车、换行符，行首 和 行尾 的 空格 和 制表符
-        string=$(echo "${line}" | sed -e 's/\r//g' | sed -e 's/\n//g' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+        string=$(echo "${line}" | sed -e 's|\r||g' | sed -e 's|\n||g' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
         
         # 4. 判断是否为注释文字，是否为空行
         if [[ ! ${string} =~ ^${annotation_symbol} ]] && [ "" != "${string}" ]; then
             # 5. 去除末尾的注释，获取键值对参数，再去除首尾空格，为防止列表中空格影响将空格转为 #
-            param=$(echo "${string}" | awk -F "${annotation_symbol}" '{print $1}' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+            param=$(echo "${string}" | awk -F "${annotation_symbol}" '{print $1}' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
             
             # 6. 将参数添加到参数列表
             if [ -n "${param}" ]; then
                 # 7. 获取参数的键值对
-                key=$(echo "${param}"   | awk -F "${separator}" '{print $1}'  | awk '{gsub(/^\s+|\s+$/, ""); print}')
-                value=$(echo "${param}" | awk -F "${separator}" '{print $NF}' | awk '{gsub(/^\s+|\s+$/, ""); print}')
+                key=$(echo "${param}"   | awk -F "${separator}" '{print $1}'  | awk '{gsub(/^[ \t]+|[ \t]+$/, ""); print}')
+                value=$(echo "${param}" | awk -F "${separator}" '{print $NF}' | awk '{gsub(/^[ \t]+|[ \t]+$/, ""); print}')
                 
                 # 8. 将键值对添加到 数组（Map）
                 PARAM_LIST["${key}"]="${value}"
@@ -204,7 +204,7 @@ function read_file()
     while read -r line
     do
         # 3. 去除行尾的回车、换行符，行首 和 行尾 的 空格 和 制表符
-        line_value=$(echo "${line}" | sed -e 's/\r//g' | sed -e 's/\n//g' | sed -e 's/^[ \t]*//g' | sed -e 's/[ \t]*$//g')
+        line_value=$(echo "${line}" | sed -e 's|\r||g' | sed -e 's|\n||g' | sed -e 's|^[ \t]*||g' | sed -e 's|[ \t]*$||g')
         
         # 4. 判断是否为空行
         if [ -n "${line_value}" ]; then

@@ -13,7 +13,6 @@ SERVICE_DIR=$(dirname "$(readlink -e "$0")")                                   #
 ROOT_DIR=$(cd "${SERVICE_DIR}/../" || exit; pwd)                               # 项目根目录
 CONFIG_FILE="server.conf"                                                      # 配置文件名称
 LOG_FILE="database-install-$(date +%F).log"                                    # 程序操作日志文件
-USER=$(whoami)                                                                 # 当前登录使用的用户
 
 
 # 刷新环境变量
@@ -209,6 +208,7 @@ function mysql_init()
 } 
 
 
+# 安装 Redis
 function redis_install()
 {
     echo "    ************************* 开始安装 Redis *************************    "
@@ -253,6 +253,30 @@ function redis_install()
 }
 
 
+# 安装 SqlServer
+function sqlserver_install()
+{
+    echo "    ************************* 开始安装 SqlServer **************************    "
+    local sqlserver_list sqlserver_version sqlserver_home                           # 定义局部变量
+
+    SQL_SERVER_HOME=$(get_param "sqlserver.home")                              # 获取 SqlServer 安装路径
+    sqlserver_version=$(get_version "sqlserver.url")                           # 获取 SqlServer 版本
+
+    download         "sqlserver.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1  # 下载 SqlServer 安装包
+    file_decompress  "sqlserver.url"                                           # 解压 SqlServer 安装包
+
+    echo "    ************************** 修改配置文件 **************************    "
+    redis_list=$(get_version "redis.hosts" | tr "," " ")                       # Redis 安装节点
+
+    mkdir -p "${SQL_SERVER_HOME}/data" "${SQL_SERVER_HOME}/conf" "${REDIS_HOME}/logs"     # 创建必要的目录
+    cp -fpr "${ROOT_DIR}/script/database/redis.sh"  "${REDIS_HOME}/bin/"                 # 复制 Redis 启停脚本
+    cp -fpr "${ROOT_DIR}/conf/redis-redis.conf"     "${REDIS_HOME}/conf/redis.conf"      # 复制 Redis 的配置文件
+    cp -fpr "${ROOT_DIR}/conf/redis-sentinel.conf"  "${REDIS_HOME}/conf/sentinel.conf"   # 复制 哨兵 的配置文件
+
+    echo "    ************************* 开始安装 PostGreSQL *************************    "
+}
+
+
 function pgsql_install()
 {
     echo "    ************************* 开始安装 PostGreSQL *************************    "
@@ -277,7 +301,7 @@ start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
 
 # 2. 刷新变量
 if [ "$#" -gt 0 ]; then
-    export REDIS_HOME MYSQL_HOME PGSQL_HOME MONGO_HOME ORACLE_HOME 
+    export REDIS_HOME MYSQL_HOME PGSQL_HOME MONGO_HOME ORACLE_HOME SQL_SERVER_HOME
     flush_env                                                                  # 刷新环境变量    
 fi
 
@@ -309,8 +333,13 @@ case "$1" in
     oracle | -o)
         oracle_install
     ;;
-    
-    # 3.6 安装 所有数据库软件
+
+    # 3.6 安装 SqlServer 并进行测试
+    sqlserver | -s)
+        sqlserver_install
+    ;;
+
+    # 3.7 安装 所有数据库软件
     all | -a)
         uninstall_mariadb                                                      # 卸载系统自带的 MariaDB
         mysql_install                                                          # 安装   mysql
@@ -321,19 +350,20 @@ case "$1" in
         oracle_install
     ;;
     
-    # 3.7 其它情况
+    # 3.8 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：      "
-        echo "        +----------+------------------+ "
-        echo "        |  参  数  |      描  述      | "
-        echo "        +----------+------------------+ "
-        echo "        |    -m    |   安装 mysql     | "
-        echo "        |    -r    |   安装 redis     | "
-        echo "        |    -p    |   安装 pgsql     | "
-        echo "        |    -g    |   安装 mongodb   | "
-        echo "        |    -o    |   安装 oracle    | "
-        echo "        |    -a    |   安装 all       | "
-        echo "        +----------+------------------+ "
+        echo "        +----------+--------------------+ "
+        echo "        |  参  数  |       描  述       | "
+        echo "        +----------+----------==--------+ "
+        echo "        |    -m    |   安装 mysql       | "
+        echo "        |    -r    |   安装 redis       | "
+        echo "        |    -p    |   安装 pgsql       | "
+        echo "        |    -g    |   安装 mongodb     | "
+        echo "        |    -o    |   安装 oracle      | "
+        echo "        |    -s    |   安装 sqlserver   | "
+        echo "        |    -a    |   安装 all         | "
+        echo "        +----------+--------------------+ "
     ;;
 esac
 
