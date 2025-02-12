@@ -154,8 +154,13 @@ function add_user()
     user=$(get_param "user")                                                   # 获取用户名
     password=$(get_param "password")                                           # 获取密码
     {
+        exist=$(id issac | grep -wic uid)                                      # 判断用户是否存在
+        if [ "${exit}" -gt 0 ]; then
+            userdel -f -r "${user}"                                            # 删除用户
+        fi
+        
         useradd -m "${user}"                                                   # 添加用户
-        echo "${password}" | passwd "${user}" --stdin                          # 给用户指定密码
+        echo "${user}:${password}" | chpasswd                                  # 给用户指定密码
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 
     chmod u+w /etc/sudoers                                                     # 给文件添加可编辑权限
@@ -333,36 +338,29 @@ function add_execute()
     local item server_hosts result_count                                       # 定义局部变量
 
     {
+        apt install -y dos2unix                                                # 安装 dos2unix 工具
         find "${ROOT_DIR}" -iname "*.sh" -type f -exec dos2unix {} + -exec chmod +x {} + # 将 shell  文件换行符改为 UNIX 格式，并赋予执行权限
         find "${ROOT_DIR}" -iname "*.py" -type f -exec dos2unix {} + -exec chmod +x {} + # 将 python 文件换行符改为 UNIX 格式，并赋予执行权限
 
         dos2unix  "${ROOT_DIR}"/conf/*                                         # 将配置文件修改为 UNIX 换行
     }  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
 
-    if [ ! -f /usr/local/bin/xcall ]; then
-        cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/local/bin/xcall    # 将 集群间查看命令 脚本复制到系统路径
-    fi
-
-    if [ ! -f /usr/local/bin/xync ]; then
-        cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/local/bin/xync     # 将 集群之间进行文件同步 脚本复制到系统路径
-    fi
-
     # 获取所有主机名
-    for item in $(get_param "server.hosts" | tr "," " ")
+    for item in $(get_param "hosts" | tr "," " ")
     do
         server_hosts="${server_hosts}$(echo "${item}" | awk -F ':' '{print $NF}') "
     done
 
-    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xcall)           # 判断是否存在未修改
-    if [ "${result_count}" -eq 1 ]; then
+    if [ ! -f /usr/local/bin/xcall ]; then
+        cp -frp  "${ROOT_DIR}/script/system/xcall.sh"  /usr/local/bin/xcall    # 将 集群间查看命令 脚本复制到系统路径
         sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xcall    # 修改集群 主机列表
         chmod 755                                      /usr/local/bin/xcall    # 添加执行权限
     fi
 
-    result_count=$(grep -ic "\${server_hosts}" /usr/local/bin/xync)            # 判断是否存在未修改
-    if [ "${result_count}" -eq 1 ]; then
+    if [ ! -f /usr/local/bin/xync ]; then
+        cp -frp  "${ROOT_DIR}/script/system/xync.sh"   /usr/local/bin/xync     # 将 集群之间进行文件同步 脚本复制到系统路径
         sed -i "s|\${server_hosts}|${server_hosts}|g"  /usr/local/bin/xync     # 修改集群 主机列表
-        chmod 755                                      /usr/local/bin/xync     # 添加执行权限
+        chmod 755                                      /usr/local/bin/xync     # 添加执行权限        
     fi
 }
 
