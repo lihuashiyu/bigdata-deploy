@@ -39,7 +39,7 @@ function remove_fcitx()
     echo "    ************************** 卸载 Fcitx5 **************************    "
     
     {
-        apt purge      -y  fcitx5*                                             # 卸载 fcitx5 及其依赖
+        apt purge      -y  ibus fcitx5*                                        # 卸载 fcitx5 及其依赖
         apt autoremove -y                                                      # 自动删除无用软件
     }  >> "${LOG_FILE}" 2>&1
     
