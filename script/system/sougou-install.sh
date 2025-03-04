@@ -57,7 +57,7 @@ function install_frame()
 
     {
         apt update
-        apt install -y fcitx fcitx-frontend-gtk2 fcitx-frontend-gtk3 fcitx-frontend-qt5
+        apt install -y fcitx fcitx-frontend-gtk2 fcitx-frontend-gtk3 fcitx-frontend-qt5 libgsettings-qt1 libqt5quickwidgets5 libqt5qml5 libqt5quick5 libqt5quickwidgets5 qml-module-qtquick2 
     } >> "${LOG_FILE}" 2>&1
 
     if [ $? -ne 0 ]; then
