@@ -16,7 +16,6 @@ LOG_FILE="git-update-$(date +%F).log"                                # 程序操
 function git_update()
 {
     local project_list project project_dir=$1                        # 定义局域变量
-    echo "${project_dir}"
     
     project_list=$(cd -P "${project_dir}" || exit; ls -da */)        # 获取目录下的所有子目录
     for project in ${project_list}                                   # 循环遍历目录下的所有目录
