@@ -548,7 +548,7 @@ function command_exist()
         echo "        ===> 位置：$(command -v "$1") "
         echo "        ===> 相关文件：$(whereis "$1") "
     else
-        echo "    ***************** 推荐使用命令：sudo dnf install git *****************    "
+        echo "    ***************** 推荐使用命令：sudo dnf install '$1' *****************    "
     fi
 }
 

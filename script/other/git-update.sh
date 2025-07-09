@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+    
 # ==================================================================================================
 #    FileName      ：  git-update.sh
 #    CreateTime    ：  2024-05-27 13:10
@@ -15,25 +15,26 @@ LOG_FILE="git-update-$(date +%F).log"                                # 程序操
 # 更新 git 项目（$1：git 项目所在的目录）
 function git_update()
 {
-    local project_list project                                       # 定义局域变量
+    local project_list project project_dir=$1                        # 定义局域变量
+    echo "${project_dir}"
     
-    project_list=$(cd -P "$1" || exit; ls -da */)                    # 获取目录下的所有子目录
+    project_list=$(cd -P "${project_dir}" || exit; ls -da */)        # 获取目录下的所有子目录
     for project in ${project_list}                                   # 循环遍历目录下的所有目录
     do
-        if [ -d "$1/${project}.git" ]; then                          # 判断是否是 git 项目
-            cd "$1/${project}" || exit                               # 进入项目路径
-            echo "-----+-----+-----> $(date '+%T')：更新 $1/${project} "
-                                
+        if [ -d "${project_dir}/${project}/.git" ]; then             # 判断是否是 git 项目
+            cd "${project_dir}/${project}" || exit                   # 进入项目路径
+            echo "-----+-----+-----> $(date '+%T')：更新 ${project_dir}/${project} "
+            
             {
                 git fetch --all                                      # 与 git 远端进行信息同步
                 git reset --hard                                     # 强制回退所有更改
                 git pull                                             # 拉取最新项目内容
             }  >> "${SERVICE_DIR}/${LOG_FILE}" 2>&1
-        fi    
+        fi
     done
 }
     
-
+    
 printf "\n================================================================================\n"
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)                  # 获取脚本执行开始时间
 source /etc/profile && source "${HOME}/.bashrc"                      # 刷新环境变量
