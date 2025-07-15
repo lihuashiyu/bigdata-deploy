@@ -267,7 +267,7 @@ function upgrade_kernel()
     kernel_url=$(get_param "kernel.url")                                       # 新内核 ELRepo 地址
     
     echo "    **************************** 导入仓库 ****************************    "        
-	{	    
+	  {	    
         # RedHat 下使用 ELRepo 第三方的仓库，可以将内核升级到最新版本
         rpm  --import          "${kernel_key}"                                 # 导入公钥
         dnf  -y       install  "${kernel_url}"                                 # 安装 ELRepo 的 rpm
