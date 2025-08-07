@@ -177,7 +177,7 @@ function vim_plugin_ycm()
 }
 
 
-#  安装 micro 编辑器
+# 安装 micro 编辑器
 function micro_install()
 {
     echo "    ************************* 开始安装 micro *************************    "
@@ -200,6 +200,28 @@ function micro_install()
     else
         echo "    **************************** 验证成功 ****************************    "
     fi 
+}
+
+
+# 修改 python 的 pip 源
+function pip_source_change()
+{
+    echo "    ************************** 修改 pip 源 ***************************    "    
+    local pass_word                                                            # 定义局部变量
+    pass_word=$(get_password)                                                  # 管理员密码
+    
+    {
+        dos2unix    "${ROOT_DIR}/conf/pip.conf"                                # 转换文件编码
+        
+        mkdir -p    "${HOME}/.pip"                                             # 创建当前用户配置目录
+        cp    -fpr  "${ROOT_DIR}/conf/pip.conf" "${HOME}/.pip/pip.conf"        # 复制当前用户配置文件
+            
+        echo "${pass_word}" | sudo -S mkdir -p   "/root/.pip"                  # 创建 root 配置目录
+        echo "${pass_word}" | sudo -S cp    -fpr "${ROOT_DIR}/conf/pip.conf" /root/.pip/pip.conf   # 复制 root 配置文件
+        
+        echo "${pass_word}" | sudo -S pip   install  pip  --upgrade            # 升级 pip
+        
+    }  >> "${ROOT_DIR}/logs/${LOG_FILE}"  2>&1
 }
 
 
@@ -235,12 +257,20 @@ case "$1" in
         micro_install
     ;;
     
-    # 3.5 安装以上所有
-    all | -a)
-        nginx_install
+    # 3.5 修改 python 的 pip 源
+    pip | -p)
+        pip_source_change
     ;;
     
-    # 3.6 其它情况
+    # 3.6 安装以上所有
+    all | -a)
+        nginx_install
+        node_install
+        vim_plugin_ycm
+        micro_install
+        pip_source_change
+    ;;
+    # 3.7 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
@@ -250,6 +280,7 @@ case "$1" in
         echo "        |    -j    |  安装 node-js           | "
         echo "        |    -v    |  安装 vim 插件          | "
         echo "        |    -m    |  安装 micro             | "
+        echo "        |    -p    |  修改 pip 源            | "
         echo "        |    -a    |  安装以上所有           | "
         echo "        +----------+-------------------------+ "
     ;;
