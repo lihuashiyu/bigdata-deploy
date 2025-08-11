@@ -225,6 +225,41 @@ function pip_source_change()
 }
 
 
+# 安装 Conda
+function conda_install()
+{
+    local conda_name conda_home                                               # 定义局部变量 
+    
+    echo "    *************************** 下载 conda ***************************    "
+    download        "conda.url"   >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1      # 下载软件
+    
+    conda_name=$(get_param "conda.url" | awk -F "/" '{ print $NF }')           # 获取 conda 压缩包名称
+    chmod +x "${ROOT_DIR}/package/${conda_name}"                               # 添加可执行权限
+    
+    echo "    *************************** 安装 conda ***************************    "
+    conda_home=$(get_param "conda.home")                                       # conda 安装路径
+    
+    if [ -d "${conda_home}" ]; then
+        rm -rf "${conda_home}"                                                 # 删除 conda 安装目录
+    fi
+    
+    "${ROOT_DIR}/package/${conda_name}" -b -p "${conda_home}" >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    
+    echo "    *************************** 修改镜像源 ***************************    "
+    cp  -fpr  "${ROOT_DIR}/conf/conda.condarc"  "${HOME}/.condarc"             # 用户 conda 镜像源
+    
+    cp  -fpr  "${ROOT_DIR}/script/other/conda-source.sh" "${conda_home}/conda.sh"   # 复制 conda 环境脚本
+    cp  -fpr  "${ROOT_DIR}/script/other/conda-update.sh" "${conda_home}/update.sh"  # 复制 conda 更新脚本
+    
+    {
+        chmod  +x   "${conda_home}/conda.sh"    "${conda_home}/update.sh"      # 添加可执行权限 
+        dos2unix    "${conda_home}/conda.sh"    "${conda_home}/update.sh"      # 转换文件编码
+    } >> "${ROOT_DIR}/logs/${LOG_FILE}"  2>&1     
+    
+    sed -i  "s|\${conda_home}|${conda_home}|g"  "${conda_home}/conda.sh"       # 修改 conda 安装位置    
+}
+
+
 printf "\n================================================================================\n"
 # 1. 获取脚本执行开始时间
 start=$(date -d "$(date +"%Y-%m-%d %H:%M:%S")" +%s)
@@ -262,15 +297,22 @@ case "$1" in
         pip_source_change
     ;;
     
-    # 3.6 安装以上所有
+    # 3.6 安装 conda
+        conda | -c)
+        conda_install
+    ;;
+    
+    # 3.7 安装以上所有
     all | -a)
         nginx_install
         node_install
         vim_plugin_ycm
         micro_install
         pip_source_change
+        conda_install
     ;;
-    # 3.7 其它情况
+    
+    # 3.8 其它情况
     *)
         echo "    脚本可传入一个参数，如下所示：             "
         echo "        +----------+-------------------------+ "
@@ -280,6 +322,7 @@ case "$1" in
         echo "        |    -j    |  安装 node-js           | "
         echo "        |    -v    |  安装 vim 插件          | "
         echo "        |    -m    |  安装 micro             | "
+        echo "        |    -c    |  安装 conda             | "
         echo "        |    -p    |  修改 pip 源            | "
         echo "        |    -a    |  安装以上所有           | "
         echo "        +----------+-------------------------+ "
