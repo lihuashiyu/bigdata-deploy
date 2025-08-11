@@ -9,14 +9,14 @@
 # =========================================================================================
 
 CONDA_HOME=$(dirname "$(readlink -e "$0")")                          # conda 安装目录
-LOG_FILE="${CONDA_HOME}/logs/update-$(date +%F).log"                 # 程序操作日志文件
+LOG_DIRECTORY="${CONDA_HOME}/logs"                                   # 程序操作日目录名
 
 
 # 刷新环境变量
 function flush_env()
 {
     echo "    ************************** 刷新环境变量 **************************    "
-    mkdir -p "${CONDA_HOME}/logs"                                    # 创建日志目录
+    mkdir -p "${LOG_DIRECTORY}"                                      # 创建日志目录
     
     if [ -f "${HOME}/.bashrc" ]; then
         source "${HOME}/.bashrc"                                     # 用户环境变量文件
@@ -36,12 +36,43 @@ function flush_env()
 }
 
 
+# 清除所有缓存
+function cache_clean()
+{
+    local log_file                                                   # 定义局部变量
+    log_file="${LOG_DIRECTORY}/cache-clean-$(date +%F).log"          # 日志文件
+    
+    echo "    *************************** 清除缓存 ****************************    "
+    cd "${CONDA_HOME}" || exit 1                                     # 进入 conda 目录
+    
+    {
+        "${CONDA_HOME}/bin/conda" clean --all -y                     # 清除 conda 缓存
+        "${CONDA_HOME}/bin/pip"   cache purge                        # 清除 pip 缓存
+    }  >> "${log_file}" 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo "    ************************** 缓存清除成功 **************************    "
+    else
+        echo "    ************************** 缓存清除失败 **************************    "
+        exit 1
+    fi
+}
+
+
 # 更新 conda
 function conda_update()
 {
+    local log_file                                                   # 定义局部变量
+    log_file="${LOG_DIRECTORY}/conda-update-$(date +%F).log"         # 日志文件
+    
     echo "    ************************ 更新 conda 版本 *************************    "
-    "${CONDA_HOME}/bin/conda" update conda --yes  >> "${LOG_FILE}"  2>&1
-     
+    cd "${CONDA_HOME}" || exit 1                                     # 进入 conda 目录
+    
+    {
+        "${CONDA_HOME}/bin/conda" update -n base -c defaults conda -y     # 更新 conda 本身
+        "${CONDA_HOME}/bin/conda" update -y conda                         # 更新 conda 工具
+    } >> "${log_file}" 2>&1
+        
     if [ $? -ne 0 ]; then
         echo "    ************************* conda 更新成功 *************************    "
     else
@@ -54,8 +85,12 @@ function conda_update()
 # 更新 python
 function python_update()
 {
+    local log_file                                                   # 定义局部变量
+    log_file="${LOG_DIRECTORY}/python-update-$(date +%F).log"        # 日志文件
+    
     echo "    ************************ 更新 python 版本 ************************    "
-    "${CONDA_HOME}/bin/conda"  update python  --yes  >> "${LOG_FILE}"  2>&1
+    cd "${CONDA_HOME}" || exit 1                                     # 进入 conda 目录
+    "${CONDA_HOME}/bin/conda"  update python  --yes  >> "${log_file}"  2>&1
     
     if [ $? -ne 0 ]; then
         echo "    ************************ python  更新成功 ************************    "
@@ -66,16 +101,20 @@ function python_update()
 }
 
 
-# 更新第三方包
-function package_update()
+# 更新所有库
+function module_update()
 {
-    echo "    ************************** 更新第三方包 **************************    "
-    "${CONDA_HOME}/bin/conda" update --all --yes  >> "${LOG_FILE}"  2>&1
+    local log_file                                                   # 定义局部变量
+    log_file="${LOG_DIRECTORY}/module-update-$(date +%F).log"        # 日志文件
+    
+    echo "    ************************** 更新所有库 ****************************    "    
+    cd "${CONDA_HOME}" || exit 1                                     # 进入 conda 目录    
+    "${CONDA_HOME}/bin/conda" update --all --yes  >> "${log_file}"  2>&1
     
     if [ $? -ne 0 ]; then
-        echo "    ************************ 第三方包更新成功 ************************    "
+        echo "    ************************* 更新所有库成功 **************************    "
     else
-        echo "    ************************ 第三方包更新失败 ************************    "
+        echo "    ************************* 更新所有库失败 **************************    "
         exit 1
     fi  
 }
@@ -84,45 +123,39 @@ function package_update()
 # 匹配输入参数
 function case_argument()
 {
-    local argument                                                # 定义局部变量
-    
-    if [ "$#" -eq 0 ]; then
-        usage
-        exit 0
-    else
-        for argument in "$@"
-        do
-            case "${argument}" in
-                # 1 配置网卡
-                p | python | -p | --python)
-                    python_update
-                ;;
-                
-                # 2 设置主机名与 hosts 映射
-                k | package | -k | --package)
-                    package_update
-                ;;
-                
-                # 3 关闭防火墙 和 SELinux
-                c | conda | -c | --conda)
-                    conda_update
-                ;;
-                
-                # 4 更新所有
-                a | all | -a | --all)
-                  python_update
-                  package_update
-                  conda_update
-                ;;
-                
-                # 15 其它情况
-                *)
-                    usage
-                    return
-                ;;
-            esac
-        done
-    fi
+    local argument                                                   # 定义局部变量
+    for argument in "$@"
+    do
+        case "${argument}" in
+            c | clean | -c | --clean)                                # 1 清除所有缓存
+                cache_clean
+            ;;
+            
+            o | conda | -o | --conda)                                # 2 更新 conda 自身
+                conda_update
+            ;;
+            
+            p | python | -p | --python)                              # 3 更新 Python 版本
+                python_update
+            ;;
+            
+            m | module | -m | --module)                              # 4 更新所有模块
+                module_update
+            ;;
+            
+            a | all | -a | --all)                                    # 5 更新所有
+                cache_clean
+                conda_update
+                python_update
+                module_update                  
+            ;;
+            
+            *)                                                       # 6 其它情况
+                usage
+                exit 0
+            ;;
+        esac
+    done
 }
 
 
@@ -133,9 +166,10 @@ function usage()
     echo "        +--------------------+------------------+ "
     echo "        |       参  数       |    描  述        | "
     echo "        +--------------------+------------------+ "
-    echo "        |   -c | --conda     |   更新 conda     | "
+    echo "        |   -c | --clean     |   清除缓存       | "
+    echo "        |   -o | --conda     |   更新 conda     | "
     echo "        |   -p | --python    |   更新 python    | "
-    echo "        |   -k | --package   |   更新第三方包   | "
+    echo "        |   -m | --module    |   更新所有库     | "
     echo "        |   -a | --all       |   更新全部       | "
     echo "        |   -h | --help      |   使用帮助       | "
     echo "        +--------------------+------------------+ "
@@ -143,8 +177,13 @@ function usage()
 
 
 printf "\n================================================================================\n"
-flush_env
-case_argument "$@"
+if [ "$#" -eq 0 ]; then
+    usage
+    exit 0
+else
+    flush_env
+    case_argument "$@"
+fi
 printf "================================================================================\n\n"
 
 exit 0
