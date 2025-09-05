@@ -206,13 +206,13 @@ function dnf_mirror()
     # 备份原来的源，并修改源
     if [[ -n "${exist}" ]]; then
         sed -e      "s|^mirrorlist=|# mirrorlist=|g"                                               \
-            -Ee     "s|^#[ \t]*baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
-            -Ee     "s|^#[ \t]*baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
+            -e      "s|^#[ \t]*baseurl=http://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g"  \
+            -e      "s|^#[ \t]*baseurl=https://dl.rockylinux.org/\$contentdir|baseurl=${mirror}|g" \
             -i.bak  /etc/yum.repos.d/[Rr]ocky*.repo
     else
         sed -e      "s|^mirrorlist=|# mirrorlist=|g"                                     \
-            -Ee     "s|^#[ \t]*baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"    \
-            -Ee     "s|^#[ \t]*baseurl=https://repo.almalinux.org|baseurl=${mirror}|g"   \
+            -e      "s|^#[ \t]*baseurl=http://repo.almalinux.org|baseurl=${mirror}|g"    \
+            -e      "s|^#[ \t]*baseurl=https://repo.almalinux.org|baseurl=${mirror}|g"   \
             -i.bak  /etc/yum.repos.d/almalinux*.repo
     fi
     
