@@ -18,7 +18,6 @@ NGINX_PORT=47722                                                               #
 SERVICE_PORT2=10800                                                            # 后台服务
 MASTER="nginx: master process"                                                 # Nginx Master 进程名称
 WORKER="nginx: worker process"                                                 # Nginx Worker 进程名称
-USER=$(whoami)                                                                 # 获取当前登录用户
 RUNNING=1                                                                      # 运行状态
 STOP=0                                                                         # 停止状态
     
@@ -28,6 +27,8 @@ function service_status()
 {
     # 1. 初始化局域参数
     local result_list=() pid_list=() host_name master_pid worker_pid worker_count run_pid_count
+    
+    host_name=$(hostname)
     
     # 2.1 获取程序 Master 的 pid 的数量
     master_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${MASTER}")
@@ -41,7 +42,7 @@ function service_status()
     fi  
     
     # 3.1 获取程序 Worker 的 pid 数量是否正确
-    worker_pid=$(ps -aux | grep -i "${USER}" | grep -viE "$0|grep" | grep -ci "${WORKER}")
+    worker_pid=$(ps -aux | grep -viE "$0|grep" | grep -ci "${WORKER}")
     worker_count=$(grep -ni "worker_processes" "${NGINX_HOME}/conf/nginx.conf" | awk -F ';' '{print $1}' | awk '{print $NF}')
     
     # 3.2 判断进程 worker_pid 数量是否正确
@@ -69,7 +70,7 @@ function service_status()
 function service_start()
 {
     # 1. 定义局域变量
-    local status host_name ps
+    local status ps
     
     # 2. 获取服务的运行状态
     status=$(service_status)
