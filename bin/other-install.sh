@@ -39,7 +39,7 @@ function flush_env()
     export -A PARAM_LIST=()                                                    # 初始化 配置文件 参数
     read_param "${ROOT_DIR}/conf/${CONFIG_FILE}"                               # 读取配置文件，获取参数        
 }
-
+    
 
 # 安装并初始化 Nginx
 function nginx_install()
@@ -53,27 +53,57 @@ function nginx_install()
     
     echo "    **************************** 编译源码 ****************************    "
     folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)         # 获取解压目录
+    
     cd "${folder}" || exit                                                     # 进入 Nginx 源码目录
     {
-        git clone https://github.com/fdintino/nginx-upload-module.git               # 获取 上传文件 模块源码
-        git clone https://github.com/masterzen/nginx-upload-progress-module.git     # 获取
+        download        "nginx.psol.url"                                       # 下载 psol 源码
+        download        "nginx.pcre.url"                                       # 下载 pcre 源码
+        
+        file_decompress "nginx.psol.url"                                       # 解压 psol 源码包
+        file_decompress "nginx.pcre.url"                                       # 解压 pcre 源码包
+        
+        # 第三方模块源码
+        git clone https://github.com/fdintino/nginx-upload-module.git               # 上传文件
+        git clone https://github.com/masterzen/nginx-upload-progress-module.git     # 文件处理 
+        git clone https://github.com/openresty/srcache-nginx-module.git             # 响应缓存
+        git clone https://github.com/arut/nginx-rtmp-module.git                     # RTMP 协议
+        git clone https://github.com/FRiCKLE/ngx_cache_purge.git                    # 清除缓存
+        git clone https://github.com/openresty/memc-nginx-module.git                # Memcached 交互
+        git clone https://github.com/openresty/echo-nginx-module.git                # 调试和输出
+        
+        # git clone https://github.com/simpl/ngx_devel_kit.git                        # 通用开发
+        # git clone https://github.com/apache/incubator-pagespeed-ngx.git             # 优化网页资源
+        # git clone https://github.com/openresty/set-misc-nginx-module.git            # 更多 set 指令
+        # git clone https://github.com/owasp-modsecurity/ModSecurity-nginx.git        # 集成开源 WAF
+        # git clone https://github.com/openresty/lua-nginx-module.git                 # Lua 脚本 模块源码
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+
     rm -rf  "${nginx_home}"                                                    # 删除可能存在的安装目录
+    cd "${folder}" || exit                                                     # 进入 Nginx 源码目录
     
     {
-        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录
         # 指定安装路径和编译模块
-        ./configure --prefix="${nginx_home}"         --add-dynamic-module="${folder}/nginx-upload-module" \
+        ./configure --prefix="${nginx_home}"         --with-http_gunzip_module                            \
                     --with-compat                    --with-http_gzip_static_module                       \
                     --with-stream                    --with-http_image_filter_module                      \
                     --with-file-aio                  --with-http_ssl_module                               \
                     --with-http_realip_module        --with-http_addition_module                          \
                     --with-http_sub_module           --with-http_dav_module                               \
                     --with-http_flv_module           --with-http_mp4_module                               \
-                    --with-http_gunzip_module        --with-http_gzip_static_module                       \
                     --with-http_random_index_module  --with-http_secure_link_module                       \
-                    --with-http_stub_status_module   --with-http_auth_request_module 
-        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录             
+                    --with-http_stub_status_module   --with-http_auth_request_module                      \
+                    --add-dynamic-module="${folder}/nginx-upload-module"                                  \
+                    --add-dynamic-module="${folder}/nginx-upload-progress-module"                         \
+                    --add-dynamic-module="${folder}/srcache-nginx-module"                                 \
+                    --add-dynamic-module="${folder}/nginx-rtmp-module"                                    \
+                    --add-dynamic-module="${folder}/ngx_cache_purge"                                      \
+                    --add-dynamic-module="${folder}/memc-nginx-module"                                    \
+                    --add-dynamic-module="${folder}/echo-nginx-module"
+                    # --add-dynamic-module="${folder}/ngx_devel_kit"
+                    # --add-dynamic-module="${folder}/incubator-pagespeed-ngx" --with-ld-opt="-Wl,-rpath,${folder}/psol"
+                    # --add-dynamic-module="${folder}/set-misc-nginx-module"
+                    # --add-dynamic-module="${folder}/ModSecurity-nginx"
+        cd "${folder}" || exit                                                 # 进入 Nginx 源码目录
         make                                                                   # 编译源码
         cd "${folder}" || exit                                                 # 进入 Nginx 源码目录
         make install                                                           # 安装到指定路径
@@ -113,7 +143,7 @@ function nginx_install()
         echo "    **************************** 验证成功 ****************************    "
     fi
 }
-
+    
 
 # 安装并初始化 NodeJs
 function node_install()

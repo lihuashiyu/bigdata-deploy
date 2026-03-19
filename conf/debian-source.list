@@ -1,9 +1,15 @@
-# aliyun 镜像源
-deb      https://mirrors.aliyun.com/debian/          bookworm            main  non-free non-free-firmware contrib
-deb-src  https://mirrors.aliyun.com/debian/          bookworm            main  non-free non-free-firmware contrib
-deb      https://mirrors.aliyun.com/debian-security/ bookworm-security   main
-deb-src  https://mirrors.aliyun.com/debian-security/ bookworm-security   main
-deb      https://mirrors.aliyun.com/debian/          bookworm-updates    main  non-free non-free-firmware contrib
-deb-src  https://mirrors.aliyun.com/debian/          bookworm-updates    main  non-free non-free-firmware contrib
-deb      https://mirrors.aliyun.com/debian/          bookworm-backports  main  non-free non-free-firmware contrib
-deb-src  https://mirrors.aliyun.com/debian/          bookworm-backports  main  non-free non-free-firmware contrib
+# ========================= aliyun 镜像源 ========================= #
+deb      https://mirrors.aliyun.com/debian/          trixie            main  non-free non-free-firmware contrib
+deb-src  https://mirrors.aliyun.com/debian/          trixie            main  non-free non-free-firmware contrib
+deb      https://mirrors.aliyun.com/debian-security/ trixie-security   main
+deb-src  https://mirrors.aliyun.com/debian-security/ trixie-security   main
+deb      https://mirrors.aliyun.com/debian/          trixie-updates    main  non-free non-free-firmware contrib
+deb-src  https://mirrors.aliyun.com/debian/          trixie-updates    main  non-free non-free-firmware contrib
+deb      https://mirrors.aliyun.com/debian/          trixie-backports  main  non-free non-free-firmware contrib
+deb-src  https://mirrors.aliyun.com/debian/          trixie-backports  main  non-free non-free-firmware contrib
+
+# ========================= chrome 镜像源 ========================= #
+deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main
+
+# ========================= chrome 镜像源 ========================= #
+deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main

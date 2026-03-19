@@ -140,7 +140,7 @@ function kernel_optimize()
             sysctl -p                                                          # 刷新配置
         } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-        append_param "${param//\$/ }" /etc/sysctl.conf                         # 对内核进行永久修改，仅重启后才生效
+        append_param "${param//\$/ }" /etc/sysctl.d/sysctl.conf                # 对内核进行永久修改，仅重启后才生效
     done
 }
 
@@ -191,12 +191,12 @@ function vim_config()
 {
     echo "    *************************** 配置 vim ****************************    "
     {
-        apt install -y  vim vim-addon-manager vim-youcompleteme                          # 安装 vim
-        vim-addon-manager install  youcompleteme                                         # 安装 ycm
+        apt install -y  vim vim-addon-manager vim-youcompleteme                # 安装 vim
+        vim-addon-manager install  youcompleteme                               # 安装 ycm
     } >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     
-    cp -fpr "${ROOT_DIR}/conf/vimrc.conf"      /etc/vim/vimrc.local                      # vim 配置文件
-    cp -fpr "${ROOT_DIR}/conf/vim-molokai.vim" /usr/share/vim/vim90/colors/molokai.vim   # vim 主题
+    cp -fpr "${ROOT_DIR}/conf/vimrc.conf"      /etc/vim/vimrc.local            # vim 配置文件
+    cp -fpr "${ROOT_DIR}/conf/vim-molokai.vim" /usr/share/vim/vim91/colors/molokai.vim   # vim 主题
 }
 
 
@@ -204,7 +204,7 @@ function vim_config()
 function apt_mirror()
 {
     echo "    *************************** 替换镜像源 ***************************    "
-    local mirror exist epel_image                                              # 定义局部变量
+    local mirror                                                               # 定义局部变量
     
     mirror=$(get_param "image")                                                # 获取 rpm 仓库镜像源路径
     sed -i "s|^deb|# deb|g" /etc/apt/sources.list                              # 注释掉原来的 apt 仓库
@@ -265,10 +265,10 @@ function remove_kernel()
 function add_chinese()
 {
     echo "    ************************** 添加中文支持 **************************    "
-    local language_count chinese zh result_count                               # 定义局部变量
+    local language_count result_count                                          # 定义局部变量
     
-    # language_count=$(locale -a | grep -ic "zh_CN.utf8")                         # 查看系统是否安装简体中文语言包
-    language_count=$(localectl list-locales | grep -ic "zh_cn.utf-8")           # 查看系统是否安装简体中文语言包
+    # language_count=$(locale -a | grep -ic "zh_CN.utf8")                        # 查看系统是否安装简体中文语言包
+    language_count=$(localectl list-locales | grep -ic "zh_cn.utf-8")          # 查看系统是否安装简体中文语言包
     if [ "${language_count}" -eq 1 ]; then
         echo "    *************************** 中文已安装 ***************************    "
     else
@@ -336,7 +336,7 @@ function font_install
 function add_execute()
 {
     echo "    ************************* 添加可执行权限 *************************    "
-    local item server_hosts result_count                                       # 定义局部变量
+    local item server_hosts                                                    # 定义局部变量
     
     {
         apt install -y dos2unix                                                # 安装 dos2unix 工具
