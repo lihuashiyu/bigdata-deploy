@@ -329,7 +329,7 @@ function download()
 function file_decompress()
 {
     # 定义参数
-    local file_name folder
+    local file_name zip_folder
     
     file_name=$(get_param "$1" | sed 's/.*\/\([^\/]*\)$/\1/')
     echo "    ********** 解压缩文件：${file_name} **********    "
@@ -377,9 +377,9 @@ function file_decompress()
         
         # 将文件夹移动到安装路径
         if [ -n "$2" ]; then
-            folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)
+            zip_folder=$(find "${ROOT_DIR}/package"/*  -maxdepth 0 -type d -print)
             mkdir -p "$2"
-            mv "${folder}/"* "$2"
+            mv "${zip_folder}/"* "$2"
         fi
     else
         echo "    文件 ${ROOT_DIR}/package/${file_name} 不存在 "
