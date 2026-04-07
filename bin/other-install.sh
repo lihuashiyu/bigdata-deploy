@@ -56,11 +56,11 @@ function nginx_install()
     
     cd "${folder}" || exit                                                     # 进入 Nginx 源码目录
     {
-        download        "nginx.psol.url"                                       # 下载 psol 源码
-        download        "nginx.pcre.url"                                       # 下载 pcre 源码
+        # download        "nginx.psol.url"                                       # 下载 psol 源码
+        # download        "nginx.pcre.url"                                       # 下载 pcre 源码
         
-        file_decompress "nginx.psol.url"                                       # 解压 psol 源码包
-        file_decompress "nginx.pcre.url"                                       # 解压 pcre 源码包
+        # file_decompress "nginx.psol.url"                                       # 解压 psol 源码包
+        # file_decompress "nginx.pcre.url"                                       # 解压 pcre 源码包
         
         # 第三方模块源码
         git clone https://github.com/fdintino/nginx-upload-module.git               # 上传文件
