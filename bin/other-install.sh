@@ -83,22 +83,30 @@ function nginx_install()
     
     {
         # 指定安装路径和编译模块
-        ./configure --prefix="${nginx_home}"         --with-http_gunzip_module                            \
-                    --with-compat                    --with-http_gzip_static_module                       \
-                    --with-stream                    --with-http_image_filter_module                      \
-                    --with-file-aio                  --with-http_ssl_module                               \
-                    --with-http_realip_module        --with-http_addition_module                          \
-                    --with-http_sub_module           --with-http_dav_module                               \
-                    --with-http_flv_module           --with-http_mp4_module                               \
-                    --with-http_random_index_module  --with-http_secure_link_module                       \
-                    --with-http_stub_status_module   --with-http_auth_request_module                      \
-                    --add-dynamic-module="${folder}/nginx-upload-module"                                  \
-                    --add-dynamic-module="${folder}/nginx-upload-progress-module"                         \
-                    --add-dynamic-module="${folder}/srcache-nginx-module"                                 \
-                    --add-dynamic-module="${folder}/nginx-rtmp-module"                                    \
-                    --add-dynamic-module="${folder}/ngx_cache_purge"                                      \
-                    --add-dynamic-module="${folder}/memc-nginx-module"                                    \
+        ./configure --prefix="${nginx_home}"                                             \
+                    --with-compat                     --with-file-aio                    \
+                    --with-threads                    --with-pcre-jit                    \
+                    --with-http_gunzip_module         --with-http_gzip_static_module     \
+                    --with-http_v2_module             --with-http_v3_module              \
+                    --with-http_slice_module          --with-http_ssl_module             \
+                    --with-http_realip_module         --with-http_addition_module        \
+                    --with-http_sub_module            --with-http_dav_module             \
+                    --with-http_flv_module            --with-http_mp4_module             \
+                    --with-http_random_index_module   --with-http_secure_link_module     \
+                    --with-http_stub_status_module    --with-http_auth_request_module    \
+                    --with-stream_geoip_module        --with-http_xslt_module            \
+                    --with-http_geoip_module          --with-http_image_filter_module    \
+                    --with-mail                       --with-mail_ssl_module             \
+                    --with-stream                     --with-stream_ssl_module           \
+                    --with-stream_ssl_preread_module  --with-stream_realip_module        \
+                    --add-dynamic-module="${folder}/nginx-upload-module"                 \
+                    --add-dynamic-module="${folder}/nginx-upload-progress-module"        \
+                    --add-dynamic-module="${folder}/srcache-nginx-module"                \
+                    --add-dynamic-module="${folder}/nginx-rtmp-module"                   \
+                    --add-dynamic-module="${folder}/ngx_cache_purge"                     \
+                    --add-dynamic-module="${folder}/memc-nginx-module"                   \
                     --add-dynamic-module="${folder}/echo-nginx-module"
+                    # --with-http_perl_module
                     # --add-dynamic-module="${folder}/ngx_devel_kit"
                     # --add-dynamic-module="${folder}/incubator-pagespeed-ngx" --with-ld-opt="-Wl,-rpath,${folder}/psol"
                     # --add-dynamic-module="${folder}/set-misc-nginx-module"
@@ -111,8 +119,7 @@ function nginx_install()
     
     echo "    ************************** 修改配置文件 **************************    "
     # 创建必要的目录
-    mkdir -p    "${nginx_home}/data/file"            "${nginx_home}/data/upload" "${nginx_home}/logs"
-    mv          "${nginx_home}/sbin"                 "${nginx_home}/bin"            # 修改目录名称
+    mkdir -p    "${nginx_home}/data/file"            "${nginx_home}/data/upload"   "${nginx_home}/bin"   "${nginx_home}/logs"
     cp    -fpr  "${ROOT_DIR}/script/other/nginx.sh"  "${nginx_home}/bin/"           # 复制 启停脚本
     cp    -fpr  "${ROOT_DIR}/conf/nginx.conf"        "${nginx_home}/conf/"          # 复制 配置文件
     cp    -fpr  "${ROOT_DIR}/lib/nginx-rename.py"    "${nginx_home}/data/upload"    # 复制 重命名 文件    
@@ -129,7 +136,7 @@ function nginx_install()
     append_env "nginx.home" "${nginx_version}"                                 # 添加环境变量
     
     echo "    **************************** 启动程序 ****************************    "
-    "${nginx_home}/bin/nginx" -c "${nginx_home}/conf/nginx.conf"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
+    "${nginx_home}/sbin/nginx" -c "${nginx_home}/conf/nginx.conf"  >> "${ROOT_DIR}/logs/${LOG_FILE}" 2>&1
     sleep 3
     
     nginx_host=$(hostname)

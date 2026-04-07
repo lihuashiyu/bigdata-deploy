@@ -82,7 +82,9 @@ function service_start()
         echo "    程序（${ALIAS_NAME}）正在加载中 ......"
         
         # 3.1 启动 Nginx 的相关进程
-        "${NGINX_HOME}/bin/nginx" -c "${NGINX_HOME}/conf/${CONFIG_FILE}" >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
+        "${NGINX_HOME}/sbin/nginx" -c  "${NGINX_HOME}/conf/${CONFIG_FILE}" \
+                                   -p  "${NGINX_HOME}"                     \
+                      >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
         
         sleep 2
         echo "    程序（${ALIAS_NAME}）启动验证中 ......"
@@ -125,7 +127,7 @@ function service_stop()
         echo "    程序（${ALIAS_NAME}）正在停止中 ...... "
         
         # 3.1 停止 Nginx 的相关进程
-        "${NGINX_HOME}/bin/nginx" -s quit >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
+        "${NGINX_HOME}/sbin/nginx" -s quit >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
         
         sleep 1 
         echo "    程序（${ALIAS_NAME}）停止验证中 ...... "
@@ -167,7 +169,7 @@ function service_restart()
         echo "    程序（${ALIAS_NAME}）正在重启中 ...... "
         
         # 3.2 重启 Nginx 程序
-        "${NGINX_HOME}/bin/nginx" -s reload >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
+        "${NGINX_HOME}/sbin/nginx" -s reload >> "${NGINX_HOME}/logs/${LOG_FILE}" 2>&1
         
         sleep 1 
         echo "    程序（${ALIAS_NAME}）重启验证中 ...... "
@@ -236,7 +238,7 @@ case "$1" in
     
     # 2.5 测试配置文件
     test)
-        "${NGINX_HOME}/bin/nginx" -t
+        "${NGINX_HOME}/sbin/nginx" -t
     ;;
     
     # 2.6 其它情况
