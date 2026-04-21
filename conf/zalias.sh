@@ -12,13 +12,14 @@
 ALIAS_HOST=$(hostname)                                     # 本机主机名
 
 # ================================================== ls =================================================== #
-alias l.='ls     -d .*  --color=auto --time-style=long-iso' 2> /dev/null
-alias la='ls     -Ah    --color=auto --time-style=long-iso' 2> /dev/null
-alias ls='ls     -h     --color=auto --time-style=long-iso' 2> /dev/null
-alias ll='ls     -lh    --color=auto --time-style=long-iso' 2> /dev/null
+alias l.='ls     -d .*  --color=auto  --time-style=long-iso'    2> /dev/null
+alias la='ls     -Ah    --color=auto  --time-style=long-iso'    2> /dev/null
+alias ls='ls     -h     --color=auto  --time-style=long-iso'    2> /dev/null
+alias ll='ls     -lh    --color=auto  --time-style=long-iso'    2> /dev/null
+alias lsd='lsd   -lh    --color=auto  --date="+%Y-%m-%d %H:%d"' 2> /dev/null
 
-alias bat='bat   --paging=never      --terminal-width=150'  2>/dev/null
-alias tree="tree -L 3   --sort=name  --ignore-case"         2>/dev/null
+alias bat='bat   --paging=never       --terminal-width=150'     2>/dev/null
+alias tree="tree -L 3   --sort=name   --ignore-case"            2>/dev/null
 
 # ================================================= MySql ================================================= #
 alias mysql="mysql --host=${ALIAS_HOST} --port=3306 " 2> /dev/null
